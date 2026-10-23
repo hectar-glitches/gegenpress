@@ -211,10 +211,31 @@ class Scout:
         return self.store.top_moments(live, min_beats=0.97, limit=limit)
 
     def form(self, live: Match) -> list[FormLine]:
-        lines = self.store.form_lines(live)
-        # Diverging lines first: those are the ones a league percentile
-        # alone cannot tell you about.
-        return sorted(lines, key=lambda f: (not f.diverges, -abs(f.z)))
+        """Strongest claims, spread across the match.
+
+        Sorting by strength alone clusters every claim at the first
+        checkpoint where anything is notable, so a broadcast would fire
+        six graphics in the half hour and nothing after. Take the best
+        from each checkpoint in turn instead.
+        """
+        from collections import defaultdict
+
+        by_minute: dict[int, list[FormLine]] = defaultdict(list)
+        for line in self.store.form_lines(live):
+            by_minute[line.as_of_minute].append(line)
+        for lines in by_minute.values():
+            # Diverging first: the case a league percentile cannot show.
+            lines.sort(key=lambda f: (not f.diverges, -abs(f.z)))
+
+        spread: list[FormLine] = []
+        minutes = sorted(by_minute)
+        rank = 0
+        while any(len(by_minute[m]) > rank for m in minutes):
+            for m in minutes:
+                if len(by_minute[m]) > rank:
+                    spread.append(by_minute[m][rank])
+            rank += 1
+        return spread
 
 
 class Why:
@@ -246,7 +267,7 @@ class Why:
         else:
             notes.append("angle: below his own level")
         return Brief(
-            minute=90,
+            minute=form.as_of_minute,
             player_name=player.name,
             club_name=club.name,
             opponent_name=self.league.club(other).name,

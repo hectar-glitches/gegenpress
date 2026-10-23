@@ -100,6 +100,7 @@ class FormLine:
     z: float                  # direction-aware: positive always means better
     appearances: int
     events_this_match: int
+    as_of_minute: int
     league_percentile: float  # where tonight's mean sits among all player-matches
     effect_vs_league_sd: float  # |shift| as a fraction of league spread
     league_mean: float          # the league's own norm for this metric
@@ -140,15 +141,24 @@ class FormLine:
                 f"in line with his season norm.")
 
 
+# Checkpoints at which form is recomputed. Form is an aggregate, so it
+# only exists as of some point in the match -- reporting every claim at
+# 90' makes a live broadcast look like a post-match report.
+CHECKPOINTS = (30, 45, 60, 75, 90)
+
+
 def form_lines(
     baselines: FormBaselines,
     live: Match,
     signals: dict[str, MetricSignal],
     names: dict[str, str] | None = None,
+    as_of_minute: int = 90,
 ) -> list[FormLine]:
-    """Every supportable form claim in a live match, strongest first."""
+    """Every supportable form claim as of a point in the match."""
     live_values: dict[tuple[str, str], list[float]] = defaultdict(list)
     for e in live.events:
+        if e.minute > as_of_minute:
+            continue
         for metric, (etype, key, _direction) in METRICS.items():
             if e.type != etype:
                 continue
@@ -198,6 +208,7 @@ def form_lines(
             z=round(z, 2),
             appearances=len(history),
             events_this_match=len(values),
+            as_of_minute=as_of_minute,
             league_percentile=round(pct, 4),
             effect_vs_league_sd=round(effect, 3),
             league_mean=round(league_mean, 2),
@@ -205,3 +216,28 @@ def form_lines(
 
     out.sort(key=lambda f: -abs(f.z))
     return out
+
+
+def form_timeline(
+    baselines: FormBaselines,
+    live: Match,
+    signals: dict[str, MetricSignal],
+    names: dict[str, str] | None = None,
+) -> list[FormLine]:
+    """Each claim at the checkpoint where it first becomes notable.
+
+    A player who is two SD above his norm by the hour is a story at the
+    hour, not at full time. Walking the checkpoints gives every claim a
+    real minute and stops the timeline reading 90' all the way down.
+    """
+    seen: set[tuple[str, str]] = set()
+    timeline: list[FormLine] = []
+    for minute in CHECKPOINTS:
+        for line in form_lines(baselines, live, signals, names, as_of_minute=minute):
+            key = (line.player_id, line.metric)
+            if key in seen or not line.notable:
+                continue
+            seen.add(key)
+            timeline.append(line)
+    timeline.sort(key=lambda f: f.as_of_minute)
+    return timeline

@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from .baselines import METRICS, Baselines, build_baselines, ground
-from .form import FormBaselines, FormLine, build_form_baselines, form_lines
+from .form import (FormBaselines, FormLine, build_form_baselines,
+                   form_lines, form_timeline)
 from .signal import MetricSignal, measure_signal
 from .models import Match
 from .season import League
@@ -131,8 +132,10 @@ class LocalStore:
         if self._form is None:
             raise RuntimeError("call load_season() first")
         names = {p.player_id: p.name for p in league.players}
-        lines = form_lines(self._form, live, self._signal, names)
-        return [f for f in lines if f.notable] if notable_only else lines
+        if notable_only:
+            # Each claim at the checkpoint where it first becomes true.
+            return form_timeline(self._form, live, self._signal, names)
+        return form_lines(self._form, live, self._signal, names)
 
     def match_state(self, live: Match, as_of_minute: int = 120, window_minutes: int = 15):
         lo = as_of_minute - window_minutes
