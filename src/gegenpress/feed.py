@@ -94,6 +94,36 @@ def contributing_events(live: Match, player_id: str, metric: str,
     return out[:cap]
 
 
+def event_stream(live: Match) -> list[dict[str, Any]]:
+    """The whole match, time-indexed, for the pitch to play.
+
+    Without this the console has nothing to show between moments, which
+    is why it read as a dashboard: the match itself was invisible.
+    Compact keys -- this is the largest thing in the feed.
+    """
+    # Explicit codes: first letters collide (pass/pressure, tackle/turnover)
+    # and a silent collision here would mis-draw the whole match.
+    CODE = {"pass": "pa", "carry": "ca", "shot": "sh", "tackle": "ta",
+            "pressure": "pr", "recovery": "re", "duel": "du", "turnover": "to"}
+    out: list[dict[str, Any]] = []
+    for e in live.events:
+        row = {
+            "t": round((e.period - 1) * 2700 + e.clock, 1),
+            "k": CODE[e.type],
+            "m": e.team_id,
+            "x": e.x, "y": e.y,
+        }
+        if e.end_x is not None:
+            row["X"] = e.end_x
+            row["Y"] = e.end_y
+        if e.outcome is False:
+            row["f"] = 1                    # failed
+        if e.type == "shot":
+            row["g"] = 1 if e.outcome else 0
+        out.append(row)
+    return out
+
+
 def build_feed(
     store: Store,
     league: League,
@@ -161,6 +191,7 @@ def build_feed(
              "personal": s.personal_claim_allowed}
             for m, s in sorted(signals.items(), key=lambda kv: -kv[1].icc)
         ],
+        "stream": event_stream(live),
         "meta": {
             "season_matches": len(season),
             "season_events": sum(len(m.events) for m in season),
