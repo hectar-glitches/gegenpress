@@ -66,6 +66,34 @@ def _cue(index: int, seg: Segment) -> OverlayCue:
     )
 
 
+def contributing_events(live: Match, player_id: str, metric: str,
+                        as_of_minute: int, cap: int = 80) -> list[dict[str, Any]]:
+    """The events behind one form line, for the pitch view.
+
+    A form line is a mean. These are the touches it is a mean OF, so the
+    console can show where the player actually played rather than
+    illustrating the claim with a stock graphic.
+    """
+    from .baselines import METRICS
+
+    etype, key, _direction = METRICS[metric]
+    out: list[dict[str, Any]] = []
+    for e in live.events:
+        if e.type != etype or e.player_id != player_id or e.minute > as_of_minute:
+            continue
+        value = e.detail.get(key)
+        if value is None:
+            continue
+        out.append({
+            "minute": e.minute,
+            "x": e.x, "y": e.y,
+            "end_x": e.end_x, "end_y": e.end_y,
+            "value": round(float(value), 2),
+            "outcome": e.outcome,
+        })
+    return out[:cap]
+
+
 def build_feed(
     store: Store,
     league: League,
@@ -98,6 +126,9 @@ def build_feed(
             "appearances": b.appearances,
             "diverges": b.diverges,
             "above": (b.z or 0) > 0,
+            "events": contributing_events(
+                live, seg.form_player_id, seg.form_metric, b.minute)
+            if seg.form_player_id else [],
             "grounded": seg.verdict.passed,
             "model": seg.verdict.model,
             "attempts": seg.verdict.attempts,

@@ -6,144 +6,173 @@
 <title>Gegenpress — Studio</title>
 <style>
   :root{
-    --bg:#0b0f14; --panel:#131a22; --panel2:#0f151c; --line:#1e2730;
-    --ink:#e9eef4; --mute:#8d9aa9; --dim:#5f6d7c;
-    --accent:#ffb020; --good:#3ddc84; --cool:#5aa9ff;
+    --bg:#070a0e; --panel:#111820; --panel2:#0c1219; --line:#1c2530;
+    --ink:#eef3f8; --mute:#8b98a7; --dim:#5a6775;
+    --accent:#ffb020; --down:#ff6b6b; --cool:#5aa9ff; --good:#3ddc84;
     --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+    --ease:cubic-bezier(.22,.61,.36,1);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
-    background:var(--bg); color:var(--ink); min-height:100vh;
+    background:var(--bg);color:var(--ink);min-height:100vh;
     font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:1480px;margin:0 auto;padding:20px 24px 48px}
+  .wrap{max-width:1500px;margin:0 auto;padding:18px 22px 44px}
 
-  /* ---- scoreboard ---- */
+  /* ---------- scoreboard ---------- */
   header{
-    display:flex;align-items:center;gap:22px;
-    padding:16px 20px;background:var(--panel);
-    border:1px solid var(--line);border-radius:12px;margin-bottom:18px;
+    display:flex;align-items:center;gap:20px;padding:14px 20px;
+    background:linear-gradient(180deg,#131b24,#0e151c);
+    border:1px solid var(--line);border-radius:13px;margin-bottom:14px;
   }
-  .brand{font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--accent)}
-  .brand span{color:var(--dim);font-weight:500;margin-left:8px;letter-spacing:.04em}
-  .score{display:flex;align-items:center;gap:14px;margin-left:auto}
+  .brand{font-weight:700;letter-spacing:.15em;font-size:12px;color:var(--accent)}
+  .brand span{color:var(--dim);font-weight:500;margin-left:7px;letter-spacing:.04em}
+  .onair{
+    display:flex;align-items:center;gap:7px;font:600 10px/1 inherit;
+    letter-spacing:.14em;color:var(--down);margin-left:14px;opacity:.45;
+    transition:opacity .3s;
+  }
+  .onair.live{opacity:1}
+  .onair i{width:7px;height:7px;border-radius:50%;background:var(--down);display:block}
+  .onair.live i{animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+
+  .score{display:flex;align-items:center;gap:13px;margin-left:auto}
   .club{font-weight:600;font-size:15px}
   .goals{
-    font:700 26px/1 var(--mono);background:var(--panel2);
-    border:1px solid var(--line);border-radius:8px;padding:7px 13px;
+    font:700 25px/1 var(--mono);background:#0a0f15;border:1px solid var(--line);
+    border-radius:8px;padding:7px 13px;min-width:48px;text-align:center;
   }
-  .clock{font:600 13px var(--mono);color:var(--mute);
-    border-left:1px solid var(--line);padding-left:18px;margin-left:4px}
+  .clock{
+    font:700 15px var(--mono);color:var(--accent);min-width:58px;text-align:right;
+    border-left:1px solid var(--line);padding-left:17px;margin-left:5px;
+  }
 
-  /* ---- modes ---- */
-  .modes{display:flex;gap:6px;margin-bottom:18px}
-  .modes button{
+  /* ---------- transport ---------- */
+  .bar{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+  .btn{
     font:600 12px/1 inherit;letter-spacing:.05em;text-transform:uppercase;
     color:var(--mute);background:var(--panel);border:1px solid var(--line);
-    padding:9px 16px;border-radius:7px;cursor:pointer;transition:.12s;
+    padding:10px 17px;border-radius:8px;cursor:pointer;transition:.14s var(--ease);
   }
-  .modes button:hover{color:var(--ink);border-color:#2b3744}
-  .modes button[aria-pressed=true]{
-    color:#0b0f14;background:var(--accent);border-color:var(--accent);
+  .btn:hover{color:var(--ink);border-color:#2c3845;transform:translateY(-1px)}
+  .btn.primary{color:#070a0e;background:var(--accent);border-color:var(--accent)}
+  .btn[aria-pressed=true]{color:#070a0e;background:var(--accent);border-color:var(--accent)}
+  .track{
+    flex:1;height:5px;background:#131b23;border-radius:3px;position:relative;
+    cursor:pointer;border:1px solid var(--line);
   }
+  .track .fill{
+    position:absolute;inset:0 auto 0 0;background:var(--accent);
+    border-radius:3px;width:0;transition:width .3s linear;
+  }
+  .track .pip{
+    position:absolute;top:50%;width:3px;height:11px;margin-top:-6px;
+    background:var(--dim);border-radius:2px;
+  }
+  .track .pip.hit{background:var(--accent);box-shadow:0 0 7px var(--accent)}
+  .modes{display:flex;gap:6px}
 
-  /* ---- layout ---- */
-  .grid{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
-  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  /* ---------- layout ---------- */
+  .grid{display:grid;grid-template-columns:1fr 352px;gap:14px;align-items:start}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden}
   .card h2{
     font:600 11px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--dim);padding:15px 18px;border-bottom:1px solid var(--line);
+    color:var(--dim);padding:14px 18px;border-bottom:1px solid var(--line);
   }
 
-  /* ---- the moment ---- */
-  .moment{padding:24px 26px 26px}
-  .moment .who{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
-  .moment .name{font-size:22px;font-weight:650;letter-spacing:-.01em}
-  .moment .meta{font-size:13px;color:var(--mute)}
-  .moment .said{
-    font-size:19px;line-height:1.45;margin:16px 0 22px;color:#f2f6fa;max-width:62ch;
-  }
+  /* ---------- the moment ---------- */
+  .moment{padding:22px 24px 24px}
+  .moment.in{animation:rise .42s var(--ease)}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   .flag{
     display:inline-flex;align-items:center;gap:7px;font:600 11px/1 inherit;
     letter-spacing:.09em;text-transform:uppercase;color:var(--accent);
-    background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.32);
-    border-radius:999px;padding:6px 11px;margin-bottom:14px;
+    background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3);
+    border-radius:999px;padding:6px 12px;margin-bottom:13px;
   }
+  .flag.down{color:var(--down);background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.3)}
   .flag.plain{color:var(--dim);background:transparent;border-color:var(--line)}
-  .flag.down{color:#ff6b6b;background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.32)}
-  .tonight{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
-  .tval{font:700 44px/1 var(--mono);letter-spacing:-.03em}
+  .who{display:flex;align-items:baseline;gap:11px;margin-bottom:5px;flex-wrap:wrap}
+  .name{font-size:23px;font-weight:650;letter-spacing:-.015em}
+  .meta{font-size:13px;color:var(--mute)}
+  .said{font-size:18px;line-height:1.5;margin:13px 0 20px;color:#f4f8fc;max-width:60ch}
+
+  .tonight{display:flex;align-items:baseline;gap:11px;margin-bottom:15px}
+  .tval{font:700 42px/1 var(--mono);letter-spacing:-.03em}
   .tlbl{font-size:13px;color:var(--mute)}
 
-  /* ---- the two numbers: the whole product ---- */
-  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media(max-width:640px){.pair{grid-template-columns:1fr}}
-  .num{
-    background:var(--panel2);border:1px solid var(--line);
-    border-radius:10px;padding:16px 18px;
-  }
-  .num.form{border-color:rgba(255,176,32,.42)}
-  .num.form.down{border-color:rgba(255,107,107,.42)}
-  .num.form.down .lbl{color:#ff6b6b}
-  .num.form.down .bar i{background:#ff6b6b}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  @media(max-width:620px){.pair{grid-template-columns:1fr}}
+  .num{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:15px 17px}
+  .num.form{border-color:rgba(255,176,32,.4)}
+  .num.form.dn{border-color:rgba(255,107,107,.4)}
   .num .lbl{
-    font:600 10px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--dim);margin-bottom:11px;
+    font:600 10px/1 inherit;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:10px;
   }
   .num.form .lbl{color:var(--accent)}
-  .num .big{font:700 30px/1 var(--mono);letter-spacing:-.02em}
-  .num .sub{font-size:13px;color:var(--mute);margin-top:8px}
-  .bar{height:4px;background:#1a222b;border-radius:2px;margin-top:13px;overflow:hidden}
-  .bar i{display:block;height:100%;background:var(--cool);border-radius:2px}
-  .num.form .bar i{background:var(--accent)}
+  .num.form.dn .lbl{color:var(--down)}
+  .num .big{font:700 29px/1 var(--mono);letter-spacing:-.02em}
+  .num .sub{font-size:12.5px;color:var(--mute);margin-top:7px}
+  .bar2{height:4px;background:#161f28;border-radius:2px;margin-top:12px;overflow:hidden}
+  .bar2 i{display:block;height:100%;border-radius:2px;width:0;
+    background:var(--cool);transition:width .6s var(--ease)}
+  .num.form .bar2 i{background:var(--accent)}
+  .num.form.dn .bar2 i{background:var(--down)}
 
-  /* ---- why drawer ---- */
-  .why{border-top:1px solid var(--line);padding:18px 26px 22px}
-  .why h3{
+  /* ---------- pitch ---------- */
+  .pitchwrap{border-top:1px solid var(--line);padding:16px 24px 20px}
+  .pitchwrap h3,.why h3{
     font:600 11px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--dim);margin-bottom:14px;
+    color:var(--dim);margin-bottom:12px;
   }
+  svg.pitch{width:100%;max-height:300px;height:auto;display:block;
+    border-radius:9px;background:#0a1016}
+  .touch{opacity:0;animation:fade .45s var(--ease) forwards}
+  @keyframes fade{to{opacity:1}}
+  .legend{display:flex;gap:16px;margin-top:11px;font-size:12px;color:var(--mute)}
+  .legend b{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+
+  /* ---------- why ---------- */
+  .why{border-top:1px solid var(--line);padding:16px 24px 20px}
   .chain{display:flex;flex-direction:column;gap:9px}
   .step{display:flex;gap:12px;align-items:flex-start;font-size:13.5px}
   .step b{
-    font:600 10px/1.7 var(--mono);color:var(--dim);min-width:68px;
+    font:600 10px/1.7 var(--mono);color:var(--dim);min-width:72px;
     letter-spacing:.06em;text-transform:uppercase;flex-shrink:0;
   }
   .step span{color:var(--mute)}
   .step code{font:12.5px var(--mono);color:var(--ink)}
 
-  /* ---- timeline ---- */
-  .tl{max-height:560px;overflow:auto}
+  /* ---------- timeline ---------- */
+  .tl{max-height:430px;overflow:auto}
   .row{
-    display:block;width:100%;text-align:left;cursor:pointer;
-    padding:13px 18px;border:0;border-bottom:1px solid var(--line);
-    background:transparent;color:inherit;font:inherit;transition:.1s;
+    display:block;width:100%;text-align:left;cursor:pointer;padding:12px 17px;
+    border:0;border-bottom:1px solid var(--line);background:transparent;
+    color:inherit;font:inherit;transition:.14s var(--ease);opacity:.32;
   }
-  .row:hover{background:#171f28}
-  .row[aria-current=true]{background:#1a222c;box-shadow:inset 3px 0 0 var(--accent)}
+  .row.fired{opacity:1}
+  .row:hover{background:#161e27}
+  .row[aria-current=true]{background:#18212b;box-shadow:inset 3px 0 0 var(--accent)}
   .row .top{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
   .row .min{font:600 11px var(--mono);color:var(--dim);min-width:30px}
   .row .pn{font-weight:600;font-size:14px}
-  .row .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:auto}
+  .row .dot{width:6px;height:6px;border-radius:50%;margin-left:auto}
   .row .mt{font-size:12.5px;color:var(--mute);padding-left:39px}
 
-  /* ---- side panels ---- */
-  .list{padding:6px 0}
-  .item{
-    display:flex;align-items:center;gap:11px;
-    padding:10px 18px;font-size:13.5px;
-  }
-  .item .rank{font:600 11px var(--mono);color:var(--dim);min-width:16px}
-  .item .nm{font-weight:550}
+  .list{padding:5px 0}
+  .item{display:flex;align-items:center;gap:10px;padding:9px 17px;font-size:13.5px}
+  .item .rank{font:600 11px var(--mono);color:var(--dim);min-width:15px}
   .item .pos{font:600 10px var(--mono);color:var(--dim);
     border:1px solid var(--line);border-radius:4px;padding:2px 5px}
   .item .val{margin-left:auto;font:600 12px var(--mono);color:var(--cool)}
-  .item .yes{color:var(--good)}
-  .item .no{color:var(--dim)}
-  footer{margin-top:22px;font-size:12.5px;color:var(--dim);line-height:1.7}
+  .item .yes{color:var(--good)} .item .no{color:var(--dim)}
+  footer{margin-top:18px;font-size:12.5px;color:var(--dim);line-height:1.75}
   footer code{font:12px var(--mono);color:var(--mute)}
+  .hide{display:none !important}
 </style>
 </head>
 <body>
@@ -151,39 +180,43 @@
 
   <header>
     <div class="brand">GEGENPRESS <span>studio</span></div>
+    <div class="onair" id="onair"><i></i>LIVE</div>
     <div class="score">
       <span class="club" id="homeName">—</span>
       <span class="goals" id="homeGoals">0</span>
       <span class="goals" id="awayGoals">0</span>
       <span class="club" id="awayName">—</span>
-      <span class="clock" id="clock">FT</span>
+      <span class="clock" id="clock">0'</span>
     </div>
   </header>
 
-  <div class="modes">
-    <button id="mAnalyst" aria-pressed="true">Analyst</button>
-    <button id="mFan" aria-pressed="false">Fan</button>
+  <div class="bar">
+    <button class="btn primary" id="play">▶ Play match</button>
+    <div class="track" id="track"><div class="fill" id="fill"></div></div>
+    <div class="modes">
+      <button class="btn" id="mAnalyst" aria-pressed="true">Analyst</button>
+      <button class="btn" id="mFan" aria-pressed="false">Fan</button>
+    </div>
   </div>
 
   <div class="grid">
-    <div>
-      <section class="card">
-        <h2>On air</h2>
-        <div class="moment" id="moment"></div>
-        <div class="why" id="why"></div>
-      </section>
-    </div>
+    <section class="card">
+      <h2>On air</h2>
+      <div class="moment" id="moment"></div>
+      <div class="pitchwrap" id="pitchwrap"></div>
+      <div class="why" id="why"></div>
+    </section>
 
-    <div style="display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;flex-direction:column;gap:14px">
       <section class="card">
         <h2>Moments</h2>
         <div class="tl" id="timeline"></div>
       </section>
-      <section class="card">
+      <section class="card" id="followCard">
         <h2>Follow — biggest lift over own norm</h2>
         <div class="list" id="follow"></div>
       </section>
-      <section class="card">
+      <section class="card" id="signalCard">
         <h2>Which metrics may carry a personal claim</h2>
         <div class="list" id="signal"></div>
       </section>
@@ -195,134 +228,236 @@
 
 <script>
 const $ = s => document.querySelector(s);
-let FEED = null, idx = 0, mode = 'analyst';
+let FEED = null, idx = 0, minute = 0, timer = null, mode = 'analyst';
+const FULL = 90;
 
 const pct = v => (v == null ? '—' : Math.round(v) + '%');
 
-function renderMoment() {
-  const m = FEED.moments[idx];
-  if (!m) return;
+/* Count a number up rather than snapping. Small thing; reads as considered. */
+function countTo(el, target, suffix = '', dp = 2) {
+  const from = parseFloat(el.dataset.v || 0), t0 = performance.now(), ms = 420;
+  el.dataset.v = target;
+  (function step(now) {
+    const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = (from + (target - from) * e).toFixed(dp) + suffix;
+    if (k < 1) requestAnimationFrame(step);
+  })(t0);
+}
 
-  // Direction matters: a player can diverge by being well BELOW his own
-  // level while looking ordinary league-wide. Labelling that "strong"
-  // would be simply wrong.
+/* ---------- pitch ---------- */
+function pitchSVG(m) {
+  const L = 105, W = 68, line = '#243040';
+  const ev = m.events || [];
+  const marks = ev.map((e, i) => {
+    const col = m.above ? 'var(--accent)' : 'var(--down)';
+    const delay = (i * 0.035).toFixed(2) + 's';
+    if (e.end_x != null && e.end_y != null) {
+      return `<g class="touch" style="animation-delay:${delay}">
+        <line x1="${e.x}" y1="${e.y}" x2="${e.end_x}" y2="${e.end_y}"
+              stroke="${col}" stroke-width="0.55" opacity="${e.outcome === false ? .35 : .85}"
+              stroke-dasharray="${e.outcome === false ? '1.5 1.2' : ''}"/>
+        <circle cx="${e.x}" cy="${e.y}" r="1" fill="${col}"/>
+      </g>`;
+    }
+    return `<circle class="touch" style="animation-delay:${delay}"
+              cx="${e.x}" cy="${e.y}" r="1.3" fill="${col}"/>`;
+  }).join('');
+
+  return `<svg class="pitch" viewBox="-3 -3 ${L + 6} ${W + 6}" role="img"
+       aria-label="Where ${m.player} played tonight">
+    <rect x="0" y="0" width="${L}" height="${W}" fill="none" stroke="${line}" stroke-width=".5"/>
+    <line x1="${L / 2}" y1="0" x2="${L / 2}" y2="${W}" stroke="${line}" stroke-width=".5"/>
+    <circle cx="${L / 2}" cy="${W / 2}" r="9.15" fill="none" stroke="${line}" stroke-width=".5"/>
+    <circle cx="${L / 2}" cy="${W / 2}" r=".7" fill="${line}"/>
+    <rect x="0" y="${(W - 40.3) / 2}" width="16.5" height="40.3" fill="none" stroke="${line}" stroke-width=".5"/>
+    <rect x="${L - 16.5}" y="${(W - 40.3) / 2}" width="16.5" height="40.3" fill="none" stroke="${line}" stroke-width=".5"/>
+    <rect x="0" y="${(W - 18.3) / 2}" width="5.5" height="18.3" fill="none" stroke="${line}" stroke-width=".5"/>
+    <rect x="${L - 5.5}" y="${(W - 18.3) / 2}" width="5.5" height="18.3" fill="none" stroke="${line}" stroke-width=".5"/>
+    <rect x="${L - 33}" y="0" width="33" height="${W}" fill="var(--accent)" opacity=".025"/>
+    ${marks}
+  </svg>`;
+}
+
+/* ---------- the moment ---------- */
+function standby() {
+  const next = FEED.moments.find(m => m.minute > minute);
+  $('#moment').className = 'moment';
+  $('#moment').innerHTML = `
+    <div class="flag plain">Standby \u00b7 nothing on air</div>
+    <div class="who"><span class="name">Watching the match</span></div>
+    <p class="said">Form is an aggregate, so the first read lands at the
+      ${next ? next.minute : 30}-minute checkpoint. Nothing is claimed before
+      there is enough of the match to claim it from.</p>`;
+  $('#pitchwrap').innerHTML = '';
+  $('#why').innerHTML = '';
+  document.querySelectorAll('.row').forEach(r => r.setAttribute('aria-current', false));
+}
+
+function renderMoment(animate = true) {
+  const m = FEED.moments[idx];
+  // Before the clock reaches the first checkpoint there is nothing to show.
+  if (!m || m.minute > minute) return standby();
+  const hasForm = m.season_mean != null;
+
   const flag = m.diverges
     ? (m.above
-        ? `<div class="flag">\u25c6 Above his own level \u00b7 ordinary league-wide</div>`
-        : `<div class="flag down">\u25bc Below his own level \u00b7 ordinary league-wide</div>`)
-    : (m.above
-        ? `<div class="flag plain">Above his level and the league's</div>`
-        : `<div class="flag plain">Below his own level</div>`);
+      ? `<div class="flag">◆ Above his own level · ordinary league-wide</div>`
+      : `<div class="flag down">▼ Below his own level · ordinary league-wide</div>`)
+    : `<div class="flag plain">${m.above ? "Above his level and the league's" : 'Below his own level'}</div>`;
 
-  // The Form Line only exists where the metric earned a personal claim.
-  const hasForm = m.season_mean != null;
   const formCard = hasForm ? `
-    <div class="num form${m.above ? '' : ' down'}">
+    <div class="num form${m.above ? '' : ' dn'}">
       <div class="lbl">Form line — his own season</div>
-      <div class="big">${m.z > 0 ? '+' : ''}${m.z} SD</div>
+      <div class="big" id="zBig">0.00</div>
       <div class="sub">his norm ${m.season_mean} · ${m.appearances} matches</div>
-      <div class="bar"><i style="width:${Math.min(100, Math.abs(m.z) / 3 * 100)}%"></i></div>
+      <div class="bar2"><i id="zBar"></i></div>
     </div>` : `
     <div class="num">
       <div class="lbl">Form line</div>
-      <div class="big" style="color:var(--dim);font-size:19px">Not supported</div>
-      <div class="sub">This metric carries no between-player signal, so no
-        personal claim is made.</div>
+      <div class="big" style="color:var(--dim);font-size:18px">Not supported</div>
+      <div class="sub">No between-player signal in this metric, so no personal claim is made.</div>
     </div>`;
 
-  $('#moment').innerHTML = `
-    ${flag}
-    <div class="who">
-      <span class="name">${m.player}</span>
-      <span class="meta">${m.club} · ${m.minute}' · ${m.metric}</span>
-    </div>
+  const el = $('#moment');
+  el.className = 'moment' + (animate ? ' in' : '');
+  el.innerHTML = `${flag}
+    <div class="who"><span class="name">${m.player}</span>
+      <span class="meta">${m.club} · ${m.minute}' · ${m.metric}</span></div>
     <p class="said">${m.text}</p>
-    <div class="tonight">
-      <span class="tval">${m.value}</span>
-      <span class="tlbl">${m.metric} tonight</span>
-    </div>
+    <div class="tonight"><span class="tval" id="tBig">0.00</span>
+      <span class="tlbl">${m.metric} tonight</span></div>
     <div class="pair">
       <div class="num">
         <div class="lbl">League</div>
-        <div class="big">${pct(m.league_pct)}</div>
+        <div class="big" id="lBig">0%</div>
         <div class="sub">of the league beaten · norm ${m.expected}</div>
-        <div class="bar"><i style="width:${m.league_pct}%"></i></div>
+        <div class="bar2"><i id="lBar"></i></div>
       </div>
       ${formCard}
     </div>`;
 
+  countTo($('#tBig'), m.value, '', 2);
+  $('#lBig').dataset.v = 0; countTo($('#lBig'), m.league_pct, '%', 0);
+  requestAnimationFrame(() => { $('#lBar').style.width = m.league_pct + '%'; });
+  if (hasForm) {
+    const z = $('#zBig'); z.dataset.v = 0;
+    const t0 = performance.now();
+    (function s(now) {
+      const k = Math.min(1, (now - t0) / 420), e = 1 - Math.pow(1 - k, 3);
+      z.textContent = (m.z * e >= 0 ? '+' : '') + (m.z * e).toFixed(2) + ' SD';
+      if (k < 1) requestAnimationFrame(s);
+    })(t0);
+    requestAnimationFrame(() =>
+      { $('#zBar').style.width = Math.min(100, Math.abs(m.z) / 3 * 100) + '%'; });
+  }
+
+  $('#pitchwrap').innerHTML = (m.events && m.events.length)
+    ? `<h3>Where he played — ${m.events.length} ${m.metric} events to ${m.minute}'</h3>
+       ${pitchSVG(m)}
+       <div class="legend">
+         <span><b style="background:${m.above ? 'var(--accent)' : 'var(--down)'}"></b>his touches</span>
+         <span>dashed = incomplete</span>
+         <span>attacking right</span>
+       </div>`
+    : '';
+
   const chain = [
-    ['Measured', `<code>${m.metric} = ${m.value}</code> at ${m.minute}'`],
-    ['League', `expected <code>${m.expected}</code>, this beats <code>${pct(m.league_pct)}</code> of all recorded values`],
+    ['Measured', `<code>${m.metric} = ${m.value}</code> as of ${m.minute}'`],
+    ['League', `norm <code>${m.expected}</code>, this beats <code>${pct(m.league_pct)}</code> of all recorded values`],
   ];
   if (hasForm) {
     chain.push(['His season',
-      `norm <code>${m.season_mean}</code> across <code>${m.appearances}</code> matches, tonight is <code>${m.z > 0 ? '+' : ''}${m.z} SD</code>`]);
+      `norm <code>${m.season_mean}</code> over <code>${m.appearances}</code> matches, tonight <code>${m.z > 0 ? '+' : ''}${m.z} SD</code>`]);
     chain.push(['Why it matters', m.diverges
       ? (m.above
-          ? 'Unremarkable against the league, clearly above his own level — the contrast is the story.'
-          : 'Unremarkable against the league, but well below his own level — a drop only his own history reveals.')
-      : (m.above ? 'Above his own level and the league’s.'
-                 : 'Below his own level.')]);
+        ? 'Unremarkable against the league, clearly above his own level — the contrast is the story.'
+        : 'Unremarkable against the league, but well below his own level — a drop only his own history reveals.')
+      : (m.above ? "Above his own level and the league's." : 'Below his own level.')]);
   } else {
     chain.push(['Refused',
       'No personal claim: this metric has no between-player signal, so “his best” would be league noise under his name.']);
   }
   chain.push(['Gate', m.grounded
     ? `every number verified against the brief · <code>${m.model}</code> · ${m.attempts} attempt(s)`
-    : `model used an unsupported number · fell back to template`]);
+    : 'model used an unsupported number · fell back to template']);
 
   $('#why').innerHTML = `<h3>Why</h3><div class="chain">` +
-    chain.map(([k, v]) => `<div class="step"><b>${k}</b><span>${v}</span></div>`).join('') +
-    `</div>`;
+    chain.map(([k, v]) => `<div class="step"><b>${k}</b><span>${v}</span></div>`).join('') + `</div>`;
 
-  document.querySelectorAll('.row').forEach((r, i) =>
-    r.setAttribute('aria-current', i === idx));
+  document.querySelectorAll('.row').forEach((r, i) => {
+    r.setAttribute('aria-current', i === idx);
+    if (i === idx) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
 }
 
 function renderTimeline() {
   $('#timeline').innerHTML = FEED.moments.map((m, i) => `
     <button class="row" aria-current="${i === idx}">
-      <div class="top">
-        <span class="min">${m.minute}'</span>
+      <div class="top"><span class="min">${m.minute}'</span>
         <span class="pn">${m.player}</span>
-        ${m.diverges ? '<span class="dot"></span>' : ''}
+        ${m.diverges ? `<span class="dot" style="background:${m.above ? 'var(--accent)' : 'var(--down)'}"></span>` : ''}
       </div>
       <div class="mt">${m.metric} · ${m.value} vs ${m.season_mean ?? m.expected}</div>
     </button>`).join('');
   document.querySelectorAll('.row').forEach((r, i) =>
-    r.onclick = () => { idx = i; renderMoment(); });
+    r.onclick = () => { pause(); idx = i; minute = FEED.moments[i].minute; syncClock(); renderMoment(); });
+  $('#track').innerHTML = `<div class="fill" id="fill"></div>` +
+    FEED.moments.map(m => `<div class="pip" style="left:${m.minute / FULL * 100}%"></div>`).join('');
 }
 
 function renderSide() {
   $('#follow').innerHTML = FEED.follow.map((f, i) => `
-    <div class="item">
-      <span class="rank">${i + 1}</span>
-      <span class="nm">${f.player}</span>
-      <span class="pos">${f.position}</span>
-      <span class="val">${f.score.toFixed(3)}</span>
-    </div>`).join('');
-
+    <div class="item"><span class="rank">${i + 1}</span><span>${f.player}</span>
+      <span class="pos">${f.position}</span><span class="val">${f.score.toFixed(3)}</span></div>`).join('');
   $('#signal').innerHTML = FEED.signal.map(s => `
-    <div class="item">
-      <span class="nm">${s.metric}</span>
-      <span class="val ${s.personal ? 'yes' : 'no'}">
-        ${s.personal ? 'personal + league' : 'league only'}
-      </span>
-    </div>`).join('');
+    <div class="item"><span>${s.metric}</span>
+      <span class="val ${s.personal ? 'yes' : 'no'}">${s.personal ? 'personal + league' : 'league only'}</span></div>`).join('');
+}
+
+/* ---------- playback ---------- */
+function syncClock() {
+  $('#clock').textContent = Math.round(minute) + "'";
+  $('#fill').style.width = (minute / FULL * 100) + '%';
+  document.querySelectorAll('.row').forEach((r, i) =>
+    r.classList.toggle('fired', FEED.moments[i].minute <= minute));
+  document.querySelectorAll('.pip').forEach((p, i) =>
+    p.classList.toggle('hit', FEED.moments[i].minute <= minute));
+}
+
+function tick() {
+  minute += 1;
+  if (minute >= FULL) { minute = FULL; pause(); }
+  syncClock();
+  // Fire the latest moment the clock has reached.
+  const due = FEED.moments.map((m, i) => [m.minute, i]).filter(([mm]) => mm <= minute);
+  if (due.length) {
+    const next = due[due.length - 1][1];
+    if (next !== idx) { idx = next; renderMoment(); }
+  }
+}
+
+function play() {
+  if (minute >= FULL) { minute = 0; idx = 0; }
+  $('#onair').classList.add('live');
+  $('#play').textContent = '❚❚ Pause';
+  timer = setInterval(tick, 180);
+}
+function pause() {
+  clearInterval(timer); timer = null;
+  $('#onair').classList.remove('live');
+  $('#play').textContent = '▶ Play match';
 }
 
 function setMode(next) {
   mode = next;
   $('#mAnalyst').setAttribute('aria-pressed', mode === 'analyst');
   $('#mFan').setAttribute('aria-pressed', mode === 'fan');
-  // Fan mode hides the working; the claim stays identical.
-  const hide = mode === 'fan';
-  $('#why').style.display = hide ? 'none' : '';
-  document.querySelectorAll('.card').forEach(c => {
-    if (c.querySelector('#signal') || c.querySelector('#follow'))
-      c.style.display = hide ? 'none' : '';
-  });
+  const fan = mode === 'fan';
+  // Fan mode is a different experience, not the same page with holes in it:
+  // the claim and the pitch stay, the working goes.
+  $('#why').classList.toggle('hide', fan);
+  $('#followCard').classList.toggle('hide', fan);
+  $('#signalCard').classList.toggle('hide', fan);
 }
 
 fetch('feed.json').then(r => r.json()).then(d => {
@@ -331,17 +466,30 @@ fetch('feed.json').then(r => r.json()).then(d => {
   $('#awayName').textContent = d.match.away.name;
   $('#homeGoals').textContent = d.match.home.goals;
   $('#awayGoals').textContent = d.match.away.goals;
-  renderTimeline(); renderMoment(); renderSide();
-  const diverging = d.moments.filter(m => m.diverges).length;
+  renderTimeline(); renderSide(); syncClock(); standby();
+  const div = d.moments.filter(m => m.diverges).length;
   $('#foot').innerHTML =
     `Grounded against a synthetic season of <code>${d.meta.season_matches}</code> matches and ` +
     `<code>${d.meta.season_events.toLocaleString()}</code> events. ` +
-    `<code>${diverging}</code> of <code>${d.moments.length}</code> moments are strong for the player ` +
-    `but ordinary league-wide — the case a league percentile alone cannot surface.<br>` +
+    `<code>${div}</code> of <code>${d.moments.length}</code> moments are strong for the player but ` +
+    `ordinary league-wide — the case a league percentile alone cannot surface.<br>` +
     `All clubs, players and matches are synthetic. No real match data is used.`;
+  $('#play').onclick = () => timer ? pause() : play();
   $('#mAnalyst').onclick = () => setMode('analyst');
   $('#mFan').onclick = () => setMode('fan');
-}).catch(e => {
+  $('#track').onclick = e => {
+    pause();
+    const r = $('#track').getBoundingClientRect();
+    minute = Math.round((e.clientX - r.left) / r.width * FULL);
+    syncClock();
+    const due = FEED.moments.map((m, i) => [m.minute, i]).filter(([mm]) => mm <= minute);
+    idx = due.length ? due[due.length - 1][1] : 0;
+    renderMoment();
+  };
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); timer ? pause() : play(); }
+  });
+}).catch(() => {
   $('#moment').innerHTML =
     `<p class="said">No feed found. Run <code>python -m gegenpress feed</code>, ` +
     `then serve this folder: <code>python -m http.server -d docs 8000</code></p>`;

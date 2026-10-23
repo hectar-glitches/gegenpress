@@ -383,6 +383,10 @@ class Desk:
 class Segment:
     brief: Brief
     verdict: Verdict
+    # Where the brief came from, so the renderer can fetch the events
+    # behind an aggregate claim.
+    form_player_id: str | None = None
+    form_metric: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -413,5 +417,7 @@ def run_desk(
     segments: list[Segment] = []
     for form in scout.form(live)[:limit]:
         brief = why.brief_from_form(form, live)
-        segments.append(Segment(brief, desk.write(brief)))
+        segments.append(Segment(brief, desk.write(brief),
+                                form_player_id=form.player_id,
+                                form_metric=form.metric))
     return segments
