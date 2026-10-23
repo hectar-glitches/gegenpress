@@ -80,6 +80,30 @@ PlayerBaselines(excludeMatch:string = "") {
 }
 
 //
+// MetricSignal — which metrics can carry a personal claim.
+//
+// ICC = between-player variance / total variance. Near zero means every
+// player's distribution is the league's wearing his name, and "his best"
+// would be noise with his name on it. Mirrors signal.py; variancep()
+// matches Python's statistics.pvariance.
+//
+.create-or-alter function with (docstring = "Per-metric ICC and whether a personal claim is supportable")
+MetricSignal(excludeMatch:string = "") {
+    MetricValues()
+    | where match_id != excludeMatch
+    | summarize n = count(), player_mean = avg(value), player_var = variancep(value)
+      by player_id, metric
+    | where n >= 50
+    | summarize between = variancep(player_mean), within = avg(player_var),
+                players = count()
+      by metric
+    | where players >= 10
+    | extend icc = round(between / (between + within), 4)
+    | extend personal_claim_allowed = icc >= 0.08
+    | project metric, icc, players, personal_claim_allowed
+}
+
+//
 // Ground — score every measurement in a live match against both reference
 // classes. This is the complete, citable fact set the narrative layer is
 // allowed to assert, and nothing else.
@@ -88,6 +112,7 @@ PlayerBaselines(excludeMatch:string = "") {
 Ground(liveMatch:string) {
     let pop = PopulationBaselines(liveMatch);
     let per = PlayerBaselines(liveMatch);
+    let sig = MetricSignal(liveMatch);
     MetricValues()
     | where match_id == liveMatch
     | join kind=inner pop on metric
@@ -102,6 +127,8 @@ Ground(liveMatch:string) {
                          1.0 - population_percentile,
                          population_percentile)
     | join kind=leftouter per on player_id, metric
+    | join kind=leftouter sig on metric
+    | extend personal_claim_allowed = coalesce(personal_claim_allowed, false)
     | extend is_personal_best = iff(
         isnull(personal_best), false,
         iff(direction == "low_is_good", value <= personal_best, value >= personal_best))
@@ -109,7 +136,8 @@ Ground(liveMatch:string) {
         event_id, match_id, minute, period, clock, player_id, team_id,
         metric, value, direction, x, y,
         expected, population_n = n, population_percentile, beats,
-        personal_n, personal_mean, personal_best, appearances, is_personal_best
+        personal_n, personal_mean, personal_best, appearances, is_personal_best,
+        personal_claim_allowed
 }
 
 //

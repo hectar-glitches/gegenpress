@@ -13,7 +13,7 @@ import os
 import pytest
 
 from gegenpress.season import build_league
-from gegenpress.simulate import simulate_match, simulate_season
+from gegenpress.simulate import simulate_live, simulate_season
 from gegenpress.store import LocalStore
 
 ADX_CONFIGURED = bool(os.environ.get("ADX_CLUSTER"))
@@ -23,7 +23,7 @@ ADX_CONFIGURED = bool(os.environ.get("ADX_CLUSTER"))
 def fixture_set():
     league = build_league(seed=2026)
     season = simulate_season(league, seed=2026)
-    live = simulate_match(league, league.fixtures[0], seed=2027)
+    live = simulate_live(league, league.fixtures[0], seed=2026)
     store = LocalStore()
     store.load_season(league, season)
     return league, season, live, store
@@ -44,15 +44,15 @@ def test_top_moments_are_ranked_and_grounded(fixture_set):
 
 
 def test_live_match_is_excluded_from_its_own_baseline(fixture_set):
-    """A moment must not be judged against a season containing itself."""
+    """A moment must not be judged against a season containing itself.
+
+    The live match carries its own id, so the season cannot contain it
+    even by accident. Before this, it reused a fixture's id and the ADX
+    path silently queried the season's version of that match instead.
+    """
     league, season, live, _store = fixture_set
-    assert live.match_id == league.fixtures[0].match_id
-    # The live match is simulated with a different seed, so although the
-    # fixture id matches, its events are not the ones in the season.
-    season_events = {e.event_id for m in season if m.match_id == live.match_id
-                     for e in m.events}
-    live_events = {e.event_id for e in live.events}
-    assert season_events != live_events
+    assert live.match_id.startswith("live-")
+    assert live.match_id not in {m.match_id for m in season}
 
 
 def test_match_state_window_is_respected(fixture_set):

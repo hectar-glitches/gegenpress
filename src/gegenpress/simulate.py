@@ -364,3 +364,21 @@ def simulate_match(league: League, fixture: Fixture, seed: int = 2026) -> Match:
 
 def simulate_season(league: League, seed: int = 2026) -> list[Match]:
     return [simulate_match(league, f, seed) for f in league.fixtures]
+
+
+def simulate_live(league: League, fixture: Fixture, seed: int = 2026) -> Match:
+    """The match being broadcast, with an identity of its own.
+
+    It reuses a fixture's teams but takes a distinct match_id, so it is
+    never confused with that fixture's appearance in the season. This
+    matters twice: the baselines must not contain the match they are
+    judging, and the ADX path must query the live events rather than a
+    same-named match already in the store.
+    """
+    live_fixture = Fixture(
+        match_id=f"live-{fixture.match_id}",
+        matchday=fixture.matchday,
+        home_club_id=fixture.home_club_id,
+        away_club_id=fixture.away_club_id,
+    )
+    return simulate_match(league, live_fixture, seed=seed + 1)

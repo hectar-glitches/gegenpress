@@ -19,7 +19,7 @@ from .feed import build_feed, write_feed
 from .signal import measure_signal, report as signal_report
 from .store import LocalStore, get_store
 from .season import build_league
-from .simulate import simulate_match, simulate_season
+from .simulate import simulate_live, simulate_match, simulate_season
 
 
 def cmd_season(args: argparse.Namespace) -> int:
@@ -90,7 +90,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
           f"({sum(len(m.events) for m in season):,} events)\n")
 
     # The "live" match is a fresh fixture the baselines have not seen.
-    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+    live = simulate_live(league, league.fixtures[0], seed=args.seed)
     home = league.club(live.home_club_id).name
     away = league.club(live.away_club_id).name
     print(f"LIVE  {home} {live.home_goals} - {live.away_goals} {away}")
@@ -137,7 +137,7 @@ def cmd_state(args: argparse.Namespace) -> int:
     store.load_season(league, season)
     print(f"store: {type(store).__name__}\n")
 
-    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+    live = simulate_live(league, league.fixtures[0], seed=args.seed)
     home, away = league.club(live.home_club_id), league.club(live.away_club_id)
     print(f"LIVE  {home.name} {live.home_goals} - {live.away_goals} {away.name}\n")
 
@@ -174,12 +174,20 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         return 2
     print(f"cluster: {store.cluster}\ndatabase: {store.database}\n")
     if args.bootstrap:
-        store.bootstrap()
+        if store.bootstrap() and not args.load:
+            print("\nSome commands failed. Fix those before loading data.")
+            return 1
+    if args.reset:
+        store.reset()
     if args.load:
         league = build_league(seed=args.seed)
         season = simulate_season(league, seed=args.seed)
-        store.ingest_season(league, season)
-    if not (args.bootstrap or args.load):
+        live = simulate_live(league, league.fixtures[0], seed=args.seed)
+        # The live match goes in too, under its own id, or there is
+        # nothing for the query path to read.
+        store.ingest_season(league, season + [live])
+        print(f"[adx] live match id: {live.match_id}")
+    if not (args.bootstrap or args.load or args.reset):
         print("nothing to do: pass --bootstrap and/or --load")
     return 0
 
@@ -194,7 +202,7 @@ def cmd_form(args: argparse.Namespace) -> int:
     print("which metrics can carry a personal claim\n")
     print(signal_report(measure_signal(season)))
 
-    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+    live = simulate_live(league, league.fixtures[0], seed=args.seed)
     home, away = league.club(live.home_club_id), league.club(live.away_club_id)
     print(f"\n\nLIVE  {home.name} {live.home_goals} - {live.away_goals} {away.name}\n")
     print("form lines: this match against the player's own season\n")
@@ -214,7 +222,7 @@ def cmd_desk(args: argparse.Namespace) -> int:
     season = simulate_season(league, seed=args.seed)
     store = LocalStore()
     store.load_season(league, season)
-    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+    live = simulate_live(league, league.fixtures[0], seed=args.seed)
 
     model = get_model(prefer_foundry=args.foundry or None)
     print(f"model: {model.name}\n")
@@ -240,7 +248,7 @@ def cmd_feed(args: argparse.Namespace) -> int:
     season = simulate_season(league, seed=args.seed)
     store = LocalStore()
     store.load_season(league, season)
-    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+    live = simulate_live(league, league.fixtures[0], seed=args.seed)
 
     model = get_model(prefer_foundry=args.foundry or None)
     feed = build_feed(store, league, live, season, model=model, limit=args.limit)
@@ -257,6 +265,19 @@ def cmd_feed(args: argparse.Namespace) -> int:
           f"{sum(1 for x in feed['moments'] if x['diverges'])} diverging")
     print(f"written to {out}")
     return 0
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Check what actually landed in the cluster."""
+    try:
+        from .adx import AdxStore
+        store = AdxStore.from_env()
+    except Exception as exc:
+        print(f"{exc}")
+        return 2
+    league = build_league(seed=args.seed)
+    live = simulate_live(league, league.fixtures[0], seed=args.seed)
+    return 0 if store.doctor(live.match_id) == 0 else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -284,6 +305,8 @@ def main(argv: list[str] | None = None) -> int:
     ing = sub.add_parser("ingest", help="create ADX schema and load a season")
     ing.add_argument("--bootstrap", action="store_true", help="create tables and functions")
     ing.add_argument("--load", action="store_true", help="simulate and ingest a season")
+    ing.add_argument("--reset", action="store_true",
+                     help="clear table data first (use when re-loading)")
     ing.add_argument("--seed", type=int, default=2026)
     ing.set_defaults(func=cmd_ingest)
 
@@ -303,6 +326,10 @@ def main(argv: list[str] | None = None) -> int:
     fd.add_argument("--out", default="web/feed.json")
     fd.add_argument("--foundry", action="store_true")
     fd.set_defaults(func=cmd_feed)
+
+    doc = sub.add_parser("doctor", help="check the ADX cluster's data and functions")
+    doc.add_argument("--seed", type=int, default=2026)
+    doc.set_defaults(func=cmd_doctor)
 
     c = sub.add_parser("calibrate", help="check the season against football-realistic targets")
     c.add_argument("--seed", type=int, default=2026)

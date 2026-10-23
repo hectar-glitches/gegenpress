@@ -27,11 +27,11 @@
     detail:     dynamic
 )
 
-.alter-merge table Events policy retention softdelete = 365d
-
-// Streaming ingestion: live match events must be queryable in seconds,
-// not after the default batching delay.
-.alter table Events policy streamingingestion enable
+// Note: retention and streaming-ingestion policy commands are omitted.
+// A free cluster rejects both ("endpoint does not exist"), and queued
+// ingestion through the ingest- endpoint works without them. On a paid
+// cluster or a Fabric Eventhouse, enable streaming here for sub-second
+// availability.
 
 .create-or-alter table Events ingestion json mapping "EventsJsonMapping"
 ```[
