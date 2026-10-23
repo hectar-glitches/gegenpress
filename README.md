@@ -128,6 +128,30 @@ PYTHONPATH=src python -m gegenpress state --adx
 
 **The load-bearing test.** `test_form_lines_diverge_from_league_percentile`, across three seeds, asserts that moments exist which are strong for the player but ordinary league-wide. If that ever stops being true the Form Line is decoration and the project has no differentiator — which was literally true of an earlier version of the model.
 
+**Evaluation.** Microsoft's built-in Groundedness evaluator scores 1–5 with a model as judge and Groundedness Pro needs the Content Safety service. Neither is used here, because the Gate is deterministic and can therefore be measured deterministically — the result is a fact rather than another model's opinion. `python -m gegenpress eval` runs 373 claims across three seeds and twelve matches:
+
+| check | result | |
+| --- | --- | --- |
+| gate precision | **100.0%** | 373/373 valid claims passed — a false reject silences a true statement |
+| claim integrity | **100.0%** | every asserted number recomputes from the events |
+| refusal correctness | **100.0%** | no personal claim on a metric without between-player signal |
+
+Gate recall, by how the claim was corrupted:
+
+| corruption | caught | |
+| --- | --- | --- |
+| invented number | **100.0%** | 373/373 |
+| inflated number | **99.2%** | 370/373 |
+| fabricated scoreline | **100.0%** | 373/373 |
+| number spelled as words | **0.0%** | known miss — the Gate reads digits |
+| misattached number | **0.0%** | known miss — presence is checked, not attachment |
+| **digit-based** | **99.7%** | what the Gate claims to catch |
+| **overall** | **59.8%** | including both documented misses |
+
+The three missed inflations are not ordinary failures: in each case the corrupted value coincidentally equalled a *different* number already in the brief, so presence-checking cannot see it. That is the same structural limit as a misattached number, and it is why the honest claim is *the Gate removes invented numbers*, not *the Gate makes the sentence true*.
+
+Publishing 0.0% twice is deliberate. A measured zero on a known weakness is worth more than prose describing it, and `tests/test_evaluate.py` pins both so that fixing one is noticed.
+
 **Documented holes.** Two `xfail` tests in [`tests/test_agents.py`](tests/test_agents.py) pin what the Gate *cannot* do: it reads digits rather than words, and it checks that a number is present in the brief rather than correctly attached to the right thing. It removes invented numbers; it does not make the sentence true. Those are different claims and only the first is made.
 
 ---

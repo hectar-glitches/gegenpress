@@ -18,6 +18,7 @@ from .agents import Segment, run_desk
 from .form import METRIC_LABELS
 from .models import Match
 from .season import League
+from .positions import build_frames, pack, pick_window
 from .signal import measure_signal
 from .store import Store
 
@@ -131,6 +132,7 @@ def build_feed(
     season: list[Match],
     model: Any = None,
     limit: int = 8,
+    span: int = 240,
 ) -> dict[str, Any]:
     home, away = league.club(live.home_club_id), league.club(live.away_club_id)
     segments = run_desk(store, league, live, model=model, limit=limit)
@@ -165,7 +167,22 @@ def build_feed(
             "fell_back": seg.verdict.fell_back,
         })
 
+    # Showcase window: a real passage of the real match, SELECTED not
+    # fabricated. Centred on the strongest diverging moment, because that
+    # is the one the whole project exists to show.
+    diverging = [m for m in moments if m["diverges"]] or moments
+    centre = max(diverging, key=lambda m: abs(m.get("z") or 0))["minute"]
+    lo, hi = pick_window(live, centre, span)
+    frames = build_frames(league, live, seed=2026, lo=lo, hi=hi, dt=0.4)
+
     return {
+        "window": {
+            "from": lo, "to": hi, "centre_minute": centre,
+            "frames": len(frames),
+            "home_xi": [p.name for p in league.squad(live.home_club_id) if p.shirt <= 11],
+            "away_xi": [p.name for p in league.squad(live.away_club_id) if p.shirt <= 11],
+        },
+        "frames": pack(frames),
         "match": {
             "id": live.match_id,
             "home": {"id": home.club_id, "name": home.name, "short": home.short_name,
@@ -191,7 +208,7 @@ def build_feed(
              "personal": s.personal_claim_allowed}
             for m, s in sorted(signals.items(), key=lambda kv: -kv[1].icc)
         ],
-        "stream": event_stream(live),
+        "stream": [e for e in event_stream(live) if lo <= e["t"] <= hi],
         "meta": {
             "season_matches": len(season),
             "season_events": sum(len(m.events) for m in season),

@@ -15,6 +15,8 @@ import time
 from .baselines import METRICS, build_baselines, ground, rarity
 from .calibrate import report, run_checks
 from .agents import get_model, run_desk
+from .evaluate import report as eval_report
+from .evaluate import run as eval_run
 from .feed import build_feed, write_feed
 from .signal import measure_signal, report as signal_report
 from .store import LocalStore, get_store
@@ -251,7 +253,8 @@ def cmd_feed(args: argparse.Namespace) -> int:
     live = simulate_live(league, league.fixtures[0], seed=args.seed)
 
     model = get_model(prefer_foundry=args.foundry or None)
-    feed = build_feed(store, league, live, season, model=model, limit=args.limit)
+    feed = build_feed(store, league, live, season, model=model,
+                      limit=args.limit, span=args.span)
 
     out = pathlib.Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -261,8 +264,12 @@ def cmd_feed(args: argparse.Namespace) -> int:
     print(f"model: {model.name}")
     print(f"{m['home']['name']} {m['home']['goals']} - "
           f"{m['away']['goals']} {m['away']['name']}")
-    print(f"{len(feed['moments'])} moments, {len(feed['overlay'])} overlay cues, "
+    w = feed["window"]
+    print(f"{len(feed['moments'])} moments, "
           f"{sum(1 for x in feed['moments'] if x['diverges'])} diverging")
+    print(f"showcase window: {w['from']:.0f}s-{w['to']:.0f}s "
+          f"(around {w['centre_minute']}'), {w['frames']} frames, "
+          f"{len(feed['stream'])} events")
     print(f"written to {out}")
     return 0
 
@@ -278,6 +285,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     league = build_league(seed=args.seed)
     live = simulate_live(league, league.fixtures[0], seed=args.seed)
     return 0 if store.doctor(live.match_id) == 0 else 1
+
+
+def cmd_eval(args: argparse.Namespace) -> int:
+    """Measure the Gate, claim integrity and refusal correctness."""
+    seeds = tuple(int(s) for s in args.seeds.split(","))
+    print(f"seeds {seeds}, {args.matches} matches each\n")
+    r = eval_run(seeds=seeds, matches_per_seed=args.matches)
+    print(eval_report(r))
+    ok = (r.precision == 1.0 and r.integrity_failed == 0
+          and r.refusals_violated == 0)
+    return 0 if ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -324,12 +342,19 @@ def main(argv: list[str] | None = None) -> int:
     fd.add_argument("--seed", type=int, default=2026)
     fd.add_argument("--limit", type=int, default=8)
     fd.add_argument("--out", default="docs/feed.json")
+    fd.add_argument("--span", type=int, default=240,
+                    help="showcase window length in match seconds")
     fd.add_argument("--foundry", action="store_true")
     fd.set_defaults(func=cmd_feed)
 
     doc = sub.add_parser("doctor", help="check the ADX cluster's data and functions")
     doc.add_argument("--seed", type=int, default=2026)
     doc.set_defaults(func=cmd_doctor)
+
+    ev = sub.add_parser("eval", help="gate, integrity and refusal evaluation")
+    ev.add_argument("--seeds", default="2026,7,404")
+    ev.add_argument("--matches", type=int, default=4)
+    ev.set_defaults(func=cmd_eval)
 
     c = sub.add_parser("calibrate", help="check the season against football-realistic targets")
     c.add_argument("--seed", type=int, default=2026)
