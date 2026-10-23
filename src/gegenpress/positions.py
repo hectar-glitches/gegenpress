@@ -190,9 +190,22 @@ def pick_window(match: Match, centre_minute: int, span: int = 240
 
 def pack(frames: list[Frame]) -> dict:
     """Compact wire form: flat integer arrays, one row per frame."""
+    # Flat integer arrays on a fixed step. Nested per-frame arrays cost
+    # more in brackets than in data, and at this step one metre of
+    # rounding is invisible. The client reads 22 values at frame*22 and
+    # interpolates between frames.
+    flat_h: list[int] = []
+    flat_a: list[int] = []
+    flat_b: list[int] = []
+    for f in frames:
+        flat_b += [round(f.ball[0]), round(f.ball[1])]
+        for x, y in f.home:
+            flat_h += [round(x), round(y)]
+        for x, y in f.away:
+            flat_a += [round(x), round(y)]
     return {
-        "t": [f.t for f in frames],
-        "b": [[f.ball[0], f.ball[1]] for f in frames],
-        "h": [[v for xy in f.home for v in xy] for f in frames],
-        "a": [[v for xy in f.away for v in xy] for f in frames],
+        "dt": round(frames[1].t - frames[0].t, 2) if len(frames) > 1 else 1.0,
+        "t0": frames[0].t if frames else 0.0,
+        "n": len(frames),
+        "b": flat_b, "h": flat_h, "a": flat_a,
     }

@@ -52,11 +52,11 @@
   .bug .live.on i{animation:beat 1.5s infinite}
   @keyframes beat{0%,100%{opacity:1}50%{opacity:.25}}
 
-  .brand{
-    position:absolute;top:26px;right:26px;font:700 11px/1 inherit;
-    letter-spacing:.2em;color:var(--accent);opacity:.85;
+  .bug .mark{
+    font:800 13px/1 var(--mono);letter-spacing:.06em;color:#05080b;
+    background:var(--accent);padding:13px 12px;align-self:stretch;
+    display:flex;align-items:center;
   }
-  .brand b{color:var(--dim);font-weight:500;margin-left:7px;letter-spacing:.06em}
 
   /* ---------- lower third ---------- */
   .lower{
@@ -118,12 +118,15 @@
   /* ---------- rail ---------- */
   .rail{
     position:absolute;top:22px;right:26px;bottom:168px;width:296px;
-    display:flex;flex-direction:column;gap:11px;overflow:visible;
+    display:flex;flex-direction:column;gap:11px;overflow-y:auto;overflow-x:hidden;
     transition:transform .4s var(--ease),opacity .3s;
   }
   .rail.off{transform:translateX(118%);opacity:0;pointer-events:none}
   body.analyst .lower{right:346px}
-  #timeline{max-height:268px;overflow:auto}
+  .rail::-webkit-scrollbar{width:0}
+  #timeline{max-height:232px;overflow:auto}
+  #follow,#signal{max-height:196px;overflow:auto}
+  #follow::-webkit-scrollbar,#signal::-webkit-scrollbar{width:0}
   #timeline::-webkit-scrollbar{width:0}
   .card{background:var(--panel);backdrop-filter:blur(14px);
     border:1px solid var(--line);border-radius:11px;overflow:hidden}
@@ -171,12 +174,12 @@
     <div class="vig"></div>
 
     <div class="bug">
+      <div class="mark">GP</div>
       <div class="side h"><span class="tag" id="hTag">—</span><span class="g" id="hG">0</span></div>
       <div class="side a"><span class="g" id="aG">0</span><span class="tag" id="aTag">—</span></div>
       <div class="clk" id="clk">0'</div>
       <div class="live" id="live"><i></i>LIVE</div>
     </div>
-    <div class="brand">GEGENPRESS<b>studio</b></div>
 
     <div class="lower" id="lower">
       <div class="bandL"></div>
@@ -214,11 +217,11 @@ const $ = s => document.querySelector(s);
 const L = 105, W = 68, FULL = 5400;       // pitch metres, match seconds
 let FEED, cv, ctx, DPR = 1, box = {};
 let clock = 0, playing = false, last = 0, idx = -1, mode = 'analyst', showWhy = false;
-const SPEED = 240;                        // match-seconds per real second (~22s match)
+const SPEED = 90;                         // match-seconds per real second (~60s match)
 // Visible for ~0.75s of REAL time. TRAIL is in match-seconds and the
 // clock runs at SPEED x, so this must scale with it or events flash
 // past in milliseconds.
-const TRAIL = SPEED * 0.75;
+const TRAIL = SPEED * 1.1;
 
 /* ---------- geometry ---------- */
 function layout() {
@@ -239,7 +242,7 @@ function drawPitch() {
   const g = ctx, s = box.s;
   g.save(); g.scale(DPR, DPR);
   const grd = g.createLinearGradient(0, box.oy, 0, box.oy + W * s);
-  grd.addColorStop(0, '#0d1a22'); grd.addColorStop(.5, '#112029'); grd.addColorStop(1, '#0c171e');
+  grd.addColorStop(0, '#10212b'); grd.addColorStop(.5, '#152a35'); grd.addColorStop(1, '#0f1e27');
   g.fillStyle = '#05080b'; g.fillRect(0, 0, box.w, box.h);
   g.fillStyle = grd; g.fillRect(box.ox, box.oy, L * s, W * s);
 
@@ -247,7 +250,7 @@ function drawPitch() {
   g.fillStyle = 'rgba(255,255,255,.022)';
   for (let i = 0; i < 10; i += 2) g.fillRect(box.ox + i * L * s / 10, box.oy, L * s / 10, W * s);
 
-  g.strokeStyle = 'rgba(200,225,245,.3)'; g.lineWidth = Math.max(1.1, s * .13);
+  g.strokeStyle = 'rgba(205,230,250,.38)'; g.lineWidth = Math.max(1.1, s * .13);
   const R = (x, y, w, h) => g.strokeRect(box.ox + x * s, box.oy + y * s, w * s, h * s);
   R(0, 0, L, W);
   g.beginPath(); g.moveTo(box.ox + L / 2 * s, box.oy); g.lineTo(box.ox + L / 2 * s, box.oy + W * s); g.stroke();
@@ -275,7 +278,7 @@ function drawEvents() {
 
     if (e.k === 'pa' || e.k === 'ca') {
       const x2 = e.X != null ? PX(e.X, away) : x1, y2 = e.Y != null ? PY(e.Y, away) : y1;
-      g.strokeStyle = e.f ? `rgba(255,95,95,${a * .55})` : `rgba(${col},${a * .75})`;
+      g.strokeStyle = e.f ? `rgba(255,95,95,${a * .3})` : `rgba(${col},${a * .4})`;
       g.lineWidth = (e.k === 'ca' ? 2.4 : 1.5);
       if (e.f) g.setLineDash([3, 3]);
       g.beginPath(); g.moveTo(x1, y1);
@@ -304,6 +307,60 @@ function drawEvents() {
   g.restore();
 }
 
+/* ---------- players and ball ---------- */
+function drawPlayers() {
+  const F = FEED.frames;
+  if (!F || !F.n) return;
+  const g = ctx, s = box.s;
+  // Where we are between two sampled frames.
+  const k = (clock - F.t0) / F.dt;
+  const i = Math.max(0, Math.min(F.n - 1, Math.floor(k)));
+  const j = Math.min(F.n - 1, i + 1);
+  const raw = Math.max(0, Math.min(1, k - i));
+  const f = raw * raw * (3 - 2 * raw);          // ease, so dots glide
+
+  const lerp = (arr, a, b, o) => [
+    arr[a * 22 + o] + (arr[b * 22 + o] - arr[a * 22 + o]) * f,
+    arr[a * 22 + o + 1] + (arr[b * 22 + o + 1] - arr[a * 22 + o + 1]) * f,
+  ];
+  const bx = F.b[i * 2] + (F.b[j * 2] - F.b[i * 2]) * f;
+  const by = F.b[i * 2 + 1] + (F.b[j * 2 + 1] - F.b[i * 2 + 1]) * f;
+
+  g.save(); g.scale(DPR, DPR);
+  const BX = box.ox + bx * s, BY = box.oy + by * s;
+  const r = Math.max(4, s * .42);
+
+  // Nearest player to the ball is carrying it: the frames hold
+  // positions, not possession, and a ring beats shipping another field.
+  let best = null, bestD = 1e9;
+  for (const [arr, col] of [[F.h, '90,169,255'], [F.a, '255,176,32']]) {
+    for (let p = 0; p < 11; p++) {
+      const [px, py] = lerp(arr, i, j, p * 2);
+      const d = Math.hypot(px - bx, py - by);
+      if (d < bestD) { bestD = d; best = [px, py, col]; }
+    }
+  }
+
+  for (const [arr, col] of [[F.h, '90,169,255'], [F.a, '255,176,32']]) {
+    for (let p = 0; p < 11; p++) {
+      const [px, py] = lerp(arr, i, j, p * 2);
+      const X = box.ox + px * s, Y = box.oy + py * s;
+      g.beginPath(); g.arc(X, Y, r, 0, 7);
+      g.fillStyle = `rgba(${col},.92)`; g.fill();
+      g.lineWidth = 1; g.strokeStyle = 'rgba(5,8,11,.85)'; g.stroke();
+    }
+  }
+  if (best && bestD < 4) {
+    g.beginPath(); g.arc(box.ox + best[0] * s, box.oy + best[1] * s, r + 4, 0, 7);
+    g.strokeStyle = `rgba(${best[2]},.75)`; g.lineWidth = 1.6; g.stroke();
+  }
+
+  g.beginPath(); g.arc(BX, BY, r * .55, 0, 7);
+  g.fillStyle = '#fff'; g.shadowColor = 'rgba(255,255,255,.85)';
+  g.shadowBlur = 11; g.fill(); g.shadowBlur = 0;
+  g.restore();
+}
+
 function frame(now) {
   if (playing) {
     const dt = Math.min(.1, (now - last) / 1000);
@@ -312,7 +369,7 @@ function frame(now) {
     sync();
   }
   last = now;
-  drawPitch(); drawEvents();
+  drawPitch(); drawEvents(); drawPlayers();
   requestAnimationFrame(frame);
 }
 

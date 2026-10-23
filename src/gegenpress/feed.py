@@ -173,7 +173,7 @@ def build_feed(
     diverging = [m for m in moments if m["diverges"]] or moments
     centre = max(diverging, key=lambda m: abs(m.get("z") or 0))["minute"]
     lo, hi = pick_window(live, centre, span)
-    frames = build_frames(league, live, seed=2026, lo=lo, hi=hi, dt=0.4)
+    frames = build_frames(league, live, seed=2026, dt=2.0)
 
     return {
         "window": {
@@ -208,7 +208,7 @@ def build_feed(
              "personal": s.personal_claim_allowed}
             for m, s in sorted(signals.items(), key=lambda kv: -kv[1].icc)
         ],
-        "stream": [e for e in event_stream(live) if lo <= e["t"] <= hi],
+        "stream": event_stream(live),
         "meta": {
             "season_matches": len(season),
             "season_events": sum(len(m.events) for m in season),
