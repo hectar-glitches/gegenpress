@@ -14,6 +14,7 @@ import time
 
 from .baselines import METRICS, build_baselines, ground, rarity
 from .calibrate import report, run_checks
+from .agents import get_model, run_desk
 from .signal import measure_signal, report as signal_report
 from .store import LocalStore, get_store
 from .season import build_league
@@ -206,6 +207,30 @@ def cmd_form(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_desk(args: argparse.Namespace) -> int:
+    """Scout -> Why -> Desk -> Gate over one match."""
+    league = build_league(seed=args.seed)
+    season = simulate_season(league, seed=args.seed)
+    store = LocalStore()
+    store.load_season(league, season)
+    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+
+    model = get_model(prefer_foundry=args.foundry or None)
+    print(f"model: {model.name}\n")
+    home, away = league.club(live.home_club_id), league.club(live.away_club_id)
+    print(f"LIVE  {home.name} {live.home_goals} - {live.away_goals} {away.name}\n")
+
+    segments = run_desk(store, league, live, model=model, limit=args.limit)
+    grounded = sum(1 for s in segments if s.verdict.passed)
+    for seg in segments:
+        mark = "*" if seg.brief.diverges else " "
+        state = "" if seg.verdict.passed else "  [fell back to template]"
+        print(f" {mark} {seg.verdict.text}{state}")
+    print(f"\n{grounded}/{len(segments)} passed the gate without falling back")
+    print("* = strong for him, ordinary league-wide")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gegenpress")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -237,6 +262,12 @@ def main(argv: list[str] | None = None) -> int:
     fm = sub.add_parser("form", help="signal report + form lines for one match")
     fm.add_argument("--seed", type=int, default=2026)
     fm.set_defaults(func=cmd_form)
+
+    dk = sub.add_parser("desk", help="run the agent layer over one match")
+    dk.add_argument("--seed", type=int, default=2026)
+    dk.add_argument("--limit", type=int, default=6)
+    dk.add_argument("--foundry", action="store_true", help="force the Foundry model")
+    dk.set_defaults(func=cmd_desk)
 
     c = sub.add_parser("calibrate", help="check the season against football-realistic targets")
     c.add_argument("--seed", type=int, default=2026)
