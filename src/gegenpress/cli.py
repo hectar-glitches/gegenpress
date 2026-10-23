@@ -145,7 +145,7 @@ def cmd_state(args: argparse.Namespace) -> int:
     for team_id, s in store.match_state(live, args.minute, args.window).items():
         club = league.club(team_id)
         print(f"  {club.short_name}  acc {s['pass_accuracy']:.0%}  "
-              f"xg {s['xg']:.2f}  terr {s['territory']}m  "
+              f"xg {s['xg']:.2f}  tilt {s['field_tilt']:.0%}  "
               f"recov {s['recoveries']} (hi {s['high_recoveries']})  "
               f"gegenpress {s['gegenpress_idx']}")
 
@@ -323,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
     fd = sub.add_parser("feed", help="build the broadcast feed JSON")
     fd.add_argument("--seed", type=int, default=2026)
     fd.add_argument("--limit", type=int, default=8)
-    fd.add_argument("--out", default="web/feed.json")
+    fd.add_argument("--out", default="docs/feed.json")
     fd.add_argument("--foundry", action="store_true")
     fd.set_defaults(func=cmd_feed)
 

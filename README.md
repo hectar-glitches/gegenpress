@@ -1,26 +1,43 @@
-# Gegenpress — the synthetic season
+# Gegenpress
 
-Football's broadcast tells you *what happened*. Gegenpress tells you *how unusual it was* — and then lets you follow unusualness itself.
+**Football's broadcast tells you a press was fast. Gegenpress tells you it was fast *for him*.**
 
-This repository is stage one of the pipeline: a deterministic synthetic football generator that produces **a season played by a persistent squad**, and a grounding layer that scores every live measurement against two reference classes.
+Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon. All clubs, players and matches are synthetic. No real match data is used.
 
-Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon. All clubs, players and matches are invented. No real match data is used.
+The name is deliberate: *gegenpressing* is the one piece of football tactics defined by a measurement — win the ball back within about five seconds. Recovery time is a first-class metric here, and the name states the thesis.
 
-The name is deliberate: *gegenpressing* is the one piece of football tactics defined by a measurement — win the ball back within roughly five seconds of losing it. `recovery_time_s` is a first-class metric here, and "recovery in 4.2s, expected 6.5s" is exactly the kind of claim this system exists to make.
+---
 
-## The idea in one number
+## The five stages
 
-Simulate a full season offline. Now every live event carries an **expected-vs-actual delta**, and that one quantity does three jobs:
+| Stage | Where it lives | What it does |
+| --- | --- | --- |
+| **Ingest** | [`simulate.py`](src/gegenpress/simulate.py), [`season.py`](src/gegenpress/season.py) | Deterministic possession-chain engine; a season played by a persistent squad |
+| **Interpret** | [`kql/02_functions.kql`](kql/02_functions.kql), [`baselines.py`](src/gegenpress/baselines.py) | Rolling match state and two reference classes, computed in KQL on Azure Data Explorer |
+| **Explain** | [`form.py`](src/gegenpress/form.py), [`signal.py`](src/gegenpress/signal.py), [`agents.py`](src/gegenpress/agents.py) | Significance measured, not asserted — and refused where it isn't supportable |
+| **Render** | [`docs/index.html`](docs/index.html), [`feed.py`](src/gegenpress/feed.py) | Studio console and a timed, machine-readable overlay cue feed |
+| **Personalize** | `FollowTarget()`, Analyst/Fan modes | Follow modes bound to a role, not a dropdown |
 
-| Job | How the delta is used |
-| --- | --- |
-| Explain | "Recovery in 4.2s — expected 6.5s" |
-| Render | Moments are ranked by how far they sit into the good tail |
-| Personalize | Follow whoever is beating expectation hardest right now |
+## Quickstart
 
-## The Form Line
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install pytest
 
-A league percentile tells you a press was fast. The Form Line tells you it was fast **for him**.
+PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
+PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
+PYTHONPATH=src python -m gegenpress calibrate   # realism report
+PYTHONPATH=src python -m pytest -q              # 43 tests
+
+PYTHONPATH=src python -m gegenpress feed
+python -m http.server -d docs 8000              # the console at localhost:8000
+```
+
+---
+
+## The idea: two reference classes
+
+Commentary is comparative, and there is more than one thing to compare against.
 
 ```
 * Mateo Oyelaran: pass range 15.2 tonight against a season norm of
@@ -28,137 +45,108 @@ A league percentile tells you a press was fast. The Form Line tells you it was f
     league percentile 61%   effect 0.50 SD of league spread
 ```
 
-Sixty-first percentile is unremarkable. Against his own season it is a big night. That is the sentence a commentator reaches for, and it needs a season of persistent players to be sayable at all.
+Sixty-first percentile is unremarkable. Against his own season it is a big night. That second sentence needs a season of **persistent players** to be sayable at all, and it is the thing this project exists to say.
 
-**The unit is the match, not the event.** A personal best fires about eight times a match and is almost always league-exceptional too, so at the single-event level the second number adds nothing. Match form is where the two separate — and "he's been everywhere tonight" was always a claim about a match.
+**The unit is the match, not the event.** A personal best fires about eight times a match and is almost always league-exceptional too, so at the single-event level the second number adds nothing. Match form is where the two separate.
 
-**Form is a z-score, not a percentage.** A player makes ~90 passes a match but ~10 carries, so the same percentage swing is routine in one and extraordinary in the other. The z-score against that player's own distribution of match means puts every metric on one scale.
+**Form is a z-score, not a percentage.** A player makes ~90 passes a match but ~10 carries, so the same percentage swing is routine in one and extraordinary in the other.
 
-**Statistical significance is not narrative significance.** A tight distribution means a 0.4 m/s drop can clear 2 SD while being invisible to a viewer. A claim must also be material — at least 0.25 of the league's spread — before it is surfaced.
+**Statistical significance is not narrative significance.** A tight distribution means a 0.4 m/s drop can clear 2 SD while being invisible to a viewer, so a claim must also move at least 0.25 of the league's spread before it is surfaced.
 
 ### The system refuses claims it cannot support
 
-Not every metric can carry a personal claim. `recovery_time_s` measures how long a possession lasted, which is a property of the match rather than of whoever won the ball back — counter-pressing is a team behaviour. So the system measures between-player signal and refuses the claim when it is absent.
+Not every metric can carry a personal claim. `recovery_time` measures how long a possession lasted — a property of the match, not of whoever won the ball back. Counter-pressing is a team behaviour. So the system measures between-player signal and declines the claim where there is none.
 
 | metric | ICC | claims allowed |
 | --- | --- | --- |
-| top_speed_ms | 0.577 | personal + league |
-| ball_speed_ms | 0.452 | personal + league |
-| pass_distance_m | 0.112 | personal + league |
-| carry_distance_m | 0.097 | personal + league |
-| pass_difficulty | 0.022 | league only |
-| recovery_time_s | 0.006 | league only |
+| top speed | 0.577 | personal + league |
+| ball speed | 0.452 | personal + league |
+| pass range | 0.112 | personal + league |
+| carry range | 0.097 | personal + league |
+| pass difficulty | 0.022 | league only |
+| recovery time | 0.006 | league only |
 
-ICC is between-player variance over total variance: near zero means every player's distribution is the league's wearing his name.
+ICC is between-player variance over total variance; near zero means every player's distribution is the league's wearing his name. Computed identically in [`signal.py`](src/gegenpress/signal.py) and in KQL as `MetricSignal()`.
 
-Every entry in this field verifies that its numbers are true. This checks whether the *sentence is sayable* — a different and stricter question. `python -m gegenpress form` prints the whole thing.
+Every entry in this field verifies that its numbers are true. This checks whether the **sentence is sayable** — a different and stricter question.
 
-## Two reference classes
+---
 
-Commentary is comparative, but there is more than one thing to compare against:
+## Architecture
 
-- **Population** — "beats 99.8% of the league." Statcast's expected-stats framing.
-- **Personal** — "his season best; his average is 17.6m." What a commentator actually says.
-
-The second only means anything because players carry **permanent attributes** across the whole season, so match-to-match variation is real variation around a real ability rather than two draws from the same noise. `tests/test_season.py::test_player_attributes_persist_across_the_season` pins that premise, and `test_better_passers_complete_more_passes` proves attributes actually drive outcomes.
-
-## Quickstart
-
-```bash
-PYTHONPATH=src python3 -m gegenpress demo          # season + one live match, narrated
-PYTHONPATH=src python3 -m gegenpress calibrate     # realism report
-PYTHONPATH=src python3 -m gegenpress season --out data   # write events.jsonl + baselines
-PYTHONPATH=src python3 -m pytest tests/ -q
+```
+season generator ──> Azure Data Explorer (KQL) ──> agents ──> console
+  persistent          Ground, MatchState,          Scout        overlay cues
+  squad, seeded       MetricSignal, FollowTarget   Why          follow modes
+                                                   Desk
+                                                   Gate
 ```
 
-A 90-match season is ~150,000 events and takes about 2.5 seconds.
+Match state sits behind one interface with two implementations — `LocalStore` in Python and `AdxStore` running the KQL. The agent layer talks to the interface and does not know which is behind it, so the pipeline is never blocked on a cloud resource.
 
-## Realism report
+### Azure services actually in the request path
 
-The generator is tuned on seed 2026 and checked against widely reported top-flight per-match averages. These are plausibility targets for synthetic output — no real data is ingested.
-
-| metric | observed | target | tolerance | result |
-| --- | --- | --- | --- | --- |
-| goals_per_match | 2.53 | 2.80 | 0.60 | pass |
-| shots_per_match | 26.74 | 25.00 | 7.00 | pass |
-| passes_per_match | 996.68 | 900.00 | 180.00 | pass |
-| pass_accuracy | 0.83 | 0.82 | 0.06 | pass |
-| mean_shot_xg | 0.10 | 0.10 | 0.04 | pass |
-| recoveries_per_match | 240.03 | 210.00 | 70.00 | pass |
-| events_per_match | 1662.29 | 2000.00 | 900.00 | pass |
-
-**7/7 passing, and the suite re-runs the whole check on seeds 7, 404 and 11111 — seeds the generator was never tuned against.** Calibration that only holds on its own tuning seed is not calibration.
-
-## The match state layer
-
-Match state lives behind one interface with two implementations:
-
-| | Backend | Needs Azure |
+| Service | Role | Status |
 | --- | --- | --- |
-| `LocalStore` | pure Python, mirrors the KQL | no |
-| `AdxStore` | Azure Data Explorer / Fabric Eventhouse | yes |
+| **Azure Data Explorer** | Event store; all match-state and grounding queries | **Verified on a live free cluster** — 153,041 events, 10/10 functions |
+| Microsoft Foundry | Model for the Desk agent | Adapter written ([`agents.py`](src/gegenpress/agents.py)); falls back to deterministic templates when unconfigured |
+
+The KQL is plain Kusto and runs unchanged on a Fabric Eventhouse; only the connection string differs.
+
+**Known limitation, stated rather than hidden:** a free ADX cluster refuses `.alter table ... policy streamingingestion enable`, so ingestion is queued and events are queryable after a minute or two rather than instantly. The architecture is right for live play; the free tier isn't. On a paid cluster or an Eventhouse, enable streaming in [`kql/01_schema.kql`](kql/01_schema.kql).
+
+### Running it against Azure
 
 ```bash
-python -m gegenpress state                      # local, always works
-export ADX_CLUSTER=https://<you>.kusto.windows.net
-python -m gegenpress ingest --bootstrap --load  # create schema, load a season
-python -m gegenpress state --adx                # same output, served by KQL
+pip install azure-kusto-data azure-kusto-ingest
+export ADX_CLUSTER="https://<cluster>.kusto.windows.net"
+export ADX_DATABASE="gegenpress"
+
+PYTHONPATH=src python -m gegenpress ingest --bootstrap --reset --load
+PYTHONPATH=src python -m gegenpress doctor      # row counts + every function
+PYTHONPATH=src python -m gegenpress state --adx
 ```
 
-The agent layer talks to the interface and does not know which is behind it. That is deliberate: the pipeline is never blocked on a cloud resource, and the demo has a working fallback if a quota bites on the day.
+---
 
-The real analytics are in [`kql/02_functions.kql`](kql/02_functions.kql) — `Ground()` scores a live value against both reference classes using 101 percentile cut points, `MatchState()` computes rolling team state including the namesake `gegenpress_idx`, and `FollowTarget()` makes "follow whoever is beating expectation hardest right now" a query rather than a dropdown. All of it is plain KQL and runs unchanged on a Fabric Eventhouse; only the connection string differs.
+## Evidence
 
-Two implementations of the same semantics will drift, so `tests/test_store.py::test_local_and_adx_agree` checks they return the same ranked moments. It skips when `ADX_CLUSTER` is unset, so CI stays green without Azure. **The KQL is unverified until it has run against a real cluster** — the parity test is how that gets confirmed, not an assumption.
+**Realism.** The generator is tuned on seed 2026 and checked against reported top-flight per-match averages. These are plausibility targets for synthetic output; no real data is ingested.
+
+| metric | observed | target | tolerance |
+| --- | --- | --- | --- |
+| goals per match | 2.53 | 2.80 | 0.60 |
+| shots per match | 26.7 | 25.0 | 7.0 |
+| passes per match | 997 | 900 | 180 |
+| pass accuracy | 0.83 | 0.82 | 0.06 |
+| mean shot xG | 0.10 | 0.10 | 0.04 |
+| recoveries per match | 240 | 210 | 70 |
+
+**7/7, and the suite re-runs the whole check on seeds 7, 404 and 11111 — seeds the generator was never tuned against.** Calibration that only holds on its own tuning seed is not calibration.
+
+**Parity.** `tests/test_store.py::test_local_and_adx_agree` compares the Python implementation's ranked moments against the KQL's. It skips when `ADX_CLUSTER` is unset so CI stays green without Azure.
+
+**The load-bearing test.** `test_form_lines_diverge_from_league_percentile`, across three seeds, asserts that moments exist which are strong for the player but ordinary league-wide. If that ever stops being true the Form Line is decoration and the project has no differentiator — which was literally true of an earlier version of the model.
+
+**Documented holes.** Two `xfail` tests in [`tests/test_agents.py`](tests/test_agents.py) pin what the Gate *cannot* do: it reads digits rather than words, and it checks that a number is present in the brief rather than correctly attached to the right thing. It removes invented numbers; it does not make the sentence true. Those are different claims and only the first is made.
+
+---
 
 ## Layout
 
 ```
 src/gegenpress/
   models.py      typed event contract; what KQL ingests
-  names.py       invented clubs and players
   season.py      persistent league, squads, fixtures
   simulate.py    possession-chain match simulation
-  baselines.py   the two reference classes, and grounding
-  calibrate.py   realism checks against football-realistic targets
+  baselines.py   population and personal reference classes
+  signal.py      per-metric ICC; which claims are supportable
+  form.py        the Form Line
+  agents.py      Scout, Why, Desk, Gate
   store.py       Store interface + LocalStore
-  adx.py         Azure Data Explorer backend and season ingestion
-  cli.py         season / demo / state / ingest / calibrate
-kql/
-  01_schema.kql     tables, mappings, streaming ingestion policy
-  02_functions.kql  Ground, TopMoments, MatchState, FollowTarget
+  adx.py         Azure Data Explorer backend, ingestion, doctor
+  feed.py        broadcast feed and overlay cues
+  calibrate.py   realism checks
+kql/             schema and eleven KQL functions
+docs/            the studio console (served by GitHub Pages)
 ```
-
-## Event contract
-
-Every event is flat and ready for streaming ingestion:
-
-```json
-{
-  "event_id": "m01-ash-jar-e00412", "match_id": "m01-ash-jar",
-  "period": 1, "clock": 1287.4, "minute": 21,
-  "team_id": "ash", "player_id": "ash-08", "type": "pass",
-  "x": 44.2, "y": 31.8, "end_x": 61.9, "end_y": 24.1, "outcome": true,
-  "detail": {
-    "pass_distance_m": 21.4, "pass_difficulty": 0.512,
-    "ball_speed_ms": 17.9, "pressure_count": 2,
-    "receiver_id": "ash-11", "progressive": true
-  }
-}
-```
-
-`pass_difficulty` is a documented weighted function of distance, pressure and forwardness — deliberately transparent so the explanation layer can cite how it was derived rather than asserting it.
-
-## Design notes
-
-- **Deterministic.** Same seed, same league, same events, always. Tests pin it.
-- **Attributes drive outcomes.** Pass completion is a function of difficulty and the passer's permanent `passing` rating; shot conversion of a distance-and-angle xG and the shooter's `finishing`.
-- **Possession ends realistically.** Chains end on misplaced passes *and* on tackles, interceptions and the ball going out — without the second, recovery times grow an unrealistic tail. A test caught this.
-- **Direction matters.** Low recovery time is good; high pass difficulty is good. `rarity()` knows which tail is remarkable per metric.
-
-## Next
-
-1. ~~Stream events into Azure Data Explorer; port the rolling-window metrics to KQL.~~ Written; needs a cluster to verify.
-2. Agent layer on Microsoft Agent Framework + Foundry: Scout, Why, Desk, Gate.
-3. Expose match state over MCP.
-4. Studio console, overlay feed, role-bound follow modes.

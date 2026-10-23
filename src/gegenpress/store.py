@@ -144,7 +144,7 @@ class LocalStore:
                 "passes": 0, "passes_completed": 0, "progressive": 0, "shots": 0,
                 "xg": 0.0, "recoveries": 0, "high_recoveries": 0,
                 "pressure_events": 0, "_rec_sum": 0.0, "_rec_n": 0,
-                "_terr_sum": 0.0, "_terr_n": 0,
+                "final_third": 0, "touches": 0,
             })
             if e.type == "pass":
                 s["passes"] += 1
@@ -163,10 +163,12 @@ class LocalStore:
             elif e.type == "pressure":
                 s["pressure_events"] += 1
             if e.type in ("pass", "carry"):
-                s["_terr_sum"] += e.x
-                s["_terr_n"] += 1
+                s["touches"] += 1
+                if e.x > 70.0:
+                    s["final_third"] += 1
 
         out: dict[str, dict[str, float]] = {}
+        total_final_third = sum(s["final_third"] for s in teams.values())
         for team_id, s in teams.items():
             mean_recovery = s["_rec_sum"] / s["_rec_n"] if s["_rec_n"] else float("nan")
             gp = (
@@ -183,7 +185,11 @@ class LocalStore:
                 "high_recoveries": s["high_recoveries"],
                 "pressure_events": s["pressure_events"],
                 "mean_recovery_s": round(mean_recovery, 1) if s["_rec_n"] else None,
-                "territory": round(s["_terr_sum"] / s["_terr_n"], 1) if s["_terr_n"] else None,
+                # Share of all final-third touches in the window. Unlike a
+                # mean x, this is comparable between the two teams.
+                "field_tilt": (round(s["final_third"] / total_final_third, 3)
+                               if total_final_third else None),
+                "final_third_touches": s["final_third"],
                 "gegenpress_idx": round(gp, 3),
             }
         return out

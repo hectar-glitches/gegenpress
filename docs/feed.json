@@ -1,0 +1,382 @@
+{
+  "match": {
+    "id": "live-m01-ash-jar",
+    "home": {
+      "id": "ash",
+      "name": "Ashcombe United",
+      "short": "ASH",
+      "goals": 0
+    },
+    "away": {
+      "id": "jar",
+      "name": "Jarrowdale Park",
+      "short": "JAR",
+      "goals": 3
+    },
+    "events": 1606
+  },
+  "moments": [
+    {
+      "minute": 90,
+      "player": "Noor Kowalski",
+      "club": "Jarrowdale Park",
+      "metric": "pass range",
+      "text": "90' Noor Kowalski: pass range 14.94 tonight, against a season norm of 17.07.",
+      "value": 14.94,
+      "expected": 14.64,
+      "league_pct": 57.7,
+      "season_mean": 17.07,
+      "z": -2.48,
+      "appearances": 18,
+      "diverges": true,
+      "above": false,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    },
+    {
+      "minute": 90,
+      "player": "Oliver Marchetti",
+      "club": "Ashcombe United",
+      "metric": "ball speed",
+      "text": "90' Oliver Marchetti: ball speed 17.97 tonight, against a season norm of 17.4.",
+      "value": 17.97,
+      "expected": 16.69,
+      "league_pct": 75.7,
+      "season_mean": 17.4,
+      "z": 1.92,
+      "appearances": 18,
+      "diverges": true,
+      "above": true,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    },
+    {
+      "minute": 90,
+      "player": "Kwame Ferreira",
+      "club": "Jarrowdale Park",
+      "metric": "pass range",
+      "text": "90' Kwame Ferreira: pass range 16.16 tonight, against a season norm of 18.65.",
+      "value": 16.16,
+      "expected": 14.64,
+      "league_pct": 74.1,
+      "season_mean": 18.65,
+      "z": -1.83,
+      "appearances": 18,
+      "diverges": true,
+      "above": false,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    },
+    {
+      "minute": 90,
+      "player": "Amadou Esposito",
+      "club": "Ashcombe United",
+      "metric": "carry range",
+      "text": "90' Amadou Esposito: carry range 8.41 tonight, against a season norm of 11.99.",
+      "value": 8.41,
+      "expected": 9.34,
+      "league_pct": 33.7,
+      "season_mean": 11.99,
+      "z": -1.75,
+      "appearances": 13,
+      "diverges": true,
+      "above": false,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    },
+    {
+      "minute": 90,
+      "player": "Sunil Mbeki",
+      "club": "Jarrowdale Park",
+      "metric": "pass range",
+      "text": "90' Sunil Mbeki: pass range 13.51 tonight, against a season norm of 14.88.",
+      "value": 13.51,
+      "expected": 14.64,
+      "league_pct": 33.3,
+      "season_mean": 14.88,
+      "z": -1.58,
+      "appearances": 18,
+      "diverges": true,
+      "above": false,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    },
+    {
+      "minute": 90,
+      "player": "Tendai Varga",
+      "club": "Ashcombe United",
+      "metric": "carry range",
+      "text": "90' Tendai Varga: carry range 5.02 tonight, against a season norm of 9.18.",
+      "value": 5.02,
+      "expected": 9.34,
+      "league_pct": 2.4,
+      "season_mean": 9.18,
+      "z": -3.07,
+      "appearances": 9,
+      "diverges": false,
+      "above": false,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    },
+    {
+      "minute": 90,
+      "player": "Sunil Mbeki",
+      "club": "Jarrowdale Park",
+      "metric": "carry range",
+      "text": "90' Sunil Mbeki: carry range 7.1 tonight, against a season norm of 10.52.",
+      "value": 7.1,
+      "expected": 9.34,
+      "league_pct": 16.0,
+      "season_mean": 10.52,
+      "z": -2.85,
+      "appearances": 13,
+      "diverges": false,
+      "above": false,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    },
+    {
+      "minute": 90,
+      "player": "Oliver Marchetti",
+      "club": "Ashcombe United",
+      "metric": "pass range",
+      "text": "90' Oliver Marchetti: pass range 18.41 tonight, against a season norm of 15.89.",
+      "value": 18.41,
+      "expected": 14.64,
+      "league_pct": 92.9,
+      "season_mean": 15.89,
+      "z": 2.25,
+      "appearances": 18,
+      "diverges": false,
+      "above": true,
+      "grounded": true,
+      "model": "template",
+      "attempts": 1,
+      "fell_back": false
+    }
+  ],
+  "overlay": [
+    {
+      "cue_id": "cue-001",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Noor Kowalski: pass range 14.94 tonight, against a season norm of 17.07.",
+      "primary": "14.94",
+      "secondary": "his season norm 17.07",
+      "footnote": "-2.5 SD over 18 matches",
+      "player": "Noor Kowalski",
+      "club": "Jarrowdale Park",
+      "diverges": true
+    },
+    {
+      "cue_id": "cue-002",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Oliver Marchetti: ball speed 17.97 tonight, against a season norm of 17.4.",
+      "primary": "17.97",
+      "secondary": "his season norm 17.4",
+      "footnote": "+1.9 SD over 18 matches",
+      "player": "Oliver Marchetti",
+      "club": "Ashcombe United",
+      "diverges": true
+    },
+    {
+      "cue_id": "cue-003",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Kwame Ferreira: pass range 16.16 tonight, against a season norm of 18.65.",
+      "primary": "16.16",
+      "secondary": "his season norm 18.65",
+      "footnote": "-1.8 SD over 18 matches",
+      "player": "Kwame Ferreira",
+      "club": "Jarrowdale Park",
+      "diverges": true
+    },
+    {
+      "cue_id": "cue-004",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Amadou Esposito: carry range 8.41 tonight, against a season norm of 11.99.",
+      "primary": "8.41",
+      "secondary": "his season norm 11.99",
+      "footnote": "-1.8 SD over 13 matches",
+      "player": "Amadou Esposito",
+      "club": "Ashcombe United",
+      "diverges": true
+    },
+    {
+      "cue_id": "cue-005",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Sunil Mbeki: pass range 13.51 tonight, against a season norm of 14.88.",
+      "primary": "13.51",
+      "secondary": "his season norm 14.88",
+      "footnote": "-1.6 SD over 18 matches",
+      "player": "Sunil Mbeki",
+      "club": "Jarrowdale Park",
+      "diverges": true
+    },
+    {
+      "cue_id": "cue-006",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Tendai Varga: carry range 5.02 tonight, against a season norm of 9.18.",
+      "primary": "5.02",
+      "secondary": "his season norm 9.18",
+      "footnote": "-3.1 SD over 9 matches",
+      "player": "Tendai Varga",
+      "club": "Ashcombe United",
+      "diverges": false
+    },
+    {
+      "cue_id": "cue-007",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Sunil Mbeki: carry range 7.1 tonight, against a season norm of 10.52.",
+      "primary": "7.1",
+      "secondary": "his season norm 10.52",
+      "footnote": "-2.9 SD over 13 matches",
+      "player": "Sunil Mbeki",
+      "club": "Jarrowdale Park",
+      "diverges": false
+    },
+    {
+      "cue_id": "cue-008",
+      "at_second": 5400.0,
+      "duration": 6.0,
+      "kind": "form",
+      "headline": "90' Oliver Marchetti: pass range 18.41 tonight, against a season norm of 15.89.",
+      "primary": "18.41",
+      "secondary": "his season norm 15.89",
+      "footnote": "+2.2 SD over 18 matches",
+      "player": "Oliver Marchetti",
+      "club": "Ashcombe United",
+      "diverges": false
+    }
+  ],
+  "state": {
+    "JAR": {
+      "passes": 501,
+      "pass_accuracy": 0.872,
+      "progressive": 153,
+      "shots": 22,
+      "xg": 1.671,
+      "recoveries": 103,
+      "high_recoveries": 26,
+      "pressure_events": 159,
+      "mean_recovery_s": 31.3,
+      "field_tilt": 0.639,
+      "final_third_touches": 295,
+      "gegenpress_idx": 0.299
+    },
+    "ASH": {
+      "passes": 450,
+      "pass_accuracy": 0.842,
+      "progressive": 143,
+      "shots": 7,
+      "xg": 0.987,
+      "recoveries": 89,
+      "high_recoveries": 18,
+      "pressure_events": 120,
+      "mean_recovery_s": 23.5,
+      "field_tilt": 0.361,
+      "final_third_touches": 167,
+      "gegenpress_idx": 0.316
+    }
+  },
+  "follow": [
+    {
+      "player": "Tobias Beaumont",
+      "club": "JAR",
+      "position": "DF",
+      "score": 0.5077
+    },
+    {
+      "player": "Amadou Esposito",
+      "club": "ASH",
+      "position": "FW",
+      "score": 0.503
+    },
+    {
+      "player": "Nico Beaumont",
+      "club": "JAR",
+      "position": "DF",
+      "score": 0.4961
+    },
+    {
+      "player": "Bruno Thackeray",
+      "club": "ASH",
+      "position": "FW",
+      "score": 0.4696
+    },
+    {
+      "player": "Oliver Marchetti",
+      "club": "ASH",
+      "position": "MF",
+      "score": 0.343
+    },
+    {
+      "player": "Elias Lombardi",
+      "club": "ASH",
+      "position": "MF",
+      "score": 0.3147
+    }
+  ],
+  "signal": [
+    {
+      "metric": "top speed",
+      "icc": 0.5772,
+      "personal": true
+    },
+    {
+      "metric": "ball speed",
+      "icc": 0.4515,
+      "personal": true
+    },
+    {
+      "metric": "pass range",
+      "icc": 0.1117,
+      "personal": true
+    },
+    {
+      "metric": "carry range",
+      "icc": 0.0974,
+      "personal": true
+    },
+    {
+      "metric": "pass difficulty",
+      "icc": 0.022,
+      "personal": false
+    },
+    {
+      "metric": "recovery time",
+      "icc": 0.0057,
+      "personal": false
+    }
+  ],
+  "meta": {
+    "season_matches": 90,
+    "season_events": 151435
+  }
+}

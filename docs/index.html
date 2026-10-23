@@ -344,7 +344,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
 }).catch(e => {
   $('#moment').innerHTML =
     `<p class="said">No feed found. Run <code>python -m gegenpress feed</code>, ` +
-    `then serve this folder: <code>python -m http.server -d web 8000</code></p>`;
+    `then serve this folder: <code>python -m http.server -d docs 8000</code></p>`;
 });
 </script>
 </body>

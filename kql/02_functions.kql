@@ -172,10 +172,18 @@ MatchState(liveMatch:string, asOfMinute:int = 120, windowMinutes:int = 15) {
         high_recoveries   = countif(type == "recovery" and tobool(detail["in_final_third"]) == true),
         pressure_events   = countif(type == "pressure"),
         mean_recovery_s   = avgif(todouble(detail["recovery_time_s"]), type == "recovery"),
-        territory         = avgif(x, type in ("pass", "carry"))
+        // x is relative to the team in possession, so a mean x cannot
+        // separate the two teams. Count final-third touches instead and
+        // turn them into a share below.
+        final_third       = countif(type in ("pass", "carry") and x > 70.0)
       by team_id
+    | extend total_final_third = toscalar(
+        Events
+        | where match_id == liveMatch and minute <= asOfMinute and minute > lo
+        | summarize countif(type in ("pass", "carry") and x > 70.0))
     | extend
         pass_accuracy  = todouble(passes_completed) / todouble(passes),
+        field_tilt     = round(todouble(final_third) / todouble(total_final_third), 3),
         // Counter-pressing intensity: high recoveries and fast turnarounds
         // in the same window. The namesake metric.
         gegenpress_idx = round(
@@ -184,7 +192,7 @@ MatchState(liveMatch:string, asOfMinute:int = 120, windowMinutes:int = 15) {
     | project team_id, passes, pass_accuracy, progressive, shots, xg = round(xg, 3),
               recoveries, high_recoveries, pressure_events,
               mean_recovery_s = round(mean_recovery_s, 1),
-              territory = round(territory, 1), gegenpress_idx
+              field_tilt, final_third_touches = final_third, gegenpress_idx
 }
 
 //
