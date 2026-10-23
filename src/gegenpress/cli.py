@@ -15,6 +15,7 @@ import time
 from .baselines import METRICS, build_baselines, ground, rarity
 from .calibrate import report, run_checks
 from .agents import get_model, run_desk
+from .feed import build_feed, write_feed
 from .signal import measure_signal, report as signal_report
 from .store import LocalStore, get_store
 from .season import build_league
@@ -231,6 +232,33 @@ def cmd_desk(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_feed(args: argparse.Namespace) -> int:
+    """Build the broadcast feed the console and overlay render."""
+    import pathlib
+
+    league = build_league(seed=args.seed)
+    season = simulate_season(league, seed=args.seed)
+    store = LocalStore()
+    store.load_season(league, season)
+    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+
+    model = get_model(prefer_foundry=args.foundry or None)
+    feed = build_feed(store, league, live, season, model=model, limit=args.limit)
+
+    out = pathlib.Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_feed(str(out), feed)
+
+    m = feed["match"]
+    print(f"model: {model.name}")
+    print(f"{m['home']['name']} {m['home']['goals']} - "
+          f"{m['away']['goals']} {m['away']['name']}")
+    print(f"{len(feed['moments'])} moments, {len(feed['overlay'])} overlay cues, "
+          f"{sum(1 for x in feed['moments'] if x['diverges'])} diverging")
+    print(f"written to {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gegenpress")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -268,6 +296,13 @@ def main(argv: list[str] | None = None) -> int:
     dk.add_argument("--limit", type=int, default=6)
     dk.add_argument("--foundry", action="store_true", help="force the Foundry model")
     dk.set_defaults(func=cmd_desk)
+
+    fd = sub.add_parser("feed", help="build the broadcast feed JSON")
+    fd.add_argument("--seed", type=int, default=2026)
+    fd.add_argument("--limit", type=int, default=8)
+    fd.add_argument("--out", default="web/feed.json")
+    fd.add_argument("--foundry", action="store_true")
+    fd.set_defaults(func=cmd_feed)
 
     c = sub.add_parser("calibrate", help="check the season against football-realistic targets")
     c.add_argument("--seed", type=int, default=2026)

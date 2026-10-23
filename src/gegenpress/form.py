@@ -102,6 +102,11 @@ class FormLine:
     events_this_match: int
     league_percentile: float  # where tonight's mean sits among all player-matches
     effect_vs_league_sd: float  # |shift| as a fraction of league spread
+    league_mean: float          # the league's own norm for this metric
+
+    @property
+    def above_own_level(self) -> bool:
+        return self.z > 0
 
     @property
     def notable(self) -> bool:
@@ -179,6 +184,7 @@ def form_lines(
         if direction == "low_is_good":
             pct = 1.0 - pct
 
+        league_mean = st.fmean(league) if league else float("nan")
         league_sd = st.pstdev(league) if len(league) > 1 else 0.0
         effect = abs(match_mean - season_mean) / league_sd if league_sd > 0 else 0.0
 
@@ -194,6 +200,7 @@ def form_lines(
             events_this_match=len(values),
             league_percentile=round(pct, 4),
             effect_vs_league_sd=round(effect, 3),
+            league_mean=round(league_mean, 2),
         ))
 
     out.sort(key=lambda f: -abs(f.z))

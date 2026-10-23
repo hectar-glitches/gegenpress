@@ -233,12 +233,18 @@ class Why:
         other = (live.away_club_id if player.club_id == live.home_club_id
                  else live.home_club_id)
         notes = []
-        if form.diverges:
+        if form.diverges and form.above_own_level:
             notes.append(
-                "angle: unremarkable by league standards, exceptional for him"
+                "angle: unremarkable by league standards, well above his own level"
             )
-        elif abs(form.z) >= 2.0:
-            notes.append("angle: a clear outlier even by league standards")
+        elif form.diverges:
+            notes.append(
+                "angle: ordinary by league standards, but well below his own level"
+            )
+        elif form.above_own_level:
+            notes.append("angle: above his own level and the league's")
+        else:
+            notes.append("angle: below his own level")
         return Brief(
             minute=90,
             player_name=player.name,
@@ -246,7 +252,7 @@ class Why:
             opponent_name=self.league.club(other).name,
             metric_label=METRIC_LABELS.get(form.metric, form.metric),
             value=form.match_mean,
-            expected=round(form.season_mean, 2),
+            expected=form.league_mean,
             beats_pct=form.league_percentile * 100.0,
             season_mean=form.season_mean,
             z=form.z,

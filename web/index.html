@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gegenpress — Studio</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#131a22; --panel2:#0f151c; --line:#1e2730;
+    --ink:#e9eef4; --mute:#8d9aa9; --dim:#5f6d7c;
+    --accent:#ffb020; --good:#3ddc84; --cool:#5aa9ff;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); min-height:100vh;
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1480px;margin:0 auto;padding:20px 24px 48px}
+
+  /* ---- scoreboard ---- */
+  header{
+    display:flex;align-items:center;gap:22px;
+    padding:16px 20px;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;margin-bottom:18px;
+  }
+  .brand{font-weight:700;letter-spacing:.14em;font-size:12px;color:var(--accent)}
+  .brand span{color:var(--dim);font-weight:500;margin-left:8px;letter-spacing:.04em}
+  .score{display:flex;align-items:center;gap:14px;margin-left:auto}
+  .club{font-weight:600;font-size:15px}
+  .goals{
+    font:700 26px/1 var(--mono);background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:7px 13px;
+  }
+  .clock{font:600 13px var(--mono);color:var(--mute);
+    border-left:1px solid var(--line);padding-left:18px;margin-left:4px}
+
+  /* ---- modes ---- */
+  .modes{display:flex;gap:6px;margin-bottom:18px}
+  .modes button{
+    font:600 12px/1 inherit;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--mute);background:var(--panel);border:1px solid var(--line);
+    padding:9px 16px;border-radius:7px;cursor:pointer;transition:.12s;
+  }
+  .modes button:hover{color:var(--ink);border-color:#2b3744}
+  .modes button[aria-pressed=true]{
+    color:#0b0f14;background:var(--accent);border-color:var(--accent);
+  }
+
+  /* ---- layout ---- */
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  .card h2{
+    font:600 11px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--dim);padding:15px 18px;border-bottom:1px solid var(--line);
+  }
+
+  /* ---- the moment ---- */
+  .moment{padding:24px 26px 26px}
+  .moment .who{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .moment .name{font-size:22px;font-weight:650;letter-spacing:-.01em}
+  .moment .meta{font-size:13px;color:var(--mute)}
+  .moment .said{
+    font-size:19px;line-height:1.45;margin:16px 0 22px;color:#f2f6fa;max-width:62ch;
+  }
+  .flag{
+    display:inline-flex;align-items:center;gap:7px;font:600 11px/1 inherit;
+    letter-spacing:.09em;text-transform:uppercase;color:var(--accent);
+    background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.32);
+    border-radius:999px;padding:6px 11px;margin-bottom:14px;
+  }
+  .flag.plain{color:var(--dim);background:transparent;border-color:var(--line)}
+  .flag.down{color:#ff6b6b;background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.32)}
+  .tonight{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+  .tval{font:700 44px/1 var(--mono);letter-spacing:-.03em}
+  .tlbl{font-size:13px;color:var(--mute)}
+
+  /* ---- the two numbers: the whole product ---- */
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.pair{grid-template-columns:1fr}}
+  .num{
+    background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:16px 18px;
+  }
+  .num.form{border-color:rgba(255,176,32,.42)}
+  .num.form.down{border-color:rgba(255,107,107,.42)}
+  .num.form.down .lbl{color:#ff6b6b}
+  .num.form.down .bar i{background:#ff6b6b}
+  .num .lbl{
+    font:600 10px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:11px;
+  }
+  .num.form .lbl{color:var(--accent)}
+  .num .big{font:700 30px/1 var(--mono);letter-spacing:-.02em}
+  .num .sub{font-size:13px;color:var(--mute);margin-top:8px}
+  .bar{height:4px;background:#1a222b;border-radius:2px;margin-top:13px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--cool);border-radius:2px}
+  .num.form .bar i{background:var(--accent)}
+
+  /* ---- why drawer ---- */
+  .why{border-top:1px solid var(--line);padding:18px 26px 22px}
+  .why h3{
+    font:600 11px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:14px;
+  }
+  .chain{display:flex;flex-direction:column;gap:9px}
+  .step{display:flex;gap:12px;align-items:flex-start;font-size:13.5px}
+  .step b{
+    font:600 10px/1.7 var(--mono);color:var(--dim);min-width:68px;
+    letter-spacing:.06em;text-transform:uppercase;flex-shrink:0;
+  }
+  .step span{color:var(--mute)}
+  .step code{font:12.5px var(--mono);color:var(--ink)}
+
+  /* ---- timeline ---- */
+  .tl{max-height:560px;overflow:auto}
+  .row{
+    display:block;width:100%;text-align:left;cursor:pointer;
+    padding:13px 18px;border:0;border-bottom:1px solid var(--line);
+    background:transparent;color:inherit;font:inherit;transition:.1s;
+  }
+  .row:hover{background:#171f28}
+  .row[aria-current=true]{background:#1a222c;box-shadow:inset 3px 0 0 var(--accent)}
+  .row .top{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
+  .row .min{font:600 11px var(--mono);color:var(--dim);min-width:30px}
+  .row .pn{font-weight:600;font-size:14px}
+  .row .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:auto}
+  .row .mt{font-size:12.5px;color:var(--mute);padding-left:39px}
+
+  /* ---- side panels ---- */
+  .list{padding:6px 0}
+  .item{
+    display:flex;align-items:center;gap:11px;
+    padding:10px 18px;font-size:13.5px;
+  }
+  .item .rank{font:600 11px var(--mono);color:var(--dim);min-width:16px}
+  .item .nm{font-weight:550}
+  .item .pos{font:600 10px var(--mono);color:var(--dim);
+    border:1px solid var(--line);border-radius:4px;padding:2px 5px}
+  .item .val{margin-left:auto;font:600 12px var(--mono);color:var(--cool)}
+  .item .yes{color:var(--good)}
+  .item .no{color:var(--dim)}
+  footer{margin-top:22px;font-size:12.5px;color:var(--dim);line-height:1.7}
+  footer code{font:12px var(--mono);color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">GEGENPRESS <span>studio</span></div>
+    <div class="score">
+      <span class="club" id="homeName">—</span>
+      <span class="goals" id="homeGoals">0</span>
+      <span class="goals" id="awayGoals">0</span>
+      <span class="club" id="awayName">—</span>
+      <span class="clock" id="clock">FT</span>
+    </div>
+  </header>
+
+  <div class="modes">
+    <button id="mAnalyst" aria-pressed="true">Analyst</button>
+    <button id="mFan" aria-pressed="false">Fan</button>
+  </div>
+
+  <div class="grid">
+    <div>
+      <section class="card">
+        <h2>On air</h2>
+        <div class="moment" id="moment"></div>
+        <div class="why" id="why"></div>
+      </section>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <section class="card">
+        <h2>Moments</h2>
+        <div class="tl" id="timeline"></div>
+      </section>
+      <section class="card">
+        <h2>Follow — biggest lift over own norm</h2>
+        <div class="list" id="follow"></div>
+      </section>
+      <section class="card">
+        <h2>Which metrics may carry a personal claim</h2>
+        <div class="list" id="signal"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let FEED = null, idx = 0, mode = 'analyst';
+
+const pct = v => (v == null ? '—' : Math.round(v) + '%');
+
+function renderMoment() {
+  const m = FEED.moments[idx];
+  if (!m) return;
+
+  // Direction matters: a player can diverge by being well BELOW his own
+  // level while looking ordinary league-wide. Labelling that "strong"
+  // would be simply wrong.
+  const flag = m.diverges
+    ? (m.above
+        ? `<div class="flag">\u25c6 Above his own level \u00b7 ordinary league-wide</div>`
+        : `<div class="flag down">\u25bc Below his own level \u00b7 ordinary league-wide</div>`)
+    : (m.above
+        ? `<div class="flag plain">Above his level and the league's</div>`
+        : `<div class="flag plain">Below his own level</div>`);
+
+  // The Form Line only exists where the metric earned a personal claim.
+  const hasForm = m.season_mean != null;
+  const formCard = hasForm ? `
+    <div class="num form${m.above ? '' : ' down'}">
+      <div class="lbl">Form line — his own season</div>
+      <div class="big">${m.z > 0 ? '+' : ''}${m.z} SD</div>
+      <div class="sub">his norm ${m.season_mean} · ${m.appearances} matches</div>
+      <div class="bar"><i style="width:${Math.min(100, Math.abs(m.z) / 3 * 100)}%"></i></div>
+    </div>` : `
+    <div class="num">
+      <div class="lbl">Form line</div>
+      <div class="big" style="color:var(--dim);font-size:19px">Not supported</div>
+      <div class="sub">This metric carries no between-player signal, so no
+        personal claim is made.</div>
+    </div>`;
+
+  $('#moment').innerHTML = `
+    ${flag}
+    <div class="who">
+      <span class="name">${m.player}</span>
+      <span class="meta">${m.club} · ${m.minute}' · ${m.metric}</span>
+    </div>
+    <p class="said">${m.text}</p>
+    <div class="tonight">
+      <span class="tval">${m.value}</span>
+      <span class="tlbl">${m.metric} tonight</span>
+    </div>
+    <div class="pair">
+      <div class="num">
+        <div class="lbl">League</div>
+        <div class="big">${pct(m.league_pct)}</div>
+        <div class="sub">of the league beaten · norm ${m.expected}</div>
+        <div class="bar"><i style="width:${m.league_pct}%"></i></div>
+      </div>
+      ${formCard}
+    </div>`;
+
+  const chain = [
+    ['Measured', `<code>${m.metric} = ${m.value}</code> at ${m.minute}'`],
+    ['League', `expected <code>${m.expected}</code>, this beats <code>${pct(m.league_pct)}</code> of all recorded values`],
+  ];
+  if (hasForm) {
+    chain.push(['His season',
+      `norm <code>${m.season_mean}</code> across <code>${m.appearances}</code> matches, tonight is <code>${m.z > 0 ? '+' : ''}${m.z} SD</code>`]);
+    chain.push(['Why it matters', m.diverges
+      ? (m.above
+          ? 'Unremarkable against the league, clearly above his own level — the contrast is the story.'
+          : 'Unremarkable against the league, but well below his own level — a drop only his own history reveals.')
+      : (m.above ? 'Above his own level and the league’s.'
+                 : 'Below his own level.')]);
+  } else {
+    chain.push(['Refused',
+      'No personal claim: this metric has no between-player signal, so “his best” would be league noise under his name.']);
+  }
+  chain.push(['Gate', m.grounded
+    ? `every number verified against the brief · <code>${m.model}</code> · ${m.attempts} attempt(s)`
+    : `model used an unsupported number · fell back to template`]);
+
+  $('#why').innerHTML = `<h3>Why</h3><div class="chain">` +
+    chain.map(([k, v]) => `<div class="step"><b>${k}</b><span>${v}</span></div>`).join('') +
+    `</div>`;
+
+  document.querySelectorAll('.row').forEach((r, i) =>
+    r.setAttribute('aria-current', i === idx));
+}
+
+function renderTimeline() {
+  $('#timeline').innerHTML = FEED.moments.map((m, i) => `
+    <button class="row" aria-current="${i === idx}">
+      <div class="top">
+        <span class="min">${m.minute}'</span>
+        <span class="pn">${m.player}</span>
+        ${m.diverges ? '<span class="dot"></span>' : ''}
+      </div>
+      <div class="mt">${m.metric} · ${m.value} vs ${m.season_mean ?? m.expected}</div>
+    </button>`).join('');
+  document.querySelectorAll('.row').forEach((r, i) =>
+    r.onclick = () => { idx = i; renderMoment(); });
+}
+
+function renderSide() {
+  $('#follow').innerHTML = FEED.follow.map((f, i) => `
+    <div class="item">
+      <span class="rank">${i + 1}</span>
+      <span class="nm">${f.player}</span>
+      <span class="pos">${f.position}</span>
+      <span class="val">${f.score.toFixed(3)}</span>
+    </div>`).join('');
+
+  $('#signal').innerHTML = FEED.signal.map(s => `
+    <div class="item">
+      <span class="nm">${s.metric}</span>
+      <span class="val ${s.personal ? 'yes' : 'no'}">
+        ${s.personal ? 'personal + league' : 'league only'}
+      </span>
+    </div>`).join('');
+}
+
+function setMode(next) {
+  mode = next;
+  $('#mAnalyst').setAttribute('aria-pressed', mode === 'analyst');
+  $('#mFan').setAttribute('aria-pressed', mode === 'fan');
+  // Fan mode hides the working; the claim stays identical.
+  const hide = mode === 'fan';
+  $('#why').style.display = hide ? 'none' : '';
+  document.querySelectorAll('.card').forEach(c => {
+    if (c.querySelector('#signal') || c.querySelector('#follow'))
+      c.style.display = hide ? 'none' : '';
+  });
+}
+
+fetch('feed.json').then(r => r.json()).then(d => {
+  FEED = d;
+  $('#homeName').textContent = d.match.home.name;
+  $('#awayName').textContent = d.match.away.name;
+  $('#homeGoals').textContent = d.match.home.goals;
+  $('#awayGoals').textContent = d.match.away.goals;
+  renderTimeline(); renderMoment(); renderSide();
+  const diverging = d.moments.filter(m => m.diverges).length;
+  $('#foot').innerHTML =
+    `Grounded against a synthetic season of <code>${d.meta.season_matches}</code> matches and ` +
+    `<code>${d.meta.season_events.toLocaleString()}</code> events. ` +
+    `<code>${diverging}</code> of <code>${d.moments.length}</code> moments are strong for the player ` +
+    `but ordinary league-wide — the case a league percentile alone cannot surface.<br>` +
+    `All clubs, players and matches are synthetic. No real match data is used.`;
+  $('#mAnalyst').onclick = () => setMode('analyst');
+  $('#mFan').onclick = () => setMode('fan');
+}).catch(e => {
+  $('#moment').innerHTML =
+    `<p class="said">No feed found. Run <code>python -m gegenpress feed</code>, ` +
+    `then serve this folder: <code>python -m http.server -d web 8000</code></p>`;
+});
+</script>
+</body>
+</html>
