@@ -83,6 +83,18 @@ class MatchSimulator:
         w = [weights.get(p.position, 1.0) for p in squad]
         return self.rng.choices(squad, weights=w, k=1)[0]
 
+    def _pick_presser(self, team_id: str) -> Player:
+        """Who wins the ball back, weighted by pressing ability.
+
+        Position alone would give every player the league's recovery
+        distribution. Weighting by the pressing attribute is what makes a
+        player's own recovery history mean something.
+        """
+        squad = self.lineups[team_id]
+        base = {"DF": 2.0, "MF": 2.0, "FW": 0.8, "GK": 0.3}
+        weights = [base.get(p.position, 1.0) * (0.2 + p.attributes.pressing) for p in squad]
+        return self.rng.choices(squad, weights=weights, k=1)[0]
+
     def _pressure_count(self, defending_team: str, x: float, stamina_drain: float) -> int:
         """How many defenders close the ball, driven by their pressing attribute."""
         squad = self.lineups[defending_team]
@@ -159,8 +171,9 @@ class MatchSimulator:
             # interceptions, fouls and the ball going out all end chains.
             # Without this, chains run far too long and the recovery-time
             # distribution grows an unrealistic tail.
+            presser = self._pick_presser(defending)
             if completed:
-                tackler_odds = 0.05 + 0.035 * pressure
+                tackler_odds = (0.03 + 0.03 * pressure) * (0.4 + 1.6 * presser.attributes.pressing)
                 if self.rng.random() < tackler_odds:
                     completed = False
 
@@ -173,7 +186,7 @@ class MatchSimulator:
                 recovery_time = None if last_turnover_at is None else round(now - last_turnover_at, 1)
                 last_turnover_at = now
 
-                winner = self._pick(defending, {"DF": 2.0, "MF": 2.0, "FW": 0.8, "GK": 0.3})
+                winner = presser
                 events.append(
                     Event(
                         event_id=self._next_id(),
@@ -228,8 +241,11 @@ class MatchSimulator:
     def _pass(self, carrier, team_id, x, y, clock, pressure):
         club = self.league.club(team_id)
         # Possession sides play shorter; counter sides go longer.
-        base = 28.0 - 14.0 * club.style
-        distance = max(4.0, self.rng.gauss(base, 8.0))
+        # Club style sets the team's shape; the passer's own ability moves
+        # it. Without the second term every player's distribution is the
+        # league's, and the personal reference class carries no signal.
+        base = 20.0 - 8.0 * club.style + 18.0 * (carrier.attributes.passing - 0.5)
+        distance = max(4.0, self.rng.gauss(base, 5.5))
         angle = self.rng.gauss(0.0, 1.5)
         nx = min(PITCH_LENGTH - 1, max(1.0, x + distance * math.cos(angle)))
         ny = min(PITCH_WIDTH - 1, max(1.0, y + distance * math.sin(angle)))
@@ -245,7 +261,8 @@ class MatchSimulator:
         completed = self.rng.random() < p_complete
 
         receiver = self._pick(team_id)
-        ball_speed = round(max(6.0, self.rng.gauss(14.0 + 0.18 * actual, 2.5)), 1)
+        ball_speed = round(max(6.0, self.rng.gauss(
+            9.0 + 0.16 * actual + 9.0 * carrier.attributes.passing, 1.6)), 1)
 
         event = Event(
             event_id=self._next_id(),
@@ -272,10 +289,10 @@ class MatchSimulator:
         return event, nx, ny, completed, receiver
 
     def _carry(self, carrier, team_id, x, y, clock, pressure):
-        gain = max(1.0, self.rng.gauss(6.0 + 8.0 * carrier.attributes.pace, 3.0))
+        gain = max(1.0, self.rng.gauss(4.0 + 11.0 * carrier.attributes.pace, 2.2))
         nx = min(PITCH_LENGTH - 1, x + gain)
         ny = min(PITCH_WIDTH - 1, max(1.0, y + self.rng.gauss(0, 4)))
-        speed = round(max(2.0, self.rng.gauss(4.5 + 4.0 * carrier.attributes.pace, 0.9)), 2)
+        speed = round(max(2.0, self.rng.gauss(4.0 + 5.5 * carrier.attributes.pace, 0.7)), 2)
         event = Event(
             event_id=self._next_id(),
             match_id=self.fixture.match_id,

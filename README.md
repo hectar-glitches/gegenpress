@@ -18,6 +18,41 @@ Simulate a full season offline. Now every live event carries an **expected-vs-ac
 | Render | Moments are ranked by how far they sit into the good tail |
 | Personalize | Follow whoever is beating expectation hardest right now |
 
+## The Form Line
+
+A league percentile tells you a press was fast. The Form Line tells you it was fast **for him**.
+
+```
+* Mateo Oyelaran: pass range 15.2 tonight against a season norm of
+  13.9 (+1.9 SD over 18 matches).
+    league percentile 61%   effect 0.50 SD of league spread
+```
+
+Sixty-first percentile is unremarkable. Against his own season it is a big night. That is the sentence a commentator reaches for, and it needs a season of persistent players to be sayable at all.
+
+**The unit is the match, not the event.** A personal best fires about eight times a match and is almost always league-exceptional too, so at the single-event level the second number adds nothing. Match form is where the two separate — and "he's been everywhere tonight" was always a claim about a match.
+
+**Form is a z-score, not a percentage.** A player makes ~90 passes a match but ~10 carries, so the same percentage swing is routine in one and extraordinary in the other. The z-score against that player's own distribution of match means puts every metric on one scale.
+
+**Statistical significance is not narrative significance.** A tight distribution means a 0.4 m/s drop can clear 2 SD while being invisible to a viewer. A claim must also be material — at least 0.25 of the league's spread — before it is surfaced.
+
+### The system refuses claims it cannot support
+
+Not every metric can carry a personal claim. `recovery_time_s` measures how long a possession lasted, which is a property of the match rather than of whoever won the ball back — counter-pressing is a team behaviour. So the system measures between-player signal and refuses the claim when it is absent.
+
+| metric | ICC | claims allowed |
+| --- | --- | --- |
+| top_speed_ms | 0.577 | personal + league |
+| ball_speed_ms | 0.452 | personal + league |
+| pass_distance_m | 0.112 | personal + league |
+| carry_distance_m | 0.097 | personal + league |
+| pass_difficulty | 0.022 | league only |
+| recovery_time_s | 0.006 | league only |
+
+ICC is between-player variance over total variance: near zero means every player's distribution is the league's wearing his name.
+
+Every entry in this field verifies that its numbers are true. This checks whether the *sentence is sayable* — a different and stricter question. `python -m gegenpress form` prints the whole thing.
+
 ## Two reference classes
 
 Commentary is comparative, but there is more than one thing to compare against:
@@ -54,6 +89,28 @@ The generator is tuned on seed 2026 and checked against widely reported top-flig
 
 **7/7 passing, and the suite re-runs the whole check on seeds 7, 404 and 11111 — seeds the generator was never tuned against.** Calibration that only holds on its own tuning seed is not calibration.
 
+## The match state layer
+
+Match state lives behind one interface with two implementations:
+
+| | Backend | Needs Azure |
+| --- | --- | --- |
+| `LocalStore` | pure Python, mirrors the KQL | no |
+| `AdxStore` | Azure Data Explorer / Fabric Eventhouse | yes |
+
+```bash
+python -m gegenpress state                      # local, always works
+export ADX_CLUSTER=https://<you>.kusto.windows.net
+python -m gegenpress ingest --bootstrap --load  # create schema, load a season
+python -m gegenpress state --adx                # same output, served by KQL
+```
+
+The agent layer talks to the interface and does not know which is behind it. That is deliberate: the pipeline is never blocked on a cloud resource, and the demo has a working fallback if a quota bites on the day.
+
+The real analytics are in [`kql/02_functions.kql`](kql/02_functions.kql) — `Ground()` scores a live value against both reference classes using 101 percentile cut points, `MatchState()` computes rolling team state including the namesake `gegenpress_idx`, and `FollowTarget()` makes "follow whoever is beating expectation hardest right now" a query rather than a dropdown. All of it is plain KQL and runs unchanged on a Fabric Eventhouse; only the connection string differs.
+
+Two implementations of the same semantics will drift, so `tests/test_store.py::test_local_and_adx_agree` checks they return the same ranked moments. It skips when `ADX_CLUSTER` is unset, so CI stays green without Azure. **The KQL is unverified until it has run against a real cluster** — the parity test is how that gets confirmed, not an assumption.
+
 ## Layout
 
 ```
@@ -64,7 +121,12 @@ src/gegenpress/
   simulate.py    possession-chain match simulation
   baselines.py   the two reference classes, and grounding
   calibrate.py   realism checks against football-realistic targets
-  cli.py         season / demo / calibrate
+  store.py       Store interface + LocalStore
+  adx.py         Azure Data Explorer backend and season ingestion
+  cli.py         season / demo / state / ingest / calibrate
+kql/
+  01_schema.kql     tables, mappings, streaming ingestion policy
+  02_functions.kql  Ground, TopMoments, MatchState, FollowTarget
 ```
 
 ## Event contract
@@ -96,7 +158,7 @@ Every event is flat and ready for streaming ingestion:
 
 ## Next
 
-1. Stream `events.jsonl` into Azure Data Explorer; port the rolling-window metrics to KQL.
+1. ~~Stream events into Azure Data Explorer; port the rolling-window metrics to KQL.~~ Written; needs a cluster to verify.
 2. Agent layer on Microsoft Agent Framework + Foundry: Scout, Why, Desk, Gate.
 3. Expose match state over MCP.
 4. Studio console, overlay feed, role-bound follow modes.

@@ -129,6 +129,9 @@ class Grounding:
     personal_best: float | None
     personal_n: int
     is_personal_best: bool
+    # Set from signal.measure_signal(); when False the metric has no
+    # between-player signal and only league claims are permitted.
+    personal_claim_allowed: bool = True
 
     @property
     def remarkable(self) -> float:
@@ -151,7 +154,8 @@ class Grounding:
         return f"{player_name}: {lead}"
 
 
-def ground(baselines: Baselines, metric: str, player_id: str, value: float) -> Grounding:
+def ground(baselines: Baselines, metric: str, player_id: str, value: float,
+           personal_claim_allowed: bool = True) -> Grounding:
     """Score one live measurement against both reference classes."""
     _etype, _key, direction = METRICS[metric]
     pop = baselines.population.get(metric, Distribution())
@@ -175,6 +179,7 @@ def ground(baselines: Baselines, metric: str, player_id: str, value: float) -> G
         personal_best=personal_best,
         personal_n=personal.n if personal else 0,
         is_personal_best=is_best,
+        personal_claim_allowed=personal_claim_allowed,
     )
 
 

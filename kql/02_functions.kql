@@ -1,0 +1,221 @@
+// Gegenpress — the Interpret and Explain stages, in KQL.
+//
+// The design principle: significance is computed here, in the data layer,
+// against the season. The model downstream phrases a fact it was handed;
+// it never decides what matters.
+
+//
+// MetricSpecs — the single source of truth for what is measurable.
+// `direction` says which tail is remarkable: a LOW recovery time is good,
+// a HIGH pass difficulty is good.
+//
+.create-or-alter function with (docstring = "Measurable metrics and which tail is remarkable")
+MetricSpecs() {
+    datatable(metric:string, event_type:string, detail_key:string, direction:string)
+    [
+        "recovery_time_s",  "recovery", "recovery_time_s",  "low_is_good",
+        "pass_difficulty",  "pass",     "pass_difficulty",  "high_is_good",
+        "pass_distance_m",  "pass",     "pass_distance_m",  "high_is_good",
+        "ball_speed_ms",    "pass",     "ball_speed_ms",    "high_is_good",
+        "top_speed_ms",     "carry",    "top_speed_ms",     "high_is_good",
+        "carry_distance_m", "carry",    "carry_distance_m", "high_is_good",
+        "shot_speed_ms",    "shot",     "shot_speed_ms",    "high_is_good",
+        "xg",               "shot",     "xg",               "high_is_good"
+    ]
+}
+
+//
+// MetricValues — long form: one row per (event, metric). Everything else
+// builds on this.
+//
+.create-or-alter function with (docstring = "One row per measurable value, long form")
+MetricValues() {
+    Events
+    | join kind=inner MetricSpecs() on $left.type == $right.event_type
+    | extend value = todouble(detail[detail_key])
+    | where isnotnull(value)
+    | project event_id, match_id, minute, period, clock, player_id, team_id,
+              metric, value, direction, x, y
+}
+
+//
+// PopulationBaselines — the league-wide reference class.
+//
+// `excludeMatch` holds out the live match so the baseline never contains
+// the thing it is judging. 101 cut points give percentile resolution to
+// 1% at trivial cost.
+//
+.create-or-alter function with (docstring = "League-wide distribution per metric, live match held out")
+PopulationBaselines(excludeMatch:string = "") {
+    MetricValues()
+    | where match_id != excludeMatch
+    | summarize
+        n         = count(),
+        expected  = percentile(value, 50),
+        mean      = avg(value),
+        cuts      = percentiles_array(value, range(0, 100, 1))
+      by metric, direction
+}
+
+//
+// PlayerBaselines — the personal reference class.
+//
+// This is the one a commentator actually uses: "his best press in six
+// games". It is only meaningful because players carry permanent
+// attributes across the season.
+//
+.create-or-alter function with (docstring = "Per-player season distribution, live match held out")
+PlayerBaselines(excludeMatch:string = "") {
+    MetricValues()
+    | where match_id != excludeMatch
+    | summarize
+        personal_n       = count(),
+        personal_mean    = avg(value),
+        personal_median  = percentile(value, 50),
+        personal_min     = min(value),
+        personal_max     = max(value),
+        appearances      = dcount(match_id)
+      by player_id, metric, direction
+    | extend personal_best = iff(direction == "low_is_good", personal_min, personal_max)
+}
+
+//
+// Ground — score every measurement in a live match against both reference
+// classes. This is the complete, citable fact set the narrative layer is
+// allowed to assert, and nothing else.
+//
+.create-or-alter function with (docstring = "Live values scored against population and personal baselines")
+Ground(liveMatch:string) {
+    let pop = PopulationBaselines(liveMatch);
+    let per = PlayerBaselines(liveMatch);
+    MetricValues()
+    | where match_id == liveMatch
+    | join kind=inner pop on metric
+    // Percentile rank = how many of the 101 cut points this value clears.
+    | mv-apply cut = cuts to typeof(real) on (
+        summarize cuts_cleared = countif(cut <= value)
+      )
+    | extend population_percentile = todouble(cuts_cleared) / 101.0
+    // Share of the league beaten: for a low-is-good metric, a low value
+    // beats most of the field, so the percentile is inverted.
+    | extend beats = iff(direction == "low_is_good",
+                         1.0 - population_percentile,
+                         population_percentile)
+    | join kind=leftouter per on player_id, metric
+    | extend is_personal_best = iff(
+        isnull(personal_best), false,
+        iff(direction == "low_is_good", value <= personal_best, value >= personal_best))
+    | project
+        event_id, match_id, minute, period, clock, player_id, team_id,
+        metric, value, direction, x, y,
+        expected, population_n = n, population_percentile, beats,
+        personal_n, personal_mean, personal_best, appearances, is_personal_best
+}
+
+//
+// TopMoments — the Render stage's input: what is worth putting on screen.
+//
+.create-or-alter function with (docstring = "Live moments ranked by how far they sit into the good tail")
+TopMoments(liveMatch:string, minBeats:real = 0.97, take_n:int = 20) {
+    Ground(liveMatch)
+    | where beats >= minBeats
+    | order by beats desc
+    | take take_n
+}
+
+//
+// MatchState — rolling team state. The Interpret stage proper: not events,
+// but what the events add up to over a window.
+//
+// `windowMinutes` is the rolling horizon; 15 reads as "this spell".
+//
+.create-or-alter function with (docstring = "Rolling per-team match state over a window")
+MatchState(liveMatch:string, asOfMinute:int = 120, windowMinutes:int = 15) {
+    let lo = asOfMinute - windowMinutes;
+    Events
+    | where match_id == liveMatch and minute <= asOfMinute and minute > lo
+    | summarize
+        passes            = countif(type == "pass"),
+        passes_completed  = countif(type == "pass" and outcome == true),
+        progressive       = countif(type == "pass" and tobool(detail["progressive"]) == true),
+        shots             = countif(type == "shot"),
+        xg                = sumif(todouble(detail["xg"]), type == "shot"),
+        recoveries        = countif(type == "recovery"),
+        high_recoveries   = countif(type == "recovery" and tobool(detail["in_final_third"]) == true),
+        pressure_events   = countif(type == "pressure"),
+        mean_recovery_s   = avgif(todouble(detail["recovery_time_s"]), type == "recovery"),
+        territory         = avgif(x, type in ("pass", "carry"))
+      by team_id
+    | extend
+        pass_accuracy  = todouble(passes_completed) / todouble(passes),
+        // Counter-pressing intensity: high recoveries and fast turnarounds
+        // in the same window. The namesake metric.
+        gegenpress_idx = round(
+            (todouble(high_recoveries) / todouble(1 + recoveries)) * 0.6
+          + (1.0 / (1.0 + mean_recovery_s)) * 12.0 * 0.4, 3)
+    | project team_id, passes, pass_accuracy, progressive, shots, xg = round(xg, 3),
+              recoveries, high_recoveries, pressure_events,
+              mean_recovery_s = round(mean_recovery_s, 1),
+              territory = round(territory, 1), gegenpress_idx
+}
+
+//
+// MomentumShift — where control changed hands. Feeds the Why agent: it
+// locates the turn, the agent explains it.
+//
+.create-or-alter function with (docstring = "Per-5-minute territory and xG swing, to locate turning points")
+MomentumShift(liveMatch:string) {
+    Events
+    | where match_id == liveMatch
+    | summarize
+        xg        = sumif(todouble(detail["xg"]), type == "shot"),
+        territory = avgif(x, type in ("pass", "carry")),
+        events    = count()
+      by bin(minute, 5), team_id
+    | order by minute asc
+}
+
+//
+// PlayerMatch — one player's live numbers beside their season norm.
+// Backs the follow modes and the why-drawer's history strip.
+//
+.create-or-alter function with (docstring = "A player's live match output against their own season")
+PlayerMatch(liveMatch:string, playerId:string) {
+    let per = PlayerBaselines(liveMatch) | where player_id == playerId;
+    MetricValues()
+    | where match_id == liveMatch and player_id == playerId
+    | summarize live_n = count(), live_mean = avg(value), live_best_high = max(value),
+                live_best_low = min(value)
+      by metric, direction
+    | join kind=leftouter per on metric
+    | extend live_best = iff(direction == "low_is_good", live_best_low, live_best_high)
+    | project metric, direction, live_n, live_mean = round(live_mean, 2),
+              live_best = round(live_best, 2),
+              season_mean = round(personal_mean, 2),
+              season_best = round(personal_best, 2),
+              appearances
+}
+
+//
+// FollowTarget — the role-bound follow mode. "Follow whoever is beating
+// expectation hardest right now" is a query, not a dropdown.
+//
+.create-or-alter function with (docstring = "Who to follow right now, ranked by how far above their own norm they are")
+FollowTarget(liveMatch:string, asOfMinute:int = 120) {
+    Ground(liveMatch)
+    | where minute <= asOfMinute
+    | where isnotnull(personal_mean) and personal_n >= 50
+    // How far above their own season norm, in their own terms.
+    | extend personal_lift = iff(direction == "low_is_good",
+                                 (personal_mean - value) / personal_mean,
+                                 (value - personal_mean) / personal_mean)
+    | summarize
+        moments        = count(),
+        mean_lift      = avg(personal_lift),
+        best_beats     = max(beats),
+        personal_bests = countif(is_personal_best)
+      by player_id, team_id
+    | where moments >= 5
+    | extend follow_score = round(mean_lift * 0.5 + best_beats * 0.3 + personal_bests * 0.2, 4)
+    | order by follow_score desc
+}

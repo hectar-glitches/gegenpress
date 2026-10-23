@@ -14,6 +14,8 @@ import time
 
 from .baselines import METRICS, build_baselines, ground, rarity
 from .calibrate import report, run_checks
+from .signal import measure_signal, report as signal_report
+from .store import LocalStore, get_store
 from .season import build_league
 from .simulate import simulate_match, simulate_season
 
@@ -125,6 +127,85 @@ def cmd_calibrate(args: argparse.Namespace) -> int:
     return 0 if all(c.passed for c in checks) else 1
 
 
+def cmd_state(args: argparse.Namespace) -> int:
+    """Season -> store -> live match, through the Store interface."""
+    league = build_league(seed=args.seed)
+    season = simulate_season(league, seed=args.seed)
+    store = get_store(prefer_adx=args.adx)
+    store.load_season(league, season)
+    print(f"store: {type(store).__name__}\n")
+
+    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+    home, away = league.club(live.home_club_id), league.club(live.away_club_id)
+    print(f"LIVE  {home.name} {live.home_goals} - {live.away_goals} {away.name}\n")
+
+    print(f"match state, last {args.window} minutes to {args.minute}'")
+    for team_id, s in store.match_state(live, args.minute, args.window).items():
+        club = league.club(team_id)
+        print(f"  {club.short_name}  acc {s['pass_accuracy']:.0%}  "
+              f"xg {s['xg']:.2f}  terr {s['territory']}m  "
+              f"recov {s['recoveries']} (hi {s['high_recoveries']})  "
+              f"gegenpress {s['gegenpress_idx']}")
+
+    print("\nfollow target, ranked by lift over their own season norm")
+    for player_id, score in store.follow_target(live, args.minute)[:5]:
+        p = league.player(player_id)
+        print(f"  {score:>7.3f}  {p.name:<24} {p.position}  {league.club(p.club_id).short_name}")
+    return 0
+
+
+def cmd_ingest(args: argparse.Namespace) -> int:
+    """Create the ADX schema and load a season into it."""
+    try:
+        from .adx import AdxStore
+        store = AdxStore.from_env()
+    except ImportError:
+        print("the Azure SDK is not installed. run:\n"
+              "  pip install azure-kusto-data azure-kusto-ingest azure-identity")
+        return 2
+    except RuntimeError as exc:
+        print(f"{exc}\n\nset it to your cluster URI, for example:\n"
+              "  export ADX_CLUSTER=https://gegenpress.westeurope.kusto.windows.net\n"
+              "  export ADX_DATABASE=gegenpress\n\n"
+              "a free cluster (no subscription, no card) takes a few minutes:\n"
+              "  https://aka.ms/kustofree")
+        return 2
+    print(f"cluster: {store.cluster}\ndatabase: {store.database}\n")
+    if args.bootstrap:
+        store.bootstrap()
+    if args.load:
+        league = build_league(seed=args.seed)
+        season = simulate_season(league, seed=args.seed)
+        store.ingest_season(league, season)
+    if not (args.bootstrap or args.load):
+        print("nothing to do: pass --bootstrap and/or --load")
+    return 0
+
+
+def cmd_form(args: argparse.Namespace) -> int:
+    """The differentiator, on one screen."""
+    league = build_league(seed=args.seed)
+    season = simulate_season(league, seed=args.seed)
+    store = LocalStore()
+    store.load_season(league, season)
+
+    print("which metrics can carry a personal claim\n")
+    print(signal_report(measure_signal(season)))
+
+    live = simulate_match(league, league.fixtures[0], seed=args.seed + 1)
+    home, away = league.club(live.home_club_id), league.club(live.away_club_id)
+    print(f"\n\nLIVE  {home.name} {live.home_goals} - {live.away_goals} {away.name}\n")
+    print("form lines: this match against the player's own season\n")
+    for f in store.form_lines(live):
+        mark = "*" if f.diverges else " "
+        print(f" {mark} {f.claim()}")
+        print(f"     league percentile {f.league_percentile:.0%}  "
+              f"effect {f.effect_vs_league_sd:.2f} SD of league spread")
+    print("\n* = strong for him, ordinary league-wide \u2014 the case a league")
+    print("    percentile alone cannot tell you about.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gegenpress")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -139,6 +220,23 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--seed", type=int, default=2026)
     d.add_argument("--top", type=int, default=8)
     d.set_defaults(func=cmd_demo)
+
+    st = sub.add_parser("state", help="rolling match state and follow targets")
+    st.add_argument("--seed", type=int, default=2026)
+    st.add_argument("--minute", type=int, default=75)
+    st.add_argument("--window", type=int, default=15)
+    st.add_argument("--adx", action="store_true", help="force the ADX backend")
+    st.set_defaults(func=cmd_state)
+
+    ing = sub.add_parser("ingest", help="create ADX schema and load a season")
+    ing.add_argument("--bootstrap", action="store_true", help="create tables and functions")
+    ing.add_argument("--load", action="store_true", help="simulate and ingest a season")
+    ing.add_argument("--seed", type=int, default=2026)
+    ing.set_defaults(func=cmd_ingest)
+
+    fm = sub.add_parser("form", help="signal report + form lines for one match")
+    fm.add_argument("--seed", type=int, default=2026)
+    fm.set_defaults(func=cmd_form)
 
     c = sub.add_parser("calibrate", help="check the season against football-realistic targets")
     c.add_argument("--seed", type=int, default=2026)

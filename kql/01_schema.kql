@@ -1,0 +1,89 @@
+// Gegenpress — Azure Data Explorer / Fabric Eventhouse schema.
+//
+// Run top to bottom in the ADX web UI against your database, or via
+//   python -m gegenpress ingest --bootstrap
+//
+// Everything here is plain KQL and runs unchanged on a Fabric Eventhouse;
+// only the connection string differs.
+
+//
+// 1. The event table. `detail` stays dynamic so new measurements can be
+//    added by the generator without a schema migration.
+//
+.create-merge table Events (
+    event_id:   string,
+    match_id:   string,
+    period:     int,
+    clock:      real,
+    minute:     int,
+    team_id:    string,
+    player_id:  string,
+    type:       string,
+    x:          real,
+    y:          real,
+    end_x:      real,
+    end_y:      real,
+    outcome:    bool,
+    detail:     dynamic
+)
+
+.alter-merge table Events policy retention softdelete = 365d
+
+// Streaming ingestion: live match events must be queryable in seconds,
+// not after the default batching delay.
+.alter table Events policy streamingingestion enable
+
+.create-or-alter table Events ingestion json mapping "EventsJsonMapping"
+```[
+  {"column":"event_id",  "Properties":{"Path":"$.event_id"}},
+  {"column":"match_id",  "Properties":{"Path":"$.match_id"}},
+  {"column":"period",    "Properties":{"Path":"$.period"}},
+  {"column":"clock",     "Properties":{"Path":"$.clock"}},
+  {"column":"minute",    "Properties":{"Path":"$.minute"}},
+  {"column":"team_id",   "Properties":{"Path":"$.team_id"}},
+  {"column":"player_id", "Properties":{"Path":"$.player_id"}},
+  {"column":"type",      "Properties":{"Path":"$.type"}},
+  {"column":"x",         "Properties":{"Path":"$.x"}},
+  {"column":"y",         "Properties":{"Path":"$.y"}},
+  {"column":"end_x",     "Properties":{"Path":"$.end_x"}},
+  {"column":"end_y",     "Properties":{"Path":"$.end_y"}},
+  {"column":"outcome",   "Properties":{"Path":"$.outcome"}},
+  {"column":"detail",    "Properties":{"Path":"$.detail"}}
+]```
+
+//
+// 2. Reference tables. Small, overwritten wholesale on each season load.
+//
+.create-merge table Players (
+    player_id:  string,
+    name:       string,
+    club_id:    string,
+    position:   string,
+    shirt:      int,
+    attributes: dynamic
+)
+
+.create-or-alter table Players ingestion json mapping "PlayersJsonMapping"
+```[
+  {"column":"player_id",  "Properties":{"Path":"$.player_id"}},
+  {"column":"name",       "Properties":{"Path":"$.name"}},
+  {"column":"club_id",    "Properties":{"Path":"$.club_id"}},
+  {"column":"position",   "Properties":{"Path":"$.position"}},
+  {"column":"shirt",      "Properties":{"Path":"$.shirt"}},
+  {"column":"attributes", "Properties":{"Path":"$.attributes"}}
+]```
+
+.create-merge table Clubs (
+    club_id:    string,
+    name:       string,
+    short_name: string,
+    style:      real
+)
+
+.create-or-alter table Clubs ingestion json mapping "ClubsJsonMapping"
+```[
+  {"column":"club_id",    "Properties":{"Path":"$.club_id"}},
+  {"column":"name",       "Properties":{"Path":"$.name"}},
+  {"column":"short_name", "Properties":{"Path":"$.short_name"}},
+  {"column":"style",      "Properties":{"Path":"$.style"}}
+]```

@@ -74,7 +74,7 @@ def _make_attributes(rng: random.Random, position: Position, quality: float) -> 
     """
     priors = POSITION_PRIORS[position]
     drawn = {
-        name: _clamp(priors[name] + (quality - 0.5) * 0.30 + rng.gauss(0.0, 0.08))
+        name: _clamp(priors[name] + (quality - 0.5) * 0.30 + rng.gauss(0.0, 0.12))
         for name in ATTRIBUTE_NAMES
     }
     return Attributes(**drawn)
