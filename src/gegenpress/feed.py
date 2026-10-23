@@ -176,11 +176,18 @@ def build_feed(
     frames = build_frames(league, live, seed=2026, dt=2.0)
 
     return {
-        "window": {
-            "from": lo, "to": hi, "centre_minute": centre,
-            "frames": len(frames),
-            "home_xi": [p.name for p in league.squad(live.home_club_id) if p.shirt <= 11],
-            "away_xi": [p.name for p in league.squad(live.away_club_id) if p.shirt <= 11],
+        "window": {"from": lo, "to": hi, "centre_minute": centre},
+        # Shirt numbers and names, in the same order as the position
+        # frames. A numbered shirt is what makes a dot read as a player.
+        "lineups": {
+            side: [
+                {"n": p.shirt, "name": p.name, "pos": p.position,
+                 "last": p.name.split()[-1]}
+                for p in sorted(
+                    (q for q in league.squad(club) if q.shirt <= 11),
+                    key=lambda q: q.shirt)
+            ]
+            for side, club in (("home", live.home_club_id), ("away", live.away_club_id))
         },
         "frames": pack(frames),
         "match": {

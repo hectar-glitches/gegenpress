@@ -267,9 +267,9 @@ def cmd_feed(args: argparse.Namespace) -> int:
     w = feed["window"]
     print(f"{len(feed['moments'])} moments, "
           f"{sum(1 for x in feed['moments'] if x['diverges'])} diverging")
-    print(f"showcase window: {w['from']:.0f}s-{w['to']:.0f}s "
-          f"(around {w['centre_minute']}'), {w['frames']} frames, "
+    print(f"{feed['frames']['n']} position frames at {feed['frames']['dt']}s, "
           f"{len(feed['stream'])} events")
+    print(f"showcase window around {w['centre_minute']}'")
     print(f"written to {out}")
     return 0
 

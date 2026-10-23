@@ -206,6 +206,7 @@
   <div class="bar">
     <button class="btn p" id="play">▶ Play</button>
     <button class="btn" id="why">Why</button>
+    <button class="btn" id="spd">4&times;</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
     <button class="btn" id="mAnalyst" aria-pressed="true">Analyst</button>
     <button class="btn" id="mFan" aria-pressed="false">Fan</button>
@@ -217,11 +218,12 @@ const $ = s => document.querySelector(s);
 const L = 105, W = 68, FULL = 5400;       // pitch metres, match seconds
 let FEED, cv, ctx, DPR = 1, box = {};
 let clock = 0, playing = false, last = 0, idx = -1, mode = 'analyst', showWhy = false;
-const SPEED = 90;                         // match-seconds per real second (~60s match)
+const SPEEDS = [1, 4, 12];                // match-seconds per real second
+let SPEED = 4;                            // 4x, what a tracking viewer uses
 // Visible for ~0.75s of REAL time. TRAIL is in match-seconds and the
 // clock runs at SPEED x, so this must scale with it or events flash
 // past in milliseconds.
-const TRAIL = SPEED * 1.1;
+let TRAIL = SPEED * 2.4;
 
 /* ---------- geometry ---------- */
 function layout() {
@@ -328,7 +330,7 @@ function drawPlayers() {
 
   g.save(); g.scale(DPR, DPR);
   const BX = box.ox + bx * s, BY = box.oy + by * s;
-  const r = Math.max(4, s * .42);
+  const r = Math.max(5, s * .62);
 
   // Nearest player to the ball is carrying it: the frames hold
   // positions, not possession, and a ring beats shipping another field.
@@ -337,22 +339,61 @@ function drawPlayers() {
     for (let p = 0; p < 11; p++) {
       const [px, py] = lerp(arr, i, j, p * 2);
       const d = Math.hypot(px - bx, py - by);
-      if (d < bestD) { bestD = d; best = [px, py, col]; }
+      if (d < bestD) {
+        bestD = d;
+        const side = arr === F.h ? 'home' : 'away';
+        best = [px, py, col, FEED.lineups ? FEED.lineups[side][p] : null];
+      }
     }
   }
 
-  for (const [arr, col] of [[F.h, '90,169,255'], [F.a, '255,176,32']]) {
+  const back = Math.max(0, i - 1);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const [arr, col, side] of [[F.h, '90,169,255', 'home'], [F.a, '255,176,32', 'away']]) {
+    const xi = FEED.lineups ? FEED.lineups[side] : null;
     for (let p = 0; p < 11; p++) {
       const [px, py] = lerp(arr, i, j, p * 2);
       const X = box.ox + px * s, Y = box.oy + py * s;
+
+      // Where he has come from: direction of travel reads as motion
+      // even in a still frame, which dots alone never do.
+      const vx = px - arr[back * 22 + p * 2], vy = py - arr[back * 22 + p * 2 + 1];
+      const sp = Math.hypot(vx, vy);
+      // Only show a tail when he is actually moving, and keep it short.
+      if (sp > 1.1) {
+        const k2 = Math.min(1, sp / 9);
+        g.beginPath();
+        g.moveTo(X - vx * s * .42, Y - vy * s * .42); g.lineTo(X, Y);
+        g.strokeStyle = `rgba(${col},${.12 + k2 * .26})`;
+        g.lineWidth = r * .78; g.lineCap = 'round'; g.stroke();
+      }
+
+      g.beginPath(); g.arc(X, Y + r * .22, r, 0, 7);
+      g.fillStyle = 'rgba(0,0,0,.4)'; g.fill();               // grounding shadow
       g.beginPath(); g.arc(X, Y, r, 0, 7);
-      g.fillStyle = `rgba(${col},.92)`; g.fill();
-      g.lineWidth = 1; g.strokeStyle = 'rgba(5,8,11,.85)'; g.stroke();
+      g.fillStyle = `rgb(${col})`; g.fill();
+      g.lineWidth = 1.1; g.strokeStyle = 'rgba(5,8,11,.9)'; g.stroke();
+
+      if (xi && r > 7) {
+        g.fillStyle = side === 'home' ? '#06101c' : '#1a1203';
+        g.font = `700 ${Math.round(r * 1.05)}px ui-monospace,monospace`;
+        g.fillText(String(xi[p].n), X, Y + .5);
+      }
     }
   }
   if (best && bestD < 4) {
-    g.beginPath(); g.arc(box.ox + best[0] * s, box.oy + best[1] * s, r + 4, 0, 7);
-    g.strokeStyle = `rgba(${best[2]},.75)`; g.lineWidth = 1.6; g.stroke();
+    const BXc = box.ox + best[0] * s, BYc = box.oy + best[1] * s;
+    g.beginPath(); g.arc(BXc, BYc, r + 5, 0, 7);
+    g.strokeStyle = `rgba(${best[2]},.9)`; g.lineWidth = 2; g.stroke();
+    if (best[3]) {
+      const label = `${best[3].n}  ${best[3].last}`;
+      g.font = `600 ${Math.max(11, Math.round(r * .95))}px -apple-system,system-ui,sans-serif`;
+      const w = g.measureText(label).width + 14;
+      g.fillStyle = 'rgba(5,8,11,.82)';
+      g.beginPath(); g.roundRect(BXc - w / 2, BYc - r - 26, w, 19, 5); g.fill();
+      g.fillStyle = '#eef4fa';
+      g.fillText(label, BXc, BYc - r - 16);
+    }
   }
 
   g.beginPath(); g.arc(BX, BY, r * .55, 0, 7);
@@ -496,6 +537,11 @@ fetch('feed.json').then(r => r.json()).then(d => {
     $('#sheet').classList.toggle('up', showWhy && idx >= 0);
     $('#lower').classList.toggle('hide', showWhy);
   };
+  $('#spd').onclick = () => {
+    SPEED = SPEEDS[(SPEEDS.indexOf(SPEED) + 1) % SPEEDS.length];
+    TRAIL = SPEED * 2.4;
+    $('#spd').innerHTML = SPEED + '&times;';
+  };
   $('#mAnalyst').onclick = () => setMode('analyst');
   $('#mFan').onclick = () => setMode('fan');
   $('#track').onclick = e => {
@@ -507,6 +553,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
     if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
   });
   setMode('analyst');
+  clock = Math.max(0, d.moments[0].minute * 60 - 50);
   sync();
   requestAnimationFrame(frame);
 }).catch(() => {

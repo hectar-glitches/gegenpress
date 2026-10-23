@@ -98,8 +98,8 @@ class PositionModel:
         ty = ay + (by - ay) * w
 
         # A little individual noise so the shape is not a lattice.
-        tx += self.rng.gauss(0, 1.3)
-        ty += self.rng.gauss(0, 1.3)
+        tx += self.rng.gauss(0, 2.6)
+        ty += self.rng.gauss(0, 2.6)
         return (min(L - 1, max(1.0, tx)), min(W - 1, max(1.0, ty)))
 
     def run(self, lo: float = 0.0, hi: float | None = None,
@@ -149,8 +149,12 @@ class PositionModel:
                     has_ball = (player.player_id == carrier)
                     tx, ty = self._target(player, i, right, ball, has_ball)
                     cx, cy = current[i]
-                    reach = (8.5 if has_ball else 6.5) * dt
-                    dx, dy = tx - cx, ty - cy
+                    # Close the gap gradually and cap at a sprint, so
+                    # players ease toward position instead of running
+                    # flat out whenever the ball moves.
+                    reach = (8.0 if has_ball else 5.5) * dt
+                    ease = 0.9 if has_ball else 0.66
+                    dx, dy = (tx - cx) * ease, (ty - cy) * ease
                     d = math.hypot(dx, dy)
                     if d > reach and d > 0:
                         dx, dy = dx / d * reach, dy / d * reach
