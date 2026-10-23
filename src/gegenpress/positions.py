@@ -35,9 +35,15 @@ FORMATION_XY: list[tuple[float, float]] = [
 ]
 
 # How strongly each role chases the ball, and how far it ranges.
-BALL_PULL = {"GK": 0.04, "DF": 0.22, "MF": 0.34, "FW": 0.26}
+BALL_PULL = {"GK": 0.05, "DF": 0.28, "MF": 0.42, "FW": 0.33}
 # How far the whole team slides up or back with the ball, by role.
 SHIFT = {"GK": 0.25, "DF": 0.80, "MF": 0.70, "FW": 0.55}
+
+# Movement physics, in metres and seconds.
+SPRINT = 8.6     # with the ball
+RUN = 7.4        # off the ball, top end
+ACCEL = 3.1      # m/s^2 -- a footballer, not a car
+DAMP = 0.86      # per second; bleeds speed so players settle
 
 
 @dataclass(slots=True)
@@ -65,10 +71,21 @@ class PositionModel:
         self.away_id = match.away_club_id
         self.home_xi = [p for p in league.squad(self.home_id) if p.shirt <= 11]
         self.away_xi = [p for p in league.squad(self.away_id) if p.shirt <= 11]
-        # Start everyone on their anchor.
+        # Start everyone on their anchor, at rest.
         self.pos = {
             self.home_id: [_anchor(i, True) for i in range(11)],
             self.away_id: [_anchor(i, False) for i in range(11)],
+        }
+        self.vel = {self.home_id: [(0.0, 0.0)] * 11,
+                    self.away_id: [(0.0, 0.0)] * 11}
+        # Each player drifts around his anchor on his own slow cycle.
+        # Deterministic and smooth: per-step random jitter made targets
+        # teleport metres every frame, which is what made the motion
+        # look random rather than purposeful.
+        self.drift = {
+            tid: [(self.rng.uniform(0, math.tau), self.rng.uniform(17, 41),
+                   self.rng.uniform(1.2, 3.4)) for _ in range(11)]
+            for tid in (self.home_id, self.away_id)
         }
 
     def _to_absolute(self, x: float, y: float, team_id: str) -> tuple[float, float]:
@@ -78,7 +95,8 @@ class PositionModel:
         return L - x, W - y
 
     def _target(self, player: Player, index: int, attacking_right: bool,
-                ball: tuple[float, float], has_ball: bool) -> tuple[float, float]:
+                ball: tuple[float, float], has_ball: bool,
+                team_id: str = "", t: float = 0.0) -> tuple[float, float]:
         if has_ball:
             return ball
         ax, ay = _anchor(index, attacking_right)
@@ -103,7 +121,7 @@ class PositionModel:
         return (min(L - 1, max(1.0, tx)), min(W - 1, max(1.0, ty)))
 
     def run(self, lo: float = 0.0, hi: float | None = None,
-            dt: float = 0.4) -> list[Frame]:
+            dt: float = 1.5, sub: float = 0.1) -> list[Frame]:
         """Step on a fixed clock, not at events.
 
         Sampling only at events gives one frame every few seconds, which
@@ -124,8 +142,9 @@ class PositionModel:
         # Warm the shape up before the window so it does not start as a
         # lattice snapping into place on the first visible frame.
         frames: list[Frame] = []
-        t = max(0.0, lo - 20.0)
+        t = max(0.0, lo - 25.0)
         k = 0
+        next_sample = lo
         while t <= hi:
             while k + 1 < len(marks) and marks[k + 1][0] <= t:
                 k += 1
@@ -144,37 +163,58 @@ class PositionModel:
                 (self.away_id, self.away_xi, False),
             ):
                 current = self.pos[team_id]
-                updated: list[tuple[float, float]] = []
+                vels = self.vel[team_id]
+                nxt: list[tuple[float, float]] = []
+                nvel: list[tuple[float, float]] = []
                 for i, player in enumerate(xi):
                     has_ball = (player.player_id == carrier)
-                    tx, ty = self._target(player, i, right, ball, has_ball)
+                    tx, ty = self._target(player, i, right, ball, has_ball,
+                                          team_id, t)
                     cx, cy = current[i]
-                    # Close the gap gradually and cap at a sprint, so
-                    # players ease toward position instead of running
-                    # flat out whenever the ball moves.
-                    reach = (8.0 if has_ball else 5.5) * dt
-                    ease = 0.9 if has_ball else 0.66
-                    dx, dy = (tx - cx) * ease, (ty - cy) * ease
-                    d = math.hypot(dx, dy)
-                    if d > reach and d > 0:
-                        dx, dy = dx / d * reach, dy / d * reach
-                    updated.append((cx + dx, cy + dy))
-                self.pos[team_id] = updated
+                    vx, vy = vels[i]
 
-            if t >= lo:
+                    # Steer the VELOCITY toward the target and integrate.
+                    # Snapping position each step gave motion with no
+                    # inertia, which no amount of interpolation smooths.
+                    gx, gy = tx - cx, ty - cy
+                    gap = math.hypot(gx, gy)
+                    top = SPRINT if has_ball else RUN
+                    want = min(top, gap * 0.9)
+                    if gap > 1e-6:
+                        wx, wy = gx / gap * want, gy / gap * want
+                    else:
+                        wx = wy = 0.0
+                    ax, ay = wx - vx, wy - vy
+                    amag = math.hypot(ax, ay)
+                    lim = ACCEL * sub
+                    if amag > lim and amag > 0:
+                        ax, ay = ax / amag * lim, ay / amag * lim
+                    # Damping is per second, so scale it to the sub-step.
+                    d2 = DAMP ** sub
+                    vx, vy = (vx + ax) * d2, (vy + ay) * d2
+
+                    nx = min(L - 0.5, max(0.5, cx + vx * sub))
+                    ny = min(W - 0.5, max(0.5, cy + vy * sub))
+                    nxt.append((nx, ny))
+                    nvel.append((vx, vy))
+                self.pos[team_id] = nxt
+                self.vel[team_id] = nvel
+
+            if t >= next_sample:
+                next_sample += dt
                 frames.append(Frame(
                     t=round(t, 1), ball=(round(ball[0], 1), round(ball[1], 1)),
                     home=[(round(x, 1), round(y, 1)) for x, y in self.pos[self.home_id]],
                     away=[(round(x, 1), round(y, 1)) for x, y in self.pos[self.away_id]],
                 ))
-            t += dt
+            t += sub
         return frames
 
 
 def build_frames(league: League, match: Match, seed: int = 2026,
                  lo: float = 0.0, hi: float | None = None,
-                 dt: float = 0.4) -> list[Frame]:
-    return PositionModel(league, match, seed).run(lo=lo, hi=hi, dt=dt)
+                 dt: float = 1.5, sub: float = 0.1) -> list[Frame]:
+    return PositionModel(league, match, seed).run(lo=lo, hi=hi, dt=dt, sub=sub)
 
 
 def pick_window(match: Match, centre_minute: int, span: int = 240

@@ -173,7 +173,7 @@ def build_feed(
     diverging = [m for m in moments if m["diverges"]] or moments
     centre = max(diverging, key=lambda m: abs(m.get("z") or 0))["minute"]
     lo, hi = pick_window(live, centre, span)
-    frames = build_frames(league, live, seed=2026, dt=2.0)
+    frames = build_frames(league, live, seed=2026, dt=1.5)
 
     return {
         "window": {"from": lo, "to": hi, "centre_minute": centre},

@@ -321,12 +321,23 @@ function drawPlayers() {
   const raw = Math.max(0, Math.min(1, k - i));
   const f = raw * raw * (3 - 2 * raw);          // ease, so dots glide
 
+  // Catmull-Rom through four samples: straight-line interpolation
+  // between 1.5s samples renders a smooth path as a dog-leg at every
+  // frame boundary, which reads as stepping.
+  const h0 = Math.max(0, i - 1), h3 = Math.min(F.n - 1, i + 2);
+  const cr = (p0, p1, p2, p3, u) => {
+    const u2 = u * u, u3 = u2 * u;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * u +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * u3);
+  };
   const lerp = (arr, a, b, o) => [
-    arr[a * 22 + o] + (arr[b * 22 + o] - arr[a * 22 + o]) * f,
-    arr[a * 22 + o + 1] + (arr[b * 22 + o + 1] - arr[a * 22 + o + 1]) * f,
+    cr(arr[h0 * 22 + o], arr[a * 22 + o], arr[b * 22 + o], arr[h3 * 22 + o], raw),
+    cr(arr[h0 * 22 + o + 1], arr[a * 22 + o + 1], arr[b * 22 + o + 1],
+       arr[h3 * 22 + o + 1], raw),
   ];
-  const bx = F.b[i * 2] + (F.b[j * 2] - F.b[i * 2]) * f;
-  const by = F.b[i * 2 + 1] + (F.b[j * 2 + 1] - F.b[i * 2 + 1]) * f;
+  const bx = cr(F.b[h0 * 2], F.b[i * 2], F.b[j * 2], F.b[h3 * 2], raw);
+  const by = cr(F.b[h0 * 2 + 1], F.b[i * 2 + 1], F.b[j * 2 + 1], F.b[h3 * 2 + 1], raw);
 
   g.save(); g.scale(DPR, DPR);
   const BX = box.ox + bx * s, BY = box.oy + by * s;
