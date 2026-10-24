@@ -96,6 +96,8 @@ def world() -> World:
 # -- tool logic (plain functions; the SDK only wraps these) ---------------
 
 def match_info() -> dict[str, Any]:
+    """The live match being analysed: clubs, score, event count, and the
+    size of the season it is measured against. All data is synthetic."""
     w = world()
     home = w.league.club(w.live.home_club_id)
     away = w.league.club(w.live.away_club_id)
@@ -112,6 +114,8 @@ def match_info() -> dict[str, Any]:
 
 
 def list_players(query: str = "") -> list[dict[str, Any]]:
+    """Find players by (partial) name. Returns name, club, position and
+    shirt. Use this to get exact names for form_line and verify_claim."""
     w = world()
     q = query.strip().lower()
     out = []
@@ -126,6 +130,10 @@ def list_players(query: str = "") -> list[dict[str, Any]]:
 
 
 def metric_signal_table() -> dict[str, Any]:
+    """Which metrics can support a claim about a player relative to his OWN
+    season. Per metric: ICC (between-player share of variance), the
+    reliability of a 50-match mean, and personal_claim_allowed. Call this
+    first: metrics without signal will be refused by form_line."""
     w = world()
     rows = [{
         "metric": METRIC_LABELS.get(m, m),
@@ -150,6 +158,12 @@ def metric_signal_table() -> dict[str, Any]:
 
 
 def form_line(player: str, metric: str, as_of_minute: int = 90) -> dict[str, Any]:
+    """How a player's match compares to his own season norm (z-score over
+    his appearances) AND to the league, as of a minute. Returns a
+    ready-to-say claim. Refuses metrics with no between-player signal
+    (e.g. recovery time) rather than inventing a personal norm.
+    Metrics: top speed, ball speed, pass range, carry range, pass
+    difficulty, recovery time."""
     w = world()
     pid = w.player_id(player)
     if pid is None:
@@ -196,6 +210,9 @@ def form_line(player: str, metric: str, as_of_minute: int = 90) -> dict[str, Any
 
 
 def top_moments(min_beats: float = 0.98, limit: int = 8) -> list[dict[str, Any]]:
+    """The live match's rarest single measurements: each with the share of
+    the league it beats (0-1), the league norm, and whether a personal
+    claim about it is permitted."""
     w = world()
     return [{
         "minute": m.minute, "player": m.player_name,
@@ -207,6 +224,8 @@ def top_moments(min_beats: float = 0.98, limit: int = 8) -> list[dict[str, Any]]
 
 
 def match_state(as_of_minute: int = 90, window_minutes: int = 15) -> dict[str, Any]:
+    """Rolling per-team state over a window ending at a minute: passes,
+    pass accuracy, field tilt and a gegenpress (counter-press) index."""
     w = world()
     state = w.store.match_state(w.live, as_of_minute=as_of_minute,
                                 window_minutes=window_minutes)
@@ -214,6 +233,8 @@ def match_state(as_of_minute: int = 90, window_minutes: int = 15) -> dict[str, A
 
 
 def follow_targets(as_of_minute: int = 90, limit: int = 6) -> list[dict[str, Any]]:
+    """Who to watch right now: players ranked by how far above their OWN
+    season norm they are playing tonight, not by raw output."""
     w = world()
     ranked = w.store.follow_target(w.live, as_of_minute=as_of_minute)[:limit]
     return [{
@@ -225,6 +246,11 @@ def follow_targets(as_of_minute: int = 90, limit: int = 6) -> list[dict[str, Any
 
 def verify_claim(text: str, player: str, metric: str,
                  as_of_minute: int = 90) -> dict[str, Any]:
+    """Check a sentence you are about to say about a player's night. Runs
+    the deterministic Gate against the measured brief: every number in
+    `text` must be one the data supports. Returns passed / rejected (with
+    the unsupportable numbers) / refused (the metric cannot carry a
+    personal claim at all). Call this before asserting any statistic."""
     w = world()
     pid = w.player_id(player)
     if pid is None:
@@ -252,7 +278,7 @@ def verify_claim(text: str, player: str, metric: str,
     return {
         "verdict": "passed" if not bad else "rejected",
         "unsupportable_numbers": bad,
-        "allowed_numbers": sorted(set(brief.allowed_numbers())),
+        "allowed_numbers": sorted({round(x, 4) for x in brief.allowed_numbers()}),
         "grounding": {
             "player": line.player_name, "metric": METRIC_LABELS.get(key, key),
             "tonight_mean": round(line.match_mean, 2),
@@ -269,6 +295,68 @@ def verify_claim(text: str, player: str, metric: str,
 
 
 # -- serving ---------------------------------------------------------------
+
+# -- resources and prompts -------------------------------------------------
+#
+# MCP has three primitives and most servers ship only tools. The other two
+# are the ones that carry this project's argument:
+#
+#   a RESOURCE is context a host can attach without the model deciding to
+#   call anything -- so the table of which claims are sayable is in front
+#   of the model before it writes its first word, rather than after;
+#
+#   a PROMPT is a reusable contract. `commentary` binds any model that
+#   loads it to the rule the whole project exists to enforce: check the
+#   sentence before you assert it.
+
+def signal_resource() -> str:
+    """Markdown: which metrics can carry a claim about a player's own norm."""
+    sig = metric_signal_table()
+    lines = ["# Claims this match will support", "",
+             "| metric | ICC | a personal claim is |",
+             "| --- | --- | --- |"]
+    for r in sig["rows"]:
+        lines.append(f"| {r['metric']} | {r['icc']} | "
+                     f"{'allowed' if r['personal_claim_allowed'] else '**refused**'} |")
+    lines += ["", sig["meaning"]]
+    return "\n".join(lines)
+
+
+def match_resource() -> str:
+    """Markdown: the match, and the moments worth talking about."""
+    m = match_info()
+    out = [f"# {m['home']['name']} {m['home']['goals']}"
+           f"-{m['away']['goals']} {m['away']['name']}", "",
+           f"{m['events']} events, measured against a {m['season']['matches']}-match "
+           f"season. {m['note']}", "", "## Standout measurements", ""]
+    for t in top_moments(limit=6):
+        out.append(f"- {t['minute']}' {t['player']} — {t['metric']} {t['value']}, "
+                   f"beating {t['beats_share_of_league']:.1%} of the league")
+    return "\n".join(out)
+
+
+def commentary_prompt(player: str = "", metric: str = "") -> str:
+    """A contract: say nothing about this match you have not checked."""
+    who = f" about {player}" if player else ""
+    what = f", on {metric}" if metric else ""
+    return (
+        f"You are writing live football commentary{who}{what} for this match.\n\n"
+        "Rules, in order of importance:\n"
+        "1. Call `metric_signal_table` first. Any metric it marks league-only "
+        "cannot carry a claim about a player's own norm, however true the "
+        "number is -- his distribution is the league's wearing his name.\n"
+        "2. Get your numbers from `form_line` or `top_moments`. Do not "
+        "estimate, round for effect, or carry a figure over from memory.\n"
+        "3. Before you assert a sentence containing any number, pass it to "
+        "`verify_claim`. If it comes back rejected, rewrite it with the "
+        "numbers the tool returns rather than defending the ones you wrote.\n"
+        "4. The interesting claim is usually not the biggest number. It is "
+        "the one that is ordinary league-wide and remarkable for that player, "
+        "or the reverse -- say that out loud when you find it.\n\n"
+        "Write two sentences. Name the player, the measurement, and what it "
+        "is being compared against."
+    )
+
 
 def serve() -> int:
     try:                                             # mcp >= 2
@@ -294,5 +382,14 @@ def serve() -> int:
     mcp.tool()(match_state)
     mcp.tool()(follow_targets)
     mcp.tool()(verify_claim)
+
+    mcp.resource("gegenpress://signal",
+                 name="Claims this match supports",
+                 mime_type="text/markdown")(signal_resource)
+    mcp.resource("gegenpress://match",
+                 name="The live match",
+                 mime_type="text/markdown")(match_resource)
+    mcp.prompt(name="commentary")(commentary_prompt)
+
     mcp.run()
     return 0
