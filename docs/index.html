@@ -268,7 +268,7 @@
   <div class="bar">
     <button class="btn p" id="play">▶ Play</button>
     <button class="btn" id="why">Why</button>
-    <button class="btn" id="spd">4&times;</button>
+    <button class="btn" id="spd">1&times;</button>
     <button class="btn" id="wide" aria-pressed="false">Wide</button>
     <button class="btn" id="snd" aria-pressed="false">Sound</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
@@ -285,7 +285,7 @@ const L = 105, W = 68, FULL = 5400;       // pitch metres, match seconds
 let FEED, cv, ctx, DPR = 1, VW = 0, VH = 0;
 let clock = 0, playing = false, last = 0, idx = -1, mode = 'analyst', showWhy = false;
 const SPEEDS = [1, 4, 12];                // match-seconds per real second
-let SPEED = 4;
+let SPEED = 1;        // real time: the ball's rhythm is tuned for it
 let TRAIL = SPEED * 2.4;                  // event fade, in match-seconds
 
 /* ================== broadcast camera ==================
@@ -402,101 +402,119 @@ function mulberry(seed) {
   };
 }
 
+function smoothstep(a, b, x) {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+function hash2(x, y) {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi), b = hash2(xi + 1, yi);
+  const c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y) {
+  return vnoise(x, y) * .6 + vnoise(x * 2.3, y * 2.3) * .27
+       + vnoise(x * 5.1, y * 5.1) * .13;
+}
+
 function buildTurf() {
   const wM = TX1 - TX0, hM = TY1 - TY0;
   const c = document.createElement('canvas');
   c.width = Math.round(wM * TURF_T); c.height = Math.round(hM * TURF_T);
   const t = c.getContext('2d');
-  const X = x => (x - TX0) * TURF_T;
-  const Y = y => (TY1 - y) * TURF_T;      // row 0 is the far edge
-  const rng = mulberry(2026);
 
-  // Base: cooled from pure broadcast green, because the chrome around it
-  // is aubergine and a saturated green fights purple. Darker at the far
-  // side, where the light has further to travel.
-  const base = t.createLinearGradient(0, 0, 0, c.height);
-  base.addColorStop(0, '#163526');
-  base.addColorStop(.5, '#1f5039');
-  base.addColorStop(1, '#19422f');
-  t.fillStyle = base; t.fillRect(0, 0, c.width, c.height);
+  // Mow stripes are REFLECTED LIGHT, not pigment: blades leaning away
+  // from the viewer show their flat faces and look pale, blades leaning
+  // toward it show their tips and look dark. Two consequences the
+  // earlier hard-edged rectangles got wrong, and no amount of lowering
+  // their alpha could fix:
+  //
+  //   the boundary is grass, not a line. Blades at the edge of a pass
+  //   fall both ways, so the transition is soft and ragged -- it has to
+  //   look mown rather than painted, which means a smooth profile whose
+  //   phase is perturbed by noise so the edge wanders a blade's width.
+  //
+  //   the steeper you look down on grass, the darker it reads. The near
+  //   touchline is seen at a steeper angle than the far one, so the
+  //   whole surface carries a gentle near-dark gradient.
+  //
+  // Everything is per-pixel in pitch space: stripes, patchiness, and
+  // the worn ground at the goalmouths and down the central channel.
+  const img = t.createImageData(c.width, c.height);
+  const d = img.data;
+  const STRIPE = L / 14;                  // metres per mown pass
+  // dark and pale grass, and the sandy colour of worn ground
+  const DK = [23, 59, 42], LT = [37, 85, 61], WEAR = [94, 92, 66];
+  let i = 0;
+  for (let py = 0; py < c.height; py++) {
+    const wy = TY1 - py / TURF_T;
+    // view-angle term: near grass is looked down on more steeply
+    const steep = 1 - .13 * smoothstep(TY1, TY0, wy);
+    for (let px = 0; px < c.width; px++, i += 4) {
+      const wx = TX0 + px / TURF_T;
 
-  // Mow bands: a real two-tone, not a white wash. The light band leans
-  // yellow because bent blades show their undersides to the camera.
-  for (let i = -2; i < 18; i += 2) {
-    t.fillStyle = 'rgba(196,224,132,.032)';
-    t.fillRect(X(i * L / 16), 0, L / 16 * TURF_T, c.height);
+      // stripe: soft-edged alternating bands, edge wandering with noise
+      const ph = wx / STRIPE + (fbm(wx * .25, wy * .25) - .5) * .11;
+      const u = ph - Math.floor(ph);
+      const edge = Math.min(smoothstep(0, .20, u), smoothstep(0, .20, 1 - u));
+      const lit = (Math.floor(ph) & 1) ? .5 + .5 * edge : .5 - .5 * edge;
+
+      // patchiness: grass grows unevenly, and a flat lawn reads as felt
+      const m = (fbm(wx * .07, wy * .07) - .5) * .075
+              + (fbm(wx * .45, wy * .45) - .5) * .045;
+
+      // worn ground: both goalmouths, the spots, and the middle
+      const gw = Math.max(
+        1 - Math.hypot((wx - 2.0) / 9, (wy - W / 2) / 5),
+        1 - Math.hypot((wx - (L - 2.0)) / 9, (wy - W / 2) / 5));
+      const cw = 1 - Math.hypot((wx - L / 2) / 7, (wy - W / 2) / 5);
+      let wear = Math.max(0, gw) * .26 + Math.max(0, cw) * .07;
+      wear = Math.min(.17, wear * (.75 + .5 * fbm(wx * .3, wy * .3)));
+
+      const k = steep * (1 + m);
+      for (let ch = 0; ch < 3; ch++) {
+        const grass = (DK[ch] + (LT[ch] - DK[ch]) * lit) * k;
+        d[i + ch] = Math.max(0, Math.min(255, grass * (1 - wear) + WEAR[ch] * wear));
+      }
+      d[i + 3] = 255;
+    }
   }
-  // Faint cross-cut the other way: the grid a groundsman leaves.
-  for (let j = 0; j < 10; j += 2) {
-    t.fillStyle = 'rgba(255,255,255,.010)';
-    t.fillRect(0, Y((j + 1) * W / 10), c.width, W / 10 * TURF_T);
-  }
+  t.putImageData(img, 0, 0);
 
-  // Mottle: low-frequency patchiness. A uniform lawn is a render; grass
-  // grows unevenly.
-  for (let i = 0; i < 420; i++) {
-    const px = TX0 + rng() * wM, py = TY0 + rng() * hM;
-    const r = (2.5 + rng() * 5.5) * TURF_T;
-    const up = rng() > .5;
-    const gl = t.createRadialGradient(X(px), Y(py), 0, X(px), Y(py), r);
-    // The dark flecks carry less weight than the light ones: under
-    // perspective compression a dark spot reads as a mark on the pitch,
-    // a light one reads as light.
-    gl.addColorStop(0, up ? 'rgba(205,235,150,.034)' : 'rgba(12,30,19,.016)');
-    gl.addColorStop(1, 'rgba(0,0,0,0)');
-    t.fillStyle = gl;
-    t.beginPath(); t.arc(X(px), Y(py), r, 0, 7); t.fill();
-  }
-
-  // Wear: the goalmouths, the penalty spots, the centre, and a tired
-  // central channel. Sand and thin grass, not paint.
-  const wear = (px, py, rx, ry, a) => {
-    const gl = t.createRadialGradient(X(px), Y(py), 0, X(px), Y(py), rx * TURF_T);
-    gl.addColorStop(0, `rgba(122,106,64,${a})`);
-    gl.addColorStop(.55, `rgba(122,106,64,${a * .5})`);
-    gl.addColorStop(1, 'rgba(0,0,0,0)');
-    t.fillStyle = gl;
-    t.save(); t.translate(X(px), Y(py)); t.scale(1, ry / rx);
-    t.beginPath(); t.arc(0, 0, rx * TURF_T, 0, 7); t.fill(); t.restore();
-  };
-  wear(3.2, W / 2, 9, 5, .16); wear(L - 3.2, W / 2, 9, 5, .16);
-  wear(11, W / 2, 3.4, 2.4, .12); wear(L - 11, W / 2, 3.4, 2.4, .12);
-  wear(L / 2, W / 2, 7, 5, .1);
-  for (let i = 0; i < 9; i++) wear(L * .2 + rng() * L * .6, W / 2 + (rng() - .5) * 14,
-                                   3 + rng() * 4, 2 + rng() * 2, .05);
-
-  // Blade grain, anchored to the pitch (the screen-space grain that runs
-  // over the whole frame each frame belongs to the camera; this belongs
-  // to the grass).
+  // Blade grain: fine, anchored to the pitch. (The screen-space grain
+  // over the whole frame belongs to the camera; this belongs to grass.)
+  const rng = mulberry(7);
   const n = document.createElement('canvas'); n.width = n.height = 128;
-  const nx = n.getContext('2d'), d = nx.createImageData(128, 128);
-  for (let i = 0; i < d.data.length; i += 4) {
+  const nx = n.getContext('2d'), nd = nx.createImageData(128, 128);
+  for (let j = 0; j < nd.data.length; j += 4) {
     const v = 90 + (rng() * 165) | 0;
-    d.data[i] = v * .8; d.data[i + 1] = v; d.data[i + 2] = v * .82;
-    d.data[i + 3] = 14;
+    nd.data[j] = v * .8; nd.data[j + 1] = v; nd.data[j + 2] = v * .82;
+    nd.data[j + 3] = 13;
   }
-  nx.putImageData(d, 0, 0);
+  nx.putImageData(nd, 0, 0);
   t.fillStyle = t.createPattern(n, 'repeat');
   t.fillRect(0, 0, c.width, c.height);
 
-  // Floodlight pools, baked: they are fixed to the ground, so they cost
-  // nothing per frame here.
+  // Floodlight pools, baked: fixed to the ground, so free per frame.
   for (const fx of [L * .16, L * .5, L * .84]) {
     const r = 34 * TURF_T;
+    const X = x => (x - TX0) * TURF_T, Y = y => (TY1 - y) * TURF_T;
     const gl = t.createRadialGradient(X(fx), Y(W * .45), 0, X(fx), Y(W * .45), r);
-    gl.addColorStop(0, 'rgba(226,255,238,.06)');
-    gl.addColorStop(.6, 'rgba(226,255,238,.02)');
+    gl.addColorStop(0, 'rgba(226,255,238,.05)');
+    gl.addColorStop(.6, 'rgba(226,255,238,.018)');
     gl.addColorStop(1, 'rgba(0,0,0,0)');
     t.fillStyle = gl;
     t.beginPath(); t.arc(X(fx), Y(W * .45), r, 0, 7); t.fill();
   }
   TURF = c;
 
-  // Mip chain. Canvas drawImage has no mipmaps, and at the far touchline
-  // a band downscales the texture ~10x vertically: bilinear undersamples
-  // that badly, and every dark fleck in the mottle becomes a hard black
-  // streak. Each halving below IS the pre-filter; drawTurf picks the
-  // level that keeps the per-band scale near one.
   TURFM = [c];
   let prev = c;
   while (prev.width > 240 && TURFM.length < 4) {
