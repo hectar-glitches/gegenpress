@@ -28,9 +28,15 @@ blessed by ear and stays byte-identical.
 
 All of it ours, no third-party audio anywhere:
 
-  docs/audio/crowd.mp3   seamless ~28s bed
-  docs/audio/roar.mp3    ~8s goal roar (reverb tail included)
-  docs/audio/swell.mp3   ~2.4s "oooh" for a chance (unchanged)
+  docs/audio/synth-crowd.mp3   seamless ~28s synthesized bed
+  docs/audio/synth-roar.mp3    ~8s synthesized goal roar
+  docs/audio/swell.mp3         ~2.4s "oooh" for a chance
+
+The SHIPPED crowd.mp3 and roar.mp3 are no longer synthesized: after five
+rounds, ears beat DSP, and they are edited openly licensed recordings --
+see docs/audio/CREDITS.md. This script keeps the full synthesis for
+provenance and renders to synth-* names so running it can never
+overwrite the recordings. The swell stayed synthesized: it passed.
 
 Run: python scripts/make_crowd.py        (writes docs/audio/, prints the
                                           measurements that define done)
@@ -232,8 +238,8 @@ def main() -> int:
     w = np.sin(np.linspace(0, np.pi / 2, k)) ** 2
     bed[:, :k] = bed[:, :k] * w + bed[:, -k:] * (1 - w)
     bed = bed[:, : bed.shape[1] - k]
-    measure(bed, "crowd.mp3")
-    encode(bed, OUT / "crowd.mp3")
+    measure(bed, "synth-crowd.mp3")
+    encode(bed, OUT / "synth-crowd.mp3")
 
     print("rendering roar...")
     rng = np.random.default_rng(2027)
@@ -256,8 +262,8 @@ def main() -> int:
     roar = reverb_oneshot(roar, ir, wet=.4)         # the roar fills the bowl
     roar = normalise(roar, -16.5)
     roar[:, -int(0.3 * SR):] *= np.linspace(1, 0, int(0.3 * SR))
-    measure(roar, "roar.mp3 ")
-    encode(roar, OUT / "roar.mp3")
+    measure(roar, "synth-roar.mp3")
+    encode(roar, OUT / "synth-roar.mp3")
 
     # swell.mp3 passed the ear test as a FILE, so the file is the spec:
     # it is rendered only if missing. (The shipped one came from the
