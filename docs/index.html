@@ -511,7 +511,6 @@ function drawEvents() {
     const age = clock - e.t;
     if (age < 0 || age > TRAIL) continue;
     const a = Math.pow(1 - age / TRAIL, 1.7);
-    const grow = Math.min(1, age / .45);
     const away = e.m !== home;
     const col = away ? '255,176,32' : '90,169,255';
     const ex = EX(e.x, away), ey = EY(e.y, away);
@@ -520,6 +519,12 @@ function drawEvents() {
 
     if (e.k === 'pa' || e.k === 'ca') {
       const tx = e.X != null ? EX(e.X, away) : ex, ty = e.Y != null ? EY(e.Y, away) : ey;
+      // The trail grows at the ball's own pace, so line and ball arrive
+      // together: a trail that outruns its pass is another small lie.
+      const dist = Math.hypot(tx - ex, ty - ey);
+      const grow = e.k === 'pa'
+        ? Math.min(1, age / flightTime('pa', dist))
+        : Math.min(1, age * 7 / Math.max(4, dist));
       const p2 = P(ex + (tx - ex) * grow, ey + (ty - ey) * grow, 0);
       g.strokeStyle = e.f ? `rgba(255,95,95,${a * .32})` : `rgba(${col},${a * .42})`;
       g.lineWidth = Math.max(1, (e.k === 'ca' ? .18 : .11) * k);
@@ -527,6 +532,7 @@ function drawEvents() {
       poly(g, [p1, p2]); g.stroke(); g.setLineDash([]);
     } else if (e.k === 'sh') {
       const gx = away ? 0 : L;
+      const grow = Math.min(1, age / flightTime('sh', Math.hypot(gx - ex, W / 2 - ey)));
       const p2 = P(ex + (gx - ex) * grow, ey + (W / 2 - ey) * grow, 0);
       g.strokeStyle = e.g ? `rgba(61,220,132,${a})` : `rgba(${col},${a * .8})`;
       g.lineWidth = Math.max(1.6, .2 * k);
@@ -543,6 +549,94 @@ function drawEvents() {
       poly(g, ring(ex, ey, .55, 0, Math.PI * 2, 10), true); g.fill();
     }
   }
+}
+
+/* ================== the ball ==================
+   The packed frames sample at 1.5 seconds and a pass takes less than
+   that, so a ball read from the frames is low-pass filtered into a
+   float: it drifts between events in straight lines at an even pace,
+   which is most of what made the match read as random. Football reads
+   as football because the ball has two speeds -- it ZIPS along a pass,
+   then DWELLS at someone's feet -- so the ball is rebuilt here from the
+   event stream itself, which carries each pass's real start and end.
+
+   Pressure events are excluded: a presser is NEAR the ball, not the
+   ball, and steering at him is what made the track wobble.
+
+   Long passes travel in the air. The camera is a true projection, so a
+   lofted ball is literally drawn at height z while its shadow stays on
+   the turf -- the gap between them is what sells the arc. */
+const BALL_V = { pa: 17, sh: 24 };          // m/s, plausible flight speeds
+function flightTime(kind, dist) {
+  const v = BALL_V[kind];
+  return v ? Math.max(.25, Math.min(2.2, dist / v)) : 0;
+}
+
+let BALL = null;
+function buildBallTrack() {
+  const home = FEED.match.home.id;
+  const evs = FEED.stream.filter(e => e.k !== 'pr');
+  const seg = [];
+  for (let i = 0; i < evs.length; i++) {
+    const e = evs[i], away = e.m !== home;
+    const ax = EX(e.x, away), ay = EY(e.y, away);
+    const bx = e.X != null ? EX(e.X, away) : ax;
+    const by = e.Y != null ? EY(e.Y, away) : ay;
+    const n = evs[i + 1];
+    const t1 = n ? Math.max(n.t, e.t + .05) : e.t + 4;
+    const nAway = n ? n.m !== home : away;
+    const dist = Math.hypot(bx - ax, by - ay);
+    // A carry is not a flight: the ball moves at the carrier's pace for
+    // the whole window. Everything else zips, then settles.
+    // Flight never fills the window: the settle keeps at least a quarter
+    // of it, so the glide to wherever the next event begins is always a
+    // movement and never a teleport between segments.
+    let ft = e.k === 'ca' ? (t1 - e.t) : flightTime(e.k, dist);
+    ft = Math.max(.01, Math.min(ft, (t1 - e.t) * (e.k === 'ca' ? .9 : .74)));
+    const loft = e.k === 'pa' && dist > 20 ? Math.min(7, dist * .18)
+               : e.k === 'sh' ? .9 : 0;
+    let cx = n ? EX(n.x, nAway) : bx, cy = n ? EY(n.y, nAway) : by;
+    // A big gap to the next event is a RESTART -- a goal, then a kickoff
+    // fifty metres away -- not a journey the ball makes. Broadcast cuts
+    // to a restart; it does not show the ball streaking back to the
+    // centre spot. Hold at the dead-ball spot and let the next segment
+    // open with a cut.
+    if (Math.hypot(cx - bx, cy - by) > 12) { cx = bx; cy = by; }
+    seg.push({ t0: e.t, t1, ax, ay, bx, by, cx, cy, ft, loft, carry: e.k === 'ca' });
+  }
+  return seg;
+}
+
+/* -> {x, y, z, dwell, age}: dwell means the ball is in someone's
+   possession rather than in flight; age is seconds since it settled. */
+function ballAt(t) {
+  const s = BALL;
+  if (!s || !s.length) return { x: L / 2, y: W / 2, z: 0, dwell: true, age: 9 };
+  let lo = 0, hi = s.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (s[mid].t0 <= t) lo = mid; else hi = mid - 1;
+  }
+  const g = s[lo];
+  if (t <= g.t0) return { x: g.ax, y: g.ay, z: 0, dwell: true, age: 9 };
+  const u = Math.min(1, (t - g.t0) / g.ft);
+  if (u < 1) {
+    return {
+      x: g.ax + (g.bx - g.ax) * u,
+      y: g.ay + (g.by - g.ay) * u,
+      z: g.loft * 4 * u * (1 - u),
+      dwell: g.carry, age: g.carry ? t - g.t0 : 0,
+    };
+  }
+  // Settled: ease across the small gap to where the next event begins,
+  // which is the receiver bringing it under control and moving with it.
+  const rest = Math.max(.01, g.t1 - g.t0 - g.ft);
+  const v = Math.max(0, Math.min(1, (t - g.t0 - g.ft) / rest));
+  const e2 = v * v * (3 - 2 * v);
+  return {
+    x: g.bx + (g.cx - g.bx) * e2, y: g.by + (g.cy - g.by) * e2,
+    z: 0, dwell: true, age: t - g.t0 - g.ft,
+  };
 }
 
 /* ================== people ==================
@@ -584,59 +678,74 @@ function at(arr, stride, off, t) {
    exactly what the first version of this looked like. */
 function figure(g, h, kit, ph, front, profile, num, lean, gait) {
   const sp = Math.sin(ph) * gait;                // gait=0 -> feet together
-  const sw = .30 * (.62 + .38 * front);          // wide head-on, narrow in profile
+  const sw = .31 * (.62 + .38 * front);          // wide head-on, narrow in profile
   const sx = .155 * profile, sy = .038 * front;  // stride reads in x, foreshortens in y
-  const stance = .04;                            // feet apart even at rest
-  const HIP = -.46, WAIST = -.58, SHOULDER = -.81;
+  const stance = .048;                           // feet apart even at rest
+  const HIP = -.44, WAIST = -.57, SHOULDER = -.80;
+  const bob = Math.abs(Math.cos(ph)) * .02 * gait;   // rises mid-stride
 
   g.save();
   g.rotate(lean); g.scale(h, h);
   g.lineCap = 'round'; g.lineJoin = 'round';
 
-  // Legs, hip to foot, bent at the knee, with a muted kit sock on the
-  // shin. Thin and dark: at this size a bright leg shouts louder than
-  // the shirt, and the shirt is what identifies the team.
+  // Legs with mass: a thigh wider than its calf, bent at the knee, a
+  // muted kit sock on the shin. Thread-width legs under a filled torso
+  // were most of why the figures read as having no body.
   const leg = (dir) => {
     const hx = dir * stance, fx = dir * stance + sp * dir * sx;
     const fy = -Math.max(0, sp * dir) * .07 + sp * dir * sy;
-    const kx = (hx + fx) / 2 + sp * dir * sx * .4, ky = (HIP + fy) / 2;
-    g.lineWidth = .05; g.strokeStyle = LEG;
-    g.beginPath(); g.moveTo(hx, HIP); g.quadraticCurveTo(kx, ky, fx, fy); g.stroke();
-    g.lineWidth = .052; g.strokeStyle = kit.sock;
-    g.beginPath(); g.moveTo(kx * .5 + fx * .5, ky * .5 + fy * .5); g.lineTo(fx, fy); g.stroke();
+    const kx = (hx + fx) / 2 + sp * dir * sx * .45;
+    const ky = (HIP + fy) / 2 - .02;
+    g.strokeStyle = LEG; g.lineWidth = .088;                      // thigh
+    g.beginPath(); g.moveTo(hx, HIP + .03); g.lineTo(kx, ky); g.stroke();
+    g.lineWidth = .064;                                           // calf
+    g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, fy); g.stroke();
+    g.strokeStyle = kit.sock; g.lineWidth = .066;                 // sock
+    g.beginPath();
+    g.moveTo(kx + (fx - kx) * .45, ky + (fy - ky) * .45); g.lineTo(fx, fy); g.stroke();
   };
   leg(-1); leg(1);
 
-  // shorts
-  g.fillStyle = kit.short;
-  g.beginPath(); g.roundRect(-sw * .45, WAIST, sw * .90, WAIST * -1 + HIP, .03); g.fill();
+  // Everything above the legs bobs with the stride: highest as the legs
+  // pass each other, lowest at footstrike. Up is negative here.
+  g.translate(0, -bob);
+
+  // One connected silhouette, shoulders through hips. A shirt triangle
+  // floating above a separate shorts box reads as parts, not a person;
+  // shirt and shorts here are two fills of the same body.
+  const body = () => {
+    g.beginPath();
+    g.moveTo(-sw / 2, SHOULDER); g.lineTo(sw / 2, SHOULDER);
+    g.lineTo(sw * .43, WAIST);
+    g.lineTo(sw * .47, HIP - .015); g.lineTo(-sw * .47, HIP - .015);
+    g.lineTo(-sw * .43, WAIST);
+    g.closePath();
+  };
+  g.fillStyle = kit.short; body(); g.fill();
+  g.save(); body(); g.clip();
+  g.fillStyle = kit.shirt;
+  g.fillRect(-sw, SHOULDER - .02, sw * 2, WAIST - SHOULDER + .02);
+  g.fillStyle = kit.trim;                        // centre stripe
+  g.fillRect(-sw * .062, SHOULDER, sw * .124, WAIST - SHOULDER);
+  g.restore();
+  body(); g.strokeStyle = 'rgba(4,8,11,.42)'; g.lineWidth = .02; g.stroke();
 
   // arms swing against the legs, close to the body
-  g.strokeStyle = kit.shirt; g.lineWidth = .046;
-  g.beginPath(); g.moveTo(-sw * .44, SHOULDER + .03); g.lineTo(-sw * .5 + sp * sx * .45, WAIST + .02); g.stroke();
-  g.beginPath(); g.moveTo(sw * .44, SHOULDER + .03); g.lineTo(sw * .5 - sp * sx * .45, WAIST + .02); g.stroke();
-
-  // torso
-  g.beginPath();
-  g.moveTo(-sw / 2, SHOULDER); g.lineTo(sw / 2, SHOULDER);
-  g.lineTo(sw * .41, WAIST + .02); g.lineTo(-sw * .41, WAIST + .02);
-  g.closePath();
-  g.fillStyle = kit.shirt; g.fill();
-  g.strokeStyle = 'rgba(4,8,11,.42)'; g.lineWidth = .02; g.stroke();
-  g.fillStyle = kit.trim;                        // centre stripe
-  g.fillRect(-sw * .062, SHOULDER, sw * .124, -SHOULDER + WAIST + .02);
+  g.strokeStyle = kit.shirt; g.lineWidth = .06;
+  g.beginPath(); g.moveTo(-sw * .46, SHOULDER + .035); g.lineTo(-sw * .52 + sp * sx * .45, WAIST + .01); g.stroke();
+  g.beginPath(); g.moveTo(sw * .46, SHOULDER + .035); g.lineTo(sw * .52 - sp * sx * .45, WAIST + .01); g.stroke();
 
   if (num != null) {
     g.fillStyle = kit.ink;
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.font = '700 .15px "Archivo Variable",system-ui,sans-serif';
-    g.fillText(num, 0, SHOULDER + .11);
+    g.fillText(num, 0, SHOULDER + .105);
   }
 
   // neck, then head -- without the neck the head floats like a pinhead
   g.fillStyle = SKIN;
   g.fillRect(-.036, SHOULDER - .05, .072, .06);
-  g.beginPath(); g.arc(0, -.905, .078, 0, 7); g.fill();
+  g.beginPath(); g.arc(0, -.9, .078, 0, 7); g.fill();
   g.restore();
 }
 
@@ -645,7 +754,8 @@ function drawPeople() {
   if (!F || !F.n) return;
   const g = ctx;
   const back = Math.max(F.t0, clock - .22);
-  const [bx, by] = at(F.b, 2, 0, clock);
+  const b = ballAt(clock);
+  let bx = b.x, by = b.y;
 
   const cast = [];
   let carry = null, carryD = 1e9;
@@ -665,17 +775,33 @@ function drawPeople() {
     }
   }
 
+  // A settled ball belongs at somebody's feet. The track puts it where
+  // the events say; the nearest player is the man in possession, so the
+  // ball is drawn ON him, leading his run slightly -- which is what
+  // separates "he has the ball" from "a ball is near him". The blend
+  // ramps over the first half second so control is gathered, not
+  // teleported.
+  if (b.dwell && carry && carryD < 2.4 && carry.sp !== undefined) {
+    const w = Math.min(1, b.age / .5) * .9;
+    const lead = Math.max(.1, Math.min(.45, carry.sp * .09));
+    const tx = carry.x + (carry.sp > .3 ? carry.vx / carry.sp * lead : 0);
+    const ty = carry.y + (carry.sp > .3 ? carry.vy / carry.sp * lead : 0);
+    bx += (tx - bx) * w; by += (ty - by) * w;
+  }
+
   // Ground marker under the man on the ball: a broadcast spotlight reads
   // far better than a ring round a dot, and survives the perspective.
-  if (carry && carryD < 3.5) {
+  // Only while the ball is in someone's possession -- a ring that chases
+  // a pass mid-flight flickers across whoever it overtakes.
+  if (b.dwell && carry && carryD < 3.5) {
     g.strokeStyle = carry.side === 'home'
       ? 'rgba(90,169,255,.85)' : 'rgba(255,176,32,.85)';
     g.lineWidth = Math.max(1.4, .1 * mpp(carry.y));
     poly(g, ring(carry.x, carry.y, 1.25, 0, Math.PI * 2, 26), true); g.stroke();
   }
 
-  // Ball on the turf, sorted in with the players so it can be occluded.
-  cast.push({ ball: true, x: bx, y: by });
+  // Ball sorted in with the players so it can be occluded.
+  cast.push({ ball: true, x: bx, y: by, z: b.z });
   cast.sort((a, b) => (b.y + RIG.back) - (a.y + RIG.back));   // far first
 
   for (const r of cast) {
@@ -683,10 +809,15 @@ function drawPeople() {
     const k = mpp(r.y);
 
     if (r.ball) {
-      const rad = Math.max(1.6, .17 * k);
-      g.fillStyle = 'rgba(0,0,0,.45)';
-      g.beginPath(); g.ellipse(foot[0], foot[1], rad * 1.25, rad * .45, 0, 0, 7); g.fill();
-      g.beginPath(); g.arc(foot[0], foot[1] - rad * .7, rad, 0, 7);
+      const rad = Math.max(1.6, .16 * k);
+      // Shadow on the turf whatever the height; a lofted ball reads as
+      // lofted because the shadow stays down while the ball does not.
+      g.fillStyle = 'rgba(0,0,0,.4)';
+      g.beginPath();
+      g.ellipse(foot[0], foot[1], rad * (1.2 + r.z * .05), rad * .42, 0, 0, 7);
+      g.fill();
+      const pos = P(r.x, r.y, r.z + .11);
+      g.beginPath(); g.arc(pos[0], pos[1], rad, 0, 7);
       g.fillStyle = '#fff'; g.shadowColor = 'rgba(255,255,255,.8)';
       g.shadowBlur = 9; g.fill(); g.shadowBlur = 0;
       continue;
@@ -769,9 +900,8 @@ function frame(now) {
 
   // Camera dolly: hold for small movements, then ease across. A camera
   // that tracks every touch makes the world move instead of the lens.
-  if (FEED.frames && FEED.frames.n) {
-    const [bx] = at(FEED.frames.b, 2, 0, clock);
-    const target = Math.max(28, Math.min(L - 28, bx));
+  if (BALL) {
+    const target = Math.max(28, Math.min(L - 28, ballAt(clock).x));
     const err = target - camX, dz = 7;
     const want = Math.abs(err) <= dz ? camX : target - Math.sign(err) * dz;
     camX += (want - camX) * (1 - Math.exp(-dtReal * Math.min(SPEED, 6) / 1.4));
@@ -952,8 +1082,9 @@ fetch('feed.json').then(r => r.json()).then(d => {
     const gap = Math.abs(m.minute - centre) + (m.diverges ? 0 : 6);
     if (gap < bestGap) { bestGap = gap; open = i; }
   });
+  BALL = buildBallTrack();
   clock = d.moments[open].minute * 60 + 1;
-  camX = Math.max(28, Math.min(L - 28, at(d.frames.b, 2, 0, clock)[0]));
+  camX = Math.max(28, Math.min(L - 28, ballAt(clock).x));
   sync(); showMoment(open);
   last = performance.now();
   requestAnimationFrame(frame);
