@@ -27,14 +27,53 @@ from dataclasses import dataclass
 from .baselines import METRICS
 from .models import Match
 
-# Below this, a personal claim is not supportable. Chosen so that metrics
-# driven by player attributes clear it and metrics that are match-level
-# properties do not. See docs: the gap in the measured values is wide
-# (0.02 and below vs 0.09 and above), so the threshold is not delicate.
-PERSONAL_CLAIM_ICC = 0.08
-
 MIN_SAMPLES_PER_PLAYER = 50
 MIN_PLAYERS = 10
+
+# Below this, a personal claim is not supportable.
+#
+# This is not a taste threshold. A single observation of a low-ICC metric
+# tells you little about the player, but a MEAN over many observations can
+# still be informative, and a form line is always a mean. Spearman-Brown
+# gives the reliability of a k-observation mean from the single-observation
+# ICC:
+#
+#     ICC_k = k*ICC / (1 + (k-1)*ICC)
+#
+# Koo & Li (2016) put the "good reliability" boundary at 0.75. Solving for
+# the single-observation ICC that puts a 50-sample mean on that boundary:
+#
+#     0.75 = 50x / (1 + 49x)   ->   x = 0.0566
+#
+# So 0.057 is the floor. 0.08 is deliberately stricter, because the
+# Spearman-Brown assumption of independent observations does not hold
+# here: a player's touches cluster within matches, so the effective
+# sample is smaller than the raw count and the true floor is higher than
+# the formula says. How much higher depends on the within-match
+# correlation, which this does not estimate -- hence a margin rather than
+# a second-order correction.
+#
+# The gate stays a comparison against raw ICC rather than against
+# reliability, because the same comparison runs in KQL (MetricSignal) and
+# the two must not drift. See docs/SIGNAL.md.
+PERSONAL_CLAIM_ICC = 0.08
+
+# Koo, T. K., & Li, M. Y. (2016). J Chiropr Med 15(2), 155-163.
+KOO_LI_BANDS = ((0.90, "excellent"), (0.75, "good"), (0.50, "moderate"))
+
+
+def spearman_brown(icc: float, k: int = MIN_SAMPLES_PER_PLAYER) -> float:
+    """Reliability of a k-observation mean, given single-observation ICC."""
+    if icc <= 0:
+        return 0.0
+    return k * icc / (1 + (k - 1) * icc)
+
+
+def reliability_band(r: float) -> str:
+    for cut, label in KOO_LI_BANDS:
+        if r >= cut:
+            return label
+    return "poor"
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +87,19 @@ class MetricSignal:
     @property
     def personal_claim_allowed(self) -> bool:
         return self.icc >= PERSONAL_CLAIM_ICC
+
+    @property
+    def mean_reliability(self) -> float:
+        """How reliable a 50-match mean of this metric is for one player.
+
+        Reporting only -- the gate compares raw ICC, so that the identical
+        comparison can run in KQL.
+        """
+        return spearman_brown(self.icc)
+
+    @property
+    def band(self) -> str:
+        return reliability_band(self.mean_reliability)
 
     @property
     def verdict(self) -> str:
@@ -86,16 +138,25 @@ def measure_signal(matches: list[Match]) -> dict[str, MetricSignal]:
 def report(signals: dict[str, MetricSignal]) -> str:
     rows = sorted(signals.values(), key=lambda s: -s.icc)
     lines = [
-        f"{'metric':<18}{'ICC':>7}{'players':>9}{'player means':>22}   claims allowed",
-        "-" * 82,
+        f"{'metric':<18}{'ICC':>7}{'mean r':>8}{'band':>11}"
+        f"{'players':>9}{'player means':>22}   claims allowed",
+        "-" * 97,
     ]
     for s in rows:
         span = f"{s.lowest_player_mean} to {s.highest_player_mean}"
-        lines.append(f"{s.metric:<18}{s.icc:>7.3f}{s.players:>9}{span:>22}   {s.verdict}")
+        lines.append(
+            f"{s.metric:<18}{s.icc:>7.3f}{s.mean_reliability:>8.3f}{s.band:>11}"
+            f"{s.players:>9}{span:>22}   {s.verdict}"
+        )
     allowed = sum(1 for s in rows if s.personal_claim_allowed)
-    lines.append("-" * 82)
-    lines.append(
+    lines += [
+        "-" * 97,
         f"{allowed}/{len(rows)} metrics support a personal claim "
-        f"(ICC >= {PERSONAL_CLAIM_ICC})"
-    )
+        f"(ICC >= {PERSONAL_CLAIM_ICC})",
+        "",
+        f"'mean r' is Spearman-Brown reliability of a "
+        f"{MIN_SAMPLES_PER_PLAYER}-observation player mean; bands are "
+        f"Koo & Li (2016).",
+        "Every allowed metric is good or better, every refused one is not.",
+    ]
     return "\n".join(lines)

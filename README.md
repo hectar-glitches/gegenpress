@@ -27,7 +27,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 49 tests
+PYTHONPATH=src python -m pytest -q              # 51 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000
@@ -67,6 +67,12 @@ Not every metric can carry a personal claim. `recovery_time` measures how long a
 | recovery time | 0.006 | league only |
 
 ICC is between-player variance over total variance; near zero means every player's distribution is the league's wearing his name. Computed identically in [`signal.py`](src/gegenpress/signal.py) and in KQL as `MetricSignal()`.
+
+**The threshold is derived, not chosen.** A form line is always a mean, and Spearman-Brown gives the reliability of a 50-observation mean from the single-observation ICC. Solving for the value that puts that mean on [Koo & Li's](https://pmc.ncbi.nlm.nih.gov/articles/PMC4913118/) "good reliability" boundary of 0.75 gives 0.057; the gate uses 0.08, stricter, because touches cluster within matches so the effective sample is smaller than the raw count. Every metric the gate allows yields a player mean of *good* reliability or better, and every metric it refuses does not.
+
+**And the mechanism is real, not an artefact of the simulator.** Published football ICCs span **0.03 to 0.91**: [PLOS ONE (2022)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0262274) measures PlayerLoad at ICC 0.79–0.91 and high-speed running — a headline broadcast metric — at **0.03–0.53**, with within-subject variation up to 244% and a signal-to-noise ratio they could not compute. Same players, same sessions, an order of magnitude apart in how much the number says about the individual. Their own recommendation is to assess reliability at the individual level, which is what this does.
+
+The specific values here would not transfer to real tracking data and are not claimed to. [`docs/SIGNAL.md`](docs/SIGNAL.md) has the derivation, the literature, and an explicit account of what that evidence does and does not license.
 
 Every entry in this field verifies that its numbers are true. This checks whether the **sentence is sayable** — a different and stricter question.
 

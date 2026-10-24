@@ -53,6 +53,45 @@ def test_match_level_metrics_are_refused_a_personal_claim(world):
     assert signals["recovery_time_s"].icc < PERSONAL_CLAIM_ICC
 
 
+def test_threshold_is_derived_not_chosen():
+    """0.08 must stay tied to Koo & Li, not drift into a taste setting.
+
+    A form line is a mean, so what matters is the reliability of a
+    k-observation player mean, not of one touch. Spearman-Brown converts
+    between them, and Koo & Li (2016) put "good" at 0.75. The threshold
+    must sit at or above the ICC that puts a MIN_SAMPLES_PER_PLAYER mean
+    on that boundary -- stricter is fine (touches cluster within matches,
+    so the effective sample is smaller than the raw count), looser is a
+    claim the citation no longer supports. See docs/SIGNAL.md.
+    """
+    from gegenpress.signal import MIN_SAMPLES_PER_PLAYER, spearman_brown
+
+    k = MIN_SAMPLES_PER_PLAYER
+    floor = 0.75 / (k - (k - 1) * 0.75)
+    assert PERSONAL_CLAIM_ICC >= floor, (
+        f"threshold {PERSONAL_CLAIM_ICC} is below the derived floor "
+        f"{floor:.4f}; a {k}-observation mean would not reach Koo & Li 'good'"
+    )
+    assert spearman_brown(PERSONAL_CLAIM_ICC, k) >= 0.75
+
+
+def test_gate_matches_the_reliability_bands(world):
+    """Allowed metrics must yield a good player mean; refused ones must not.
+
+    This is the claim docs/SIGNAL.md makes to a reader. If the generator
+    or the threshold ever moves so that a refused metric would in fact
+    have supported a reliable personal mean -- or an allowed one would
+    not -- the documentation has become a story about the code rather
+    than a description of it.
+    """
+    _league, season, _store, _live = world
+    for metric, s in measure_signal(season).items():
+        if s.personal_claim_allowed:
+            assert s.band in ("good", "excellent"), (metric, s.icc, s.mean_reliability)
+        else:
+            assert s.band in ("poor", "moderate"), (metric, s.icc, s.mean_reliability)
+
+
 def test_no_form_line_for_a_refused_metric(world):
     _league, season, store, live = world
     refused = {m for m, s in measure_signal(season).items() if not s.personal_claim_allowed}
