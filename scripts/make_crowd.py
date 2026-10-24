@@ -1,22 +1,36 @@
 """Render the crowd, offline, from nothing.
 
-The first crowd was three bandpassed noise loops shaped in real time, and
-it sounded like what it was: wind. The second was granular but built only
-from two narrow vowel formants with nothing above 2.8 kHz -- hollow sung
-tones, which is the recipe for a ghost choir, and that is what it got
-called. A real crowd is mostly TRANSIENTS and AIR: scattered clapping,
-the fricative crackle of thousands of consonants, whistles, energy out
-past 6 kHz. The vowels are the minority.
+This file is an argument that has been had four times, and each round was
+settled by a different instrument:
 
-So each voice grain now has three wide formants plus a consonant burst on
-its onset, and two further layers exist outright: claps (short decaying
-broadband snaps -- the single most recognisable crowd texture) and sparse
-distant whistles. All of it ours, no third-party audio anywhere:
+  v1  realtime bandpassed noise        "wind"            (ears)
+  v2  granular, narrow vowel formants  "ghost choir"     (ears)
+  v3  bright: claps, consonants, air   "shrieks"         (spectrogram: the
+      whistles, plus a 2-6kHz field as loud as the voices)
+  v4  tilted, whistle-free             "old-TV static"   (the bed was
+      texturally UNIFORM: dry, stationary, mostly unvoiced)
 
-  docs/audio/crowd.mp3   seamless ~28s: chatter + scattered applause +
-                         a couple of far whistles over a low rumble
-  docs/audio/roar.mp3    ~6s one-shot: open-vowel shout grains over an
-                         applause wall, fast swell, long decay
+Static is what uniformity sounds like. A real crowd has structure at
+every timescale, and v5 adds the three kinds v4 lacked:
+
+  PITCH   grains are now mostly voiced, like swell.mp3 -- the one render
+          that has passed the ear test -- not mostly noise
+  WAVES   the level breathes over 4-10 second swells (integer cycles per
+          loop, so the seam survives); a crowd is never the same loudness
+          two moments running
+  A ROOM  everything is placed in a synthetic stadium: a 2-second
+          decaying-noise impulse response, applied to the loop by
+          CIRCULAR convolution so the reverb itself wraps seamlessly
+
+Seeds are per-section, so re-rendering one file can never silently change
+another. swell.mp3 is only rendered if missing: the shipped file was
+blessed by ear and stays byte-identical.
+
+All of it ours, no third-party audio anywhere:
+
+  docs/audio/crowd.mp3   seamless ~28s bed
+  docs/audio/roar.mp3    ~8s goal roar (reverb tail included)
+  docs/audio/swell.mp3   ~2.4s "oooh" for a chance (unchanged)
 
 Run: python scripts/make_crowd.py        (writes docs/audio/, prints the
                                           measurements that define done)
@@ -29,25 +43,22 @@ import subprocess
 import sys
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, fftconvolve, sosfilt
 
 SR = 44100
-rng = np.random.default_rng(2026)
+rng = np.random.default_rng(2026)      # reassigned per section in main()
 
 OUT = pathlib.Path(__file__).resolve().parent.parent / "docs" / "audio"
 
 
 def voice_grain(dur: float, f1: float, f2: float, voiced: float) -> np.ndarray:
-    """One short utterance. Three WIDE formants -- narrow ones whistle --
-    and a consonant burst at the onset, because speech without consonants
-    is a seance."""
+    """One short utterance: three WIDE formants (narrow ones whistle),
+    usually a consonant burst at the onset, syllabic movement."""
     n = int(dur * SR)
     t = np.arange(n) / SR
     src = rng.standard_normal(n) * 0.6
     if voiced > 0:
         f0 = rng.uniform(100, 280)
-        # A pulse train with jitter: square-wave buzz through a narrow
-        # band is an organ pipe.
         ph = 2 * np.pi * f0 * t * (1 + 0.02 * np.sin(2 * np.pi * 5.3 * t))
         buzz = (np.sin(ph) + .5 * np.sin(2 * ph + .7) + .25 * np.sin(3 * ph + 1.9))
         src = src * (1 - voiced * .8) + buzz * voiced * 0.45
@@ -56,8 +67,6 @@ def voice_grain(dur: float, f1: float, f2: float, voiced: float) -> np.ndarray:
     for fc, bw, w in ((f1, 180, 1.0), (f2, 300, 0.6), (f3, 500, 0.3)):
         sos = butter(2, [max(60, fc - bw), fc + bw], "bandpass", fs=SR, output="sos")
         out += w * sosfilt(sos, src)
-    # Consonant onset: a short high-passed burst, the "t/s/k" that makes
-    # it read as talking rather than humming.
     if rng.random() < 0.5:
         cn = int(rng.uniform(.02, .07) * SR)
         if cn < n:
@@ -71,9 +80,6 @@ def voice_grain(dur: float, f1: float, f2: float, voiced: float) -> np.ndarray:
 
 
 def clap() -> np.ndarray:
-    """One clap: a few milliseconds of broadband snap with a fast decay.
-    Thousands of these, uncoordinated, are the crackle every stadium
-    recording is full of and every 'ghost choir' lacks."""
     n = int(rng.uniform(.008, .02) * SR)
     sos = butter(2, [800, 4200], "bandpass", fs=SR, output="sos")
     c = sosfilt(sos, rng.standard_normal(n))
@@ -94,15 +100,52 @@ def scatter(bed: np.ndarray, g: np.ndarray, amp: float, at: int) -> None:
         bed[1, :r] += g[m:] * amp * pan
 
 
-def tilt(x: np.ndarray, mix: float = .62) -> np.ndarray:
-    """Distance. A crowd heard across a pitch keeps its voices and loses
-    its sizzle: blend in a one-pole lowpass so the high band sits several
-    dB under the voice band -- toward the balance of swell.mp3, the one
-    render that passed the ear test, without falling back into the ghost
-    this project has already been cured of once."""
+def tilt(x: np.ndarray, mix: float) -> np.ndarray:
+    """Distance: keep the voices, lose the sizzle."""
     sos = butter(1, 1600, "lowpass", fs=SR, output="sos")
     low = np.stack([sosfilt(sos, x[0]), sosfilt(sos, x[1])])
     return x * (1 - mix) + low * mix
+
+
+def stadium_ir(secs: float = 2.4, rt60: float = 2.0) -> np.ndarray:
+    """A bowl of concrete and air: exponentially decaying noise with the
+    top damped, decorrelated left/right. Unit energy per channel, so the
+    wet level tracks the dry."""
+    irng = np.random.default_rng(2030)
+    n = int(secs * SR)
+    t = np.arange(n) / SR
+    ir = np.stack([irng.standard_normal(n), irng.standard_normal(n)])
+    ir *= np.exp(-t / (rt60 / 6.91))
+    sos = butter(1, 2600, "lowpass", fs=SR, output="sos")
+    ir = np.stack([sosfilt(sos, ir[0]), sosfilt(sos, ir[1])])
+    return ir / np.sqrt((ir ** 2).sum(axis=1, keepdims=True))
+
+
+def reverb_loop(x: np.ndarray, ir: np.ndarray, wet: float) -> np.ndarray:
+    """CIRCULAR convolution: the reverb of the loop's end spills into its
+    start, exactly as if the crowd had been murmuring forever. The seam
+    stays seamless by construction."""
+    n = x.shape[1]
+    pad = np.pad(ir, ((0, 0), (0, n - ir.shape[1])))
+    w = np.fft.irfft(np.fft.rfft(x, axis=1) * np.fft.rfft(pad, axis=1), n=n, axis=1)
+    return (1 - wet) * x + wet * w
+
+
+def reverb_oneshot(x: np.ndarray, ir: np.ndarray, wet: float) -> np.ndarray:
+    out = np.stack([fftconvolve(x[c], ir[c]) for c in (0, 1)])
+    dry = np.pad(x, ((0, 0), (0, out.shape[1] - x.shape[1])))
+    return (1 - wet) * dry + wet * out
+
+
+def waves(n: int, parts=((3, .20), (7, .13), (13, .08))) -> np.ndarray:
+    """The slow breathing of a crowd: a few sinusoids at whole numbers of
+    cycles per loop (so the seam survives), summing to swells of several
+    seconds. Stationarity is what static IS; this removes it."""
+    t = np.arange(n) / n
+    g = np.ones(n)
+    for cycles, depth in parts:
+        g += depth * np.sin(2 * np.pi * cycles * t + rng.uniform(0, 6))
+    return g
 
 
 def rumble(secs: float) -> np.ndarray:
@@ -119,9 +162,7 @@ def rumble(secs: float) -> np.ndarray:
 def normalise(x: np.ndarray, rms_db: float) -> np.ndarray:
     rms = np.sqrt(np.mean(x ** 2))
     x = x * (10 ** (rms_db / 20) / max(rms, 1e-9))
-    # Soft saturation, never a hard clip: a hard-clipped transient is
-    # electrical crackle by construction.
-    return np.tanh(x / .85) * .85
+    return np.tanh(x / .85) * .85          # soft saturation, never a clip
 
 
 def encode(x: np.ndarray, path: pathlib.Path) -> None:
@@ -129,13 +170,12 @@ def encode(x: np.ndarray, path: pathlib.Path) -> None:
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error",
          "-f", "s16le", "-ar", str(SR), "-ac", "2", "-i", "-",
-         "-c:a", "libmp3lame", "-b:a", "128k", str(path)],
+         "-c:a", "libmp3lame", "-b:a", "160k", str(path)],
         input=raw, check=True)
 
 
 def measure(x: np.ndarray, name: str) -> None:
     mono = x.mean(axis=0)
-    # Syllabic modulation: chatter peaks at 3-8 Hz, static has no peak.
     env = np.abs(mono)
     sos = butter(2, 30, "lowpass", fs=SR, output="sos")
     env = sosfilt(sos, env)[:: SR // 200]
@@ -145,58 +185,48 @@ def measure(x: np.ndarray, name: str) -> None:
     band = lambda a, b: spec[(freqs >= a) & (freqs < b)].mean()
     syllabic = band(3, 8) / max(band(12, 30), 1e-9)
 
-    # Muffle test: spectral centroid, and high band vs voice band. The
-    # ghost-choir version centroided around 600 Hz; a crowd has air.
     fspec = np.abs(np.fft.rfft(mono * np.hanning(len(mono)))) ** 2
     ff = np.fft.rfftfreq(len(mono), 1 / SR)
     centroid = float((fspec * ff).sum() / fspec.sum())
     e = lambda a, b: fspec[(ff >= a) & (ff < b)].sum()
     hf_db = 10 * np.log10(e(2000, 6000) / max(e(300, 800), 1e-12))
 
-    # Crackle: clap/consonant transients per second in the 2-8 kHz band.
-    sos = butter(2, [2000, 8000], "bandpass", fs=SR, output="sos")
-    hi = np.abs(sosfilt(sos, mono))
-    sos = butter(2, 60, "lowpass", fs=SR, output="sos")
-    hi = sosfilt(sos, hi)
-
-    # Crackle vs wash. Sparse snaps sit on near-silence, so the hi-band
-    # envelope spends measurable time in brief spikes above 2x its own
-    # median; a wash hovers AT its median and never spikes. Low is good
-    # ONLY alongside a healthy hi/voice level, which proves the band is
-    # loud-and-steady rather than absent.
-    sosd = butter(2, 80, "lowpass", fs=SR, output="sos")
-    denv = sosfilt(sosd, hi)
-    duty = float((denv > 2 * np.median(denv)).mean())
+    # Anti-static: how much the loudness BREATHES across the file.
+    # Static is stationary (CV near zero); a crowd comes in waves.
+    w = SR
+    wrms = np.sqrt((mono[: len(mono) // w * w].reshape(-1, w) ** 2).mean(1))
+    macro_cv = float(wrms.std() / wrms.mean()) if len(wrms) > 3 else float("nan")
 
     seam = abs(mono[0] - mono[-1])
     print(f"{name}: rms {20 * np.log10(np.sqrt(np.mean(mono ** 2))):.1f} dBFS, "
           f"centroid {centroid:.0f} Hz, hi/voice {hf_db:+.1f} dB, "
-          f"hi-band spikiness {duty:.2f} (0 = steady wash), "
-          f"syllabic {syllabic:.2f}, "
+          f"macro-wave CV {macro_cv:.3f}, syllabic {syllabic:.2f}, "
           f"peak {np.abs(x).max():.2f}, seam {seam:.5f}")
 
 
 def main() -> int:
+    global rng
     OUT.mkdir(parents=True, exist_ok=True)
     SECS = 28.0
     n = int(SECS * SR)
+    ir = stadium_ir()
 
     print("rendering bed...")
+    rng = np.random.default_rng(2026)
     bed = np.zeros((2, n))
-    for _ in range(9000):                           # chatter
-        g = voice_grain(rng.uniform(.15, .9),
-                        rng.uniform(300, 850), rng.uniform(1000, 2600),
-                        voiced=rng.uniform(0, .45))
+    for _ in range(9000):                           # chatter -- mostly VOICED
+        g = voice_grain(rng.uniform(.15, .9),       # now: pitch is what reads
+                        rng.uniform(300, 850),      # as human, and unvoiced
+                        rng.uniform(1000, 2600),    # grain wash reads as static
+                        voiced=rng.uniform(.3, .7))
         scatter(bed, g, rng.lognormal(-2.1, .55), int(rng.integers(0, n)))
-    # Applause as a WASH. Ninety claps a second is the density of a
-    # crackling fire: distinct snaps with silence between them, which is
-    # exactly what got heard as "disturbing crackling". Five hundred a
-    # second at a third the level is the density of applause -- the snaps
-    # fuse into texture. Levels are capped so no single clap pops out.
-    for _ in range(int(SECS * 520)):
+    for _ in range(int(SECS * 520)):                # applause as a wash
         scatter(bed, clap(), min(float(rng.lognormal(-2.6, .5)), .14),
                 int(rng.integers(0, n)))
-    bed = tilt(bed) + 0.45 * rumble(SECS)
+    bed *= waves(n)                                 # the crowd breathes
+    bed = tilt(bed, .5)
+    bed = reverb_loop(bed, ir, wet=.45)             # put it in a stadium
+    bed = bed + 0.4 * rumble(SECS)
     bed = normalise(bed, -21.0)
     k = int(0.04 * SR)
     w = np.sin(np.linspace(0, np.pi / 2, k)) ** 2
@@ -206,43 +236,50 @@ def main() -> int:
     encode(bed, OUT / "crowd.mp3")
 
     print("rendering roar...")
+    rng = np.random.default_rng(2027)
     rn = int(6.0 * SR)
     roar = np.zeros((2, rn))
-    for _ in range(4200):                           # the shout
+    for _ in range(4200):
         g = voice_grain(rng.uniform(.3, 1.4),
                         rng.uniform(500, 1000), rng.uniform(1100, 2400),
                         voiced=rng.uniform(.3, .7))
         at = int(abs(rng.normal(.55, .9)) * SR)
         if at < rn:
             scatter(roar, g, rng.lognormal(-1.7, .5), at)
-    for _ in range(9000):                           # the applause wall
+    for _ in range(9000):
         at = int(abs(rng.normal(1.3, 1.3)) * SR)
         if at < rn:
             scatter(roar, clap(), min(float(rng.lognormal(-2.0, .5)), .3), at)
     t = np.arange(rn) / SR
     shape = np.minimum(1, t / 0.3) * np.exp(-np.maximum(0, t - 1.6) / 1.9)
-    roar = normalise(tilt(roar, .5) * shape, -16.0)
-    roar[:, -int(0.2 * SR):] *= np.linspace(1, 0, int(0.2 * SR))
+    roar = tilt(roar, .35) * shape
+    roar = reverb_oneshot(roar, ir, wet=.4)         # the roar fills the bowl
+    roar = normalise(roar, -16.5)
+    roar[:, -int(0.3 * SR):] *= np.linspace(1, 0, int(0.3 * SR))
     measure(roar, "roar.mp3 ")
     encode(roar, OUT / "roar.mp3")
 
-    print("rendering swell...")
-    sn = int(2.4 * SR)
-    sw = np.zeros((2, sn))
-    for _ in range(1400):                           # voices only, no claps:
-        g = voice_grain(rng.uniform(.25, .9),       # the "oooh" of a chance,
-                        rng.uniform(380, 820),      # not a burst of static
-                        rng.uniform(950, 2100),
-                        voiced=rng.uniform(.35, .7))
-        at = int(abs(rng.normal(.4, .5)) * SR)
-        if at < sn:
-            scatter(sw, g, rng.lognormal(-1.9, .45), at)
-    st = np.arange(sn) / SR
-    sw = sw * (np.minimum(1, st / .3) * np.exp(-np.maximum(0, st - .9) / .55))
-    sw = normalise(sw, -18.5)
-    sw[:, -int(.15 * SR):] *= np.linspace(1, 0, int(.15 * SR))
-    measure(sw, "swell.mp3")
-    encode(sw, OUT / "swell.mp3")
+    # swell.mp3 passed the ear test as a FILE, so the file is the spec:
+    # it is rendered only if missing. (The shipped one came from the
+    # pre-split shared RNG sequence and is not bit-reproducible here.)
+    if not (OUT / "swell.mp3").exists():
+        print("rendering swell (missing)...")
+        rng = np.random.default_rng(2028)
+        sn = int(2.4 * SR)
+        sw = np.zeros((2, sn))
+        for _ in range(1400):
+            g = voice_grain(rng.uniform(.25, .9),
+                            rng.uniform(380, 820), rng.uniform(950, 2100),
+                            voiced=rng.uniform(.35, .7))
+            at = int(abs(rng.normal(.4, .5)) * SR)
+            if at < sn:
+                scatter(sw, g, rng.lognormal(-1.9, .45), at)
+        st = np.arange(sn) / SR
+        sw = sw * (np.minimum(1, st / .3) * np.exp(-np.maximum(0, st - .9) / .55))
+        sw = normalise(sw, -18.5)
+        sw[:, -int(.15 * SR):] *= np.linspace(1, 0, int(.15 * SR))
+        measure(sw, "swell.mp3")
+        encode(sw, OUT / "swell.mp3")
 
     for f in sorted(OUT.glob("*.mp3")):
         print(f"{f.relative_to(OUT.parent.parent)}  {f.stat().st_size // 1024} KB")
