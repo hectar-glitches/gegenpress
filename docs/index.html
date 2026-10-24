@@ -391,7 +391,7 @@ function ring(x, y, r, from, to, n) {
    the mode-7 trick, and here it is exact rather than an approximation. */
 const TURF_T = 14;                       // texture pixels per metre
 const TX0 = -16, TX1 = L + 16, TY0 = -9, TY1 = W + 2.2;
-let TURF = null;
+let TURF = null, TURFM = null;
 
 function mulberry(seed) {
   return () => {
@@ -436,10 +436,13 @@ function buildTurf() {
   // grows unevenly.
   for (let i = 0; i < 420; i++) {
     const px = TX0 + rng() * wM, py = TY0 + rng() * hM;
-    const r = (1.5 + rng() * 5.5) * TURF_T;
+    const r = (2.5 + rng() * 5.5) * TURF_T;
     const up = rng() > .5;
     const gl = t.createRadialGradient(X(px), Y(py), 0, X(px), Y(py), r);
-    gl.addColorStop(0, up ? 'rgba(205,235,150,.040)' : 'rgba(8,24,14,.05)');
+    // The dark flecks carry less weight than the light ones: under
+    // perspective compression a dark spot reads as a mark on the pitch,
+    // a light one reads as light.
+    gl.addColorStop(0, up ? 'rgba(205,235,150,.040)' : 'rgba(10,28,17,.028)');
     gl.addColorStop(1, 'rgba(0,0,0,0)');
     t.fillStyle = gl;
     t.beginPath(); t.arc(X(px), Y(py), r, 0, 7); t.fill();
@@ -488,6 +491,20 @@ function buildTurf() {
     t.beginPath(); t.arc(X(fx), Y(W * .45), r, 0, 7); t.fill();
   }
   TURF = c;
+
+  // Mip chain. Canvas drawImage has no mipmaps, and at the far touchline
+  // a band downscales the texture ~10x vertically: bilinear undersamples
+  // that badly, and every dark fleck in the mottle becomes a hard black
+  // streak. Each halving below IS the pre-filter; drawTurf picks the
+  // level that keeps the per-band scale near one.
+  TURFM = [c];
+  let prev = c;
+  while (prev.width > 240 && TURFM.length < 4) {
+    const m = document.createElement('canvas');
+    m.width = Math.ceil(prev.width / 2); m.height = Math.ceil(prev.height / 2);
+    m.getContext('2d').drawImage(prev, 0, 0, m.width, m.height);
+    TURFM.push(m); prev = m;
+  }
 }
 
 /* Invert the projection for the ground plane: which pitch row is on
@@ -515,8 +532,12 @@ function drawTurf() {
     const y1 = Math.max(TY0, yAtScreen(ys + h));      // near edge
     if (y0 > y1) {
       const s = mpp((y0 + y1) / 2);
-      g.drawImage(TURF,
-        0, (TY1 - y0) * TURF_T, TURF.width, Math.max(1, (y0 - y1) * TURF_T),
+      // Pick the mip whose vertical scale is nearest one for this band.
+      const ratio = (y0 - y1) * TURF_T / h;
+      const lvl = Math.max(0, Math.min(TURFM.length - 1, Math.floor(Math.log2(ratio / 1.2))));
+      const sc = 1 << lvl, tex = TURFM[lvl];
+      g.drawImage(tex,
+        0, (TY1 - y0) * TURF_T / sc, tex.width, Math.max(1, (y0 - y1) * TURF_T / sc),
         CAM.cx + s * (TX0 - camX), ys, s * (TX1 - TX0), h);
     }
     ys += h;
@@ -745,9 +766,14 @@ function ballAt(t) {
   if (t <= g.t0) return { x: g.ax, y: g.ay, z: 0, dwell: true, age: 9 };
   const u = Math.min(1, (t - g.t0) / g.ft);
   if (u < 1) {
+    // A ground pass leaves the foot fast and friction takes the rest:
+    // it decelerates into the receiver. Only a ball in the air travels
+    // at roughly constant pace. Constant-velocity ground passes are a
+    // large part of why the ball read as "moving on a line".
+    const ue = (g.carry || g.loft > 0) ? u : 1 - Math.pow(1 - u, 1.7);
     return {
-      x: g.ax + (g.bx - g.ax) * u,
-      y: g.ay + (g.by - g.ay) * u,
+      x: g.ax + (g.bx - g.ax) * ue,
+      y: g.ay + (g.by - g.ay) * ue,
       z: g.loft * 4 * u * (1 - u),
       dwell: g.carry, age: g.carry ? t - g.t0 : 0,
     };
@@ -927,6 +953,27 @@ function drawPeople() {
     bx += (tx - bx) * w; by += (ty - by) * w;
   }
 
+  // The RENDERED ball chases the model ball through a short lag. This is
+  // what joins the pieces into one movement: the kick departs from where
+  // the ball actually was at the passer's feet (not from wherever the
+  // event log rounded it to), and both ends of a flight ease instead of
+  // starting and stopping dead. A restart or a seek snaps -- those are
+  // cuts, and smoothing across a cut would draw the very streak the cut
+  // exists to avoid.
+  if (!VISB || Math.hypot(bx - VISB.x, by - VISB.y) > 20
+      || Math.abs(clock - VISB.t) > 5) {
+    VISB = { x: bx, y: by, t: clock };
+  } else {
+    // The lag is constant in MATCH time, not wall time, so a pass keeps
+    // the same shape at 1x and 12x instead of smearing as playback
+    // speeds up.
+    const kk = 1 - Math.exp(-DT * SPEED / .09);
+    VISB.x += (bx - VISB.x) * kk;
+    VISB.y += (by - VISB.y) * kk;
+    VISB.t = clock;
+  }
+  bx = VISB.x; by = VISB.y;
+
   // Ground marker under the man on the ball: a broadcast spotlight reads
   // far better than a ring round a dot, and survives the perspective.
   // Only while the ball is in someone's possession -- a ring that chases
@@ -1008,60 +1055,54 @@ function drawPeople() {
 
 /* ================== crowd ==================
    What sits under live play on a broadcast is not music, it is forty
-   thousand people. No recording is used -- a recording loops, carries a
-   licence, and cannot react. This crowd is synthesized: three voices of
-   looped brownish noise through bandpass filters (a murmur, an airy top,
-   and a surge voice driven by envelopes), with the murmur's level
-   following where the ball is. It leans toward the boxes, swells for a
-   shot, and roars for a goal, because it is computed from the same
-   events as everything else on screen. */
+   thousand people -- and a crowd is not filtered static, which is what
+   realtime noise-through-bandpass synthesis sounds like. The bed and the
+   roar are rendered OFFLINE by scripts/make_crowd.py: thousands of short
+   voice-like grains (noise and buzz through vocal formants, with
+   syllabic amplitude movement) overlap-added into a seamless loop and a
+   one-shot. Still nobody else's audio, still no licence to clear, and
+   the files are generated by a script in this repo, so they are as
+   reproducible as the season itself.
+
+   The browser's job is only the reactive part: the bed's level and
+   brightness lean toward whichever box the ball is near, a shot gets the
+   rising half of the roar and is cut off, a goal gets all of it --
+   driven by the same event stream as everything else on screen. */
 let AC = null, CROWD = null, sndOn = false, audioPtr = 0, lastAClock = -1, EXC = 0;
 
-function noiseBuffer(ac, secs) {
-  const b = ac.createBuffer(2, secs * ac.sampleRate, ac.sampleRate);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = b.getChannelData(ch);
-    let a = 0;
-    for (let i = 0; i < d.length; i++) {
-      a = a * .985 + (Math.random() * 2 - 1) * .15;
-      d[i] = a * 2.4;
-    }
-  }
-  return b;
-}
-
-function initCrowd() {
+async function initCrowd() {
   AC = new (window.AudioContext || window.webkitAudioContext)();
-  const master = AC.createGain(); master.gain.value = .6;
+  const load = async url =>
+    AC.decodeAudioData(await (await fetch(url)).arrayBuffer());
+  const [bed, roar] = await Promise.all([
+    load('audio/crowd.mp3'), load('audio/roar.mp3'),
+  ]);
+  const master = AC.createGain(); master.gain.value = .9;
   master.connect(AC.destination);
-  const buf = noiseBuffer(AC, 4);
-  const voice = (freq, q, g0, rate) => {
-    const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
-    src.playbackRate.value = rate;
-    const f = AC.createBiquadFilter(); f.type = 'bandpass';
-    f.frequency.value = freq; f.Q.value = q;
-    const g = AC.createGain(); g.gain.value = g0;
-    src.connect(f); f.connect(g); g.connect(master);
-    src.start();
-    return { f, g };
-  };
-  CROWD = {
-    murmur: voice(420, .6, .09, .82),
-    air: voice(1600, .5, .018, 1.13),
-    surge: voice(900, .8, 0, .95),
-  };
+  const bedG = AC.createGain(); bedG.gain.value = .4;
+  // A crowd heard across a pitch is dark; it brightens as it leans in.
+  const bedF = AC.createBiquadFilter();
+  bedF.type = 'lowpass'; bedF.frequency.value = 2000;
+  const src = AC.createBufferSource(); src.buffer = bed; src.loop = true;
+  src.connect(bedF); bedF.connect(bedG); bedG.connect(master); src.start();
+  CROWD = { master, bedG, bedF, roar };
 }
 
-function crowdSwell(intensity, dur) {
+/* A reaction is the roar sample, scaled. A goal gets all of it; a miss
+   gets the rise and is then cut off -- which is exactly what a missed
+   chance sounds like. */
+function crowdShot(intensity, cutAfter) {
   if (!CROWD || AC.state !== 'running') return;
-  const t = AC.currentTime, s = CROWD.surge.g.gain;
-  s.cancelScheduledValues(t);
-  s.setTargetAtTime(.08 + .5 * intensity, t, .07 + .12 * (1 - intensity));
-  s.setTargetAtTime(0, t + dur * .35, dur * .3);
-  const f = CROWD.surge.f.frequency;
-  f.cancelScheduledValues(t);
-  f.setValueAtTime(700, t);
-  f.linearRampToValueAtTime(700 + 900 * intensity, t + dur * .4);
+  const t = AC.currentTime;
+  const s = AC.createBufferSource(); s.buffer = CROWD.roar;
+  s.playbackRate.value = .92 + Math.random() * .16 + (1 - intensity) * .15;
+  const g = AC.createGain(); g.gain.value = .1 + .85 * intensity;
+  s.connect(g); g.connect(CROWD.master);
+  s.start(t);
+  if (cutAfter) {
+    g.gain.setTargetAtTime(0, t + cutAfter, .3);
+    s.stop(t + cutAfter + 1.6);
+  }
 }
 
 function crowdFrame(dtReal) {
@@ -1070,9 +1111,11 @@ function crowdFrame(dtReal) {
   const want = Math.max(0, Math.min(1, (Math.abs(ballAt(clock).x - L / 2) - 12) / 38));
   EXC += (want - EXC) * Math.min(1, dtReal * 1.5);
   const t = AC.currentTime;
-  const breath = .85 + .15 * Math.sin(t * .31) * Math.sin(t * .13 + 2);
-  CROWD.murmur.g.gain.setTargetAtTime((playing ? .08 : .035) * breath + .07 * EXC, t, .25);
-  CROWD.air.g.gain.setTargetAtTime(playing ? .018 + .02 * EXC : .007, t, .4);
+  const breath = .88 + .12 * Math.sin(t * .31) * Math.sin(t * .13 + 2);
+  CROWD.bedG.gain.setTargetAtTime(
+    ((playing ? .4 : .18) + .45 * EXC) * breath, t, .3);
+  CROWD.bedF.frequency.setTargetAtTime(
+    (playing ? 1800 : 1100) + 3600 * EXC, t, .4);
 
   // React to what just happened. On a seek, drop the backlog rather than
   // roaring through half a match in one frame.
@@ -1081,14 +1124,13 @@ function crowdFrame(dtReal) {
   while (audioPtr < st.length && st[audioPtr].t <= clock) {
     const e = st[audioPtr++];
     if (clock - e.t > 2) continue;
-    if (e.k === 'sh') crowdSwell(e.g ? 1 : .55, e.g ? 6 : 1.8);
-    else if (e.k === 'ta' || e.k === 'du') crowdSwell(.16, .9);
+    if (e.k === 'sh') crowdShot(e.g ? 1 : .4, e.g ? 0 : 1.1);
   }
   lastAClock = clock;
 }
 
 /* ================== loop ================== */
-let GAIT = 0;
+let GAIT = 0, DT = 1 / 60, VISB = null;
 
 /* Film grain is a property of the camera, not the pitch, so it sits over
    the whole frame -- but painting it INTO the canvas was two thirds of
@@ -1114,6 +1156,7 @@ function makeGrain() {
 function frame(now) {
   const dtReal = Math.min(.1, (now - last) / 1000);
   last = now;
+  DT = dtReal;
   if (playing) {
     clock = Math.min(FULL, clock + dtReal * SPEED);
     if (clock >= FULL) pause();
@@ -1284,9 +1327,15 @@ fetch('feed.json').then(r => r.json()).then(d => {
     buildCam();
   };
   $('#snd').onclick = async () => {
-    if (!AC) initCrowd();
-    if (sndOn) { await AC.suspend(); sndOn = false; }
-    else { await AC.resume(); sndOn = true; }
+    try {
+      if (!AC) await initCrowd();
+      if (sndOn) { await AC.suspend(); sndOn = false; }
+      else { await AC.resume(); sndOn = true; }
+    } catch (err) {
+      // A failed fetch or decode must never wedge the button.
+      sndOn = false; CROWD = null;
+      if (AC) { try { AC.close(); } catch (e2) {} AC = null; }
+    }
     $('#snd').setAttribute('aria-pressed', sndOn);
   };
   $('#mAnalyst').onclick = () => setMode('analyst');
