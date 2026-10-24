@@ -116,9 +116,18 @@ def test_local_and_adx_agree(fixture_set):
     for x, y in zip(a, b):
         assert x.metric == y.metric
         assert abs(x.value - y.value) < 1e-6, (x.metric, x.value, y.value)
-        # Percentiles differ slightly: KQL uses 101 cut points, Python the
-        # full sorted sample. One percentile point of tolerance.
-        assert abs(x.beats - y.beats) < 0.02, (x.metric, x.beats, y.beats)
+        # Both sides now compute the SAME quantity: the exact share of the
+        # population strictly below the value, rounded to 4 places. The
+        # tolerance is one rounding unit, for .NET vs Python round() at
+        # an exact midpoint -- not a licence for approximation. (The first
+        # version allowed 0.02 here because KQL used a 101-cut T-Digest
+        # estimate; that tolerance hid the very drift this test exists to
+        # catch, and the ranking assertion above is what exposed it.)
+        #
+        # Not asserted: `expected` (the league median). KQL's percentile()
+        # is a T-Digest estimate and Python's is exact; it is a display
+        # value, not part of what decides which moments surface.
+        assert abs(x.beats - y.beats) <= 1.5e-4, (x.metric, x.beats, y.beats)
         # The ICC gate is the thing this project is actually about, and
         # it is computed twice -- `variancep` in KQL, `pvariance` in
         # Python. If those ever disagree, one of the two backends is

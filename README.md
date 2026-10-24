@@ -94,7 +94,7 @@ Match state sits behind one interface with two implementations — `LocalStore` 
 
 | Service | Role | Status |
 | --- | --- | --- |
-| **Azure Data Explorer** | Event store; all match-state and grounding queries | **Verified on a live free cluster** — 153,041 events, 10/10 functions |
+| **Azure Data Explorer** | Event store; all match-state and grounding queries | **Verified on a live free cluster** — 153,041 events, every function green, **Python/KQL parity passing** |
 | Microsoft Foundry | Model for the Desk agent | Adapter written ([`agents.py`](src/gegenpress/agents.py)); falls back to deterministic templates when unconfigured |
 
 The KQL is plain Kusto and runs unchanged on a Fabric Eventhouse; only the connection string differs.
@@ -152,7 +152,9 @@ export ADX_CLUSTER="https://<cluster>.kusto.windows.net"
 bash scripts/verify_parity.sh     # rebuild, ingest, wait for queued ingestion, assert parity
 ```
 
-**Status: not yet green end to end — and the first run earned its keep.** Its first live run found that `MetricSignal()`, the KQL half of the ICC gate, **had never compiled**: `between` is a KQL range operator, and as a bare column name it broke the function — taking `Ground()` down with it, which then kept serving a *stale* definition from an earlier bootstrap while still reporting ok. So the claim above that ICC is "computed identically" in KQL was not true until that fix. Bootstrap failures now exit non-zero and the script refuses to run parity against a cluster doctor hasn't cleared, because parity against stale KQL would be a lie with a green tick on it. The result line goes here once it has run clean — stating that is cheaper than the alternative, in a project whose argument is that claims should be refused when they cannot be supported.
+**Status: green, end to end, on a live cluster (24 Oct 2026)** — 153,041 events, 0 bootstrap failures, all functions compiling, and the two backends returning the same ranked moments: same events in the same order, values to the digit, `beats` within one rounding unit, and the ICC gate's allow/refuse decision identical on every one.
+
+Getting there is the better evidence. The first live run found that `MetricSignal()`, the KQL half of the ICC gate, **had never compiled** — `between` is a KQL range operator — and that `Ground()`, failing with it, kept serving a *stale* definition from an earlier bootstrap while doctor reported it ok. The second run, against working KQL, found the two backends **ranking moments differently**: KQL scored rarity by counting which of 101 `percentiles_array()` cut points a value cleared — a T-Digest estimate so coarse that above 0.98 only three values were possible — so which moments the broadcast surfaced depended on which backend was running. A looser tolerance would have passed; instead KQL now computes the identical quantity (the exact share of the league strictly below the value, via a union, sort and `row_cumsum` — checked against Python's `bisect_left` on 3,415 live measurements before it was written, 0 mismatches), ties break on `event_id` on both sides, and the test's tolerance dropped from 0.02 to one rounding unit. Bootstrap failures now exit non-zero and the script refuses to test against a cluster doctor hasn't cleared. Not asserted, and said so in the test: the league median, which KQL estimates and Python computes exactly — a display value, not one that decides what surfaces.
 
 **The load-bearing test.** `test_form_lines_diverge_from_league_percentile`, across three seeds, asserts that moments exist which are strong for the player but ordinary league-wide. If that ever stops being true the Form Line is decoration and the project has no differentiator — which was literally true of an earlier version of the model.
 

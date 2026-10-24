@@ -123,7 +123,8 @@ class LocalStore:
 
     def top_moments(self, live: Match, min_beats: float = 0.97, limit: int = 20):
         found = [m for m in self._grounded(live) if m.beats >= min_beats]
-        found.sort(key=lambda m: -m.beats)
+        # Ties broken on event_id, identically in KQL TopMoments().
+        found.sort(key=lambda m: (-m.beats, m.event_id))
         return found[:limit]
 
     def form_lines(self, live: Match, notable_only: bool = True) -> list[FormLine]:
