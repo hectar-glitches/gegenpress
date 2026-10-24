@@ -126,6 +126,30 @@ def event_stream(live: Match) -> list[dict[str, Any]]:
     return out
 
 
+def _follow_entry(league, live, pid, score, form_by_player):
+    p = league.player(pid)
+    best = form_by_player.get(pid)
+    row = {"player_id": pid, "player": p.name,
+           "club": league.club(p.club_id).short_name,
+           "position": p.position, "shirt": p.shirt, "score": score}
+    if best is not None:
+        row.update({
+            "metric": METRIC_LABELS.get(best.metric, best.metric),
+            "metric_key": best.metric,
+            "value": round(best.match_mean, 2),
+            "season_mean": round(best.season_mean, 2),
+            "z": round(best.z, 2),
+            "appearances": best.appearances,
+            "league_pct": round(best.league_percentile * 100, 1),
+            "league_mean": round(best.league_mean, 2),
+            "above": best.z > 0,
+            "diverges": best.diverges,
+            "claim": best.claim(),
+            "events": contributing_events(live, pid, best.metric, 90),
+        })
+    return row
+
+
 def build_feed(
     store: Store,
     league: League,
@@ -140,6 +164,12 @@ def build_feed(
 
     signals = measure_signal(season)
     follow = store.follow_target(live, as_of_minute=90)[:6]
+    # The strongest form line per player, to hang the follow view on.
+    form_by_player: dict[str, Any] = {}
+    for line in store.form_lines(live, notable_only=False):
+        cur = form_by_player.get(line.player_id)
+        if cur is None or abs(line.z) > abs(cur.z):
+            form_by_player[line.player_id] = line
     state = store.match_state(live, as_of_minute=90, window_minutes=90)
 
     moments = []
@@ -208,11 +238,13 @@ def build_feed(
         "state": {
             league.club(team).short_name: values for team, values in state.items()
         },
+        # Follow targets, each carrying the form line that earned the
+        # ranking and the touches behind it. Personalisation here means
+        # watching a player measured against HIMSELF, so the payload has
+        # to be the Form Line -- a name and a score would make this the
+        # same dropdown every other entry has.
         "follow": [
-            {"player": league.player(pid).name,
-             "club": league.club(league.player(pid).club_id).short_name,
-             "position": league.player(pid).position,
-             "score": score}
+            _follow_entry(league, live, pid, score, form_by_player)
             for pid, score in follow
         ],
         "signal": [

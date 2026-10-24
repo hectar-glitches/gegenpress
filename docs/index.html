@@ -187,6 +187,14 @@
   .row .mt{font-size:11px;color:var(--soft);padding-left:35px;margin-top:3px}
   .item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:12.5px;
     border-top:1px solid var(--rule)}
+  button.item{width:100%;text-align:left;background:transparent;color:inherit;
+    font:inherit;cursor:pointer;border-left:0;border-right:0;border-bottom:0;
+    transition:.15s var(--ease)}
+  button.item:hover{background:var(--ink2)}
+  button.item[aria-pressed=true]{background:var(--ink3);
+    box-shadow:inset 3px 0 0 var(--up)}
+  .lower.follow .band{background:var(--data)}
+  .hero .who{font-size:9px;color:var(--data);margin-bottom:7px}
   .item .r{font-size:10px;color:var(--dim);min-width:12px;
     font-variation-settings:'wght' 700,'wdth' 90}
   .item .v{margin-left:auto;font-size:11.5px;color:var(--data);
@@ -284,6 +292,7 @@ const $ = s => document.querySelector(s);
 const L = 105, W = 68, FULL = 5400;       // pitch metres, match seconds
 let FEED, cv, ctx, DPR = 1, VW = 0, VH = 0;
 let clock = 0, playing = false, last = 0, idx = -1, mode = 'analyst', showWhy = false;
+let FOLLOW = null;        // the player the console is bound to, if any
 const SPEEDS = [1, 4, 12];                // match-seconds per real second
 let SPEED = 1;        // real time: the ball's rhythm is tuned for it
 let TRAIL = SPEED * 2.4;                  // event fade, in match-seconds
@@ -305,6 +314,7 @@ const RIG = {
   wide: 118,    // "Wide" pulls out to the whole pitch
 };
 let camX = L / 2, wide = false;
+let spanNow = 0;   // metres across frame; widens to hold a followed man
 // Cached per-layout projection constants.
 let CAM = null;
 
@@ -313,7 +323,10 @@ function buildCam() {
   // Camera basis collapses because the rig has no roll and no x-offset:
   // right is +x, so a = dx and only b,c need the 2x2 below.
   const fy = reach / len, fz = -RIG.up / len;
-  const span = wide ? RIG.wide : RIG.span;
+  // Widen to hold both the ball and a followed player. A camera that
+  // only leans toward him loses him off the edge when he is fifty
+  // metres from play; an operator pulls out instead.
+  const span = wide ? RIG.wide : (spanNow || RIG.span);
 
   // depth and height of a ground point at lateral distance y
   const cAt = y => fy * (y + RIG.back) + fz * (0 - RIG.up);
@@ -819,6 +832,87 @@ function ballAt(t) {
   };
 }
 
+/* The followed player's own match, drawn on the grass: every touch that
+   made his form line, dim until it has happened and lit once it has, so
+   the claim in the strap has its evidence underneath it. */
+function followIndex() {
+  if (!FOLLOW || !FEED.lineups) return null;
+  const side = FOLLOW.club === FEED.match.home.short ? 'home' : 'away';
+  const p = FEED.lineups[side].findIndex(q => q.n === FOLLOW.shirt);
+  return p < 0 ? null : { side, p, away: side === 'away' };
+}
+
+function drawFollow() {
+  const who = followIndex();
+  if (!who || !FOLLOW.events) return;
+  const g = ctx, mn = minuteNow();
+  g.lineCap = 'round';
+  // Only what has already happened, and faint: this is the evidence
+  // under the claim, not a second match drawn over the first. The last
+  // few are brighter, because recency is what a viewer is tracking.
+  const played = FOLLOW.events.filter(e => e.minute <= mn);
+  played.forEach((e, i) => {
+    const fresh = i >= played.length - 4;
+    const a = fresh ? .5 : .16;
+    const k = mpp(EY(e.y, who.away));
+    const p1 = P(EX(e.x, who.away), EY(e.y, who.away), 0);
+    if (e.end_x != null) {
+      const p2 = P(EX(e.end_x, who.away), EY(e.end_y, who.away), 0);
+      g.strokeStyle = `rgba(4,245,255,${a * .42})`;
+      g.lineWidth = Math.max(.7, .04 * k);
+      poly(g, [p1, p2]); g.stroke();
+    }
+    g.fillStyle = `rgba(4,245,255,${a})`;
+    poly(g, ring(EX(e.x, who.away), EY(e.y, who.away), .28, 0, Math.PI * 2, 8), true);
+    g.fill();
+  });
+  // A ring under the man himself, in the follow colour.
+  const F = FEED.frames;
+  const [fx, fy] = at(who.side === 'home' ? F.h : F.a, 22, who.p * 2, clock);
+  g.strokeStyle = 'rgba(4,245,255,.95)';
+  g.lineWidth = Math.max(2.2, .17 * mpp(fy));
+  poly(g, ring(fx, fy, 1.6, 0, Math.PI * 2, 28), true); g.stroke();
+  g.strokeStyle = 'rgba(4,245,255,.3)';
+  g.lineWidth = Math.max(1, .07 * mpp(fy));
+  poly(g, ring(fx, fy, 2.5, 0, Math.PI * 2, 28), true); g.stroke();
+  const foot = P(fx, fy, 0), h = foot[1] - P(fx, fy, 1.84)[1];
+  const label = `${FOLLOW.shirt}  ${FOLLOW.player.split(' ').pop().toUpperCase()}`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+
+  // Sometimes he simply cannot be in shot with the ball -- near corner,
+  // ball at the far end, and no focal length holds both. Pretending
+  // otherwise is how a follow-cam loses its man silently; point at him
+  // from the edge instead, with how far away he is.
+  const m = 54;
+  if (foot[0] < m || foot[0] > VW - m) {
+    const right = foot[0] > VW - m;
+    const ex = right ? VW - m : m;
+    const ey = Math.max(m, Math.min(VH - 150, foot[1]));
+    g.fillStyle = 'rgba(4,245,255,.92)';
+    g.beginPath();
+    g.moveTo(ex + (right ? 16 : -16), ey);
+    g.lineTo(ex + (right ? -8 : 8), ey - 11);
+    g.lineTo(ex + (right ? -8 : 8), ey + 11);
+    g.closePath(); g.fill();
+    const bb2 = ballAt(clock);
+    const away = `${label}  ${Math.round(Math.hypot(fx - bb2.x, fy - bb2.y))}m`;
+    g.font = '700 12px "Archivo Variable",system-ui,sans-serif';
+    const aw = g.measureText(away).width + 16;
+    g.fillStyle = '#04F5FF';
+    g.fillRect(ex + (right ? -8 - aw : 8), ey - 32, aw, 20);
+    g.fillStyle = '#0B0010';
+    g.fillText(away, ex + (right ? -8 - aw / 2 : 8 + aw / 2), ey - 22);
+    return;
+  }
+
+  g.font = `700 ${Math.max(11, Math.min(14, h * .3))}px "Archivo Variable",system-ui,sans-serif`;
+  const tw = g.measureText(label).width + 16, ty = foot[1] - h - 30;
+  g.fillStyle = '#04F5FF';
+  g.fillRect(foot[0] - tw / 2, ty - 10, tw, 21);
+  g.fillStyle = '#0B0010';
+  g.fillText(label, foot[0], ty + .5);
+}
+
 /* ================== people ==================
    A numbered circle is a counter. What makes it a player is height: a
    figure that stands on the grass, casts a shadow, faces where it is
@@ -1197,16 +1291,48 @@ function frame(now) {
   // Camera dolly: hold for small movements, then ease across. A camera
   // that tracks every touch makes the world move instead of the lens.
   if (BALL) {
-    const target = Math.max(28, Math.min(L - 28, ballAt(clock).x));
+    const bX = ballAt(clock).x;
+    let aim = bX, wantSpan = RIG.span;
+    const who = followIndex();
+    if (who) {
+      const F = FEED.frames;
+      const [fx] = at(who.side === 'home' ? F.h : F.a, 22, who.p * 2, clock);
+      // Frame both: aim between them, and open up enough to hold the
+      // pair with room to spare, never past the wide shot.
+      aim = (bX + fx) / 2;
+      wantSpan = Math.max(RIG.span, Math.min(96, Math.abs(fx - bX) + 34));
+    }
+    // Ease the zoom, or it snaps every time he moves.
+    if (!spanNow) spanNow = wantSpan;
+    spanNow += (wantSpan - spanNow) * (1 - Math.exp(-dtReal * 1.2));
+    if (!wide) buildCam();
+    const edge = Math.max(14, spanNow * .28);
+    const target = Math.max(edge, Math.min(L - edge, aim));
     const err = target - camX, dz = 7;
     const want = Math.abs(err) <= dz ? camX : target - Math.sign(err) * dz;
     camX += (want - camX) * (1 - Math.exp(-dtReal * Math.min(SPEED, 6) / 1.4));
+
+    // Keeping him framed cannot be solved in metres: the same offset is
+    // worth far more pixels near the camera than at the far touchline,
+    // so a player close to the lens slides off the edge while the maths
+    // says he is only a few metres from the ball. Correct on what is
+    // actually on screen -- widen until he sits inside the comfortable
+    // band, and let it fall back when he does.
+    if (who && !wide) {
+      const F2 = FEED.frames;
+      const [px, py] = at(who.side === 'home' ? F2.h : F2.a, 22, who.p * 2, clock);
+      const over = Math.abs(P(px, py, 0)[0] - CAM.cx) / (VW * .40);
+      if (over > 1) {
+        spanNow = Math.min(96, spanNow * (1 + Math.min(.6, over - 1) * dtReal * 3));
+        buildCam();
+      }
+    }
   }
 
   crowdFrame(dtReal);
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  drawPitch(); drawEvents(); drawPeople();
+  drawPitch(); drawEvents(); drawFollow(); drawPeople();
   requestAnimationFrame(frame);
 }
 
@@ -1275,6 +1401,54 @@ function showMoment(i) {
   });
 }
 
+/* Binding the console to one player. Every other entry in this field has
+   a "follow a player" dropdown that filters a feed; following here means
+   watching someone measured against HIMSELF -- his own season is the
+   reference class, his touches are lit on the grass, and the strap stops
+   reporting the match and starts reporting him. */
+function setFollow(i) {
+  FOLLOW = (i == null) ? null : { i, ...FEED.follow[i] };
+  document.querySelectorAll('#follow button').forEach((b, j) =>
+    b.setAttribute('aria-pressed', FOLLOW != null && j === i));
+  $('#lower').classList.toggle('follow', !!FOLLOW);
+  if (!FOLLOW) spanNow = RIG.span;
+  if (FOLLOW && FOLLOW.metric) showFollow();
+  else { idx = -1; sync(); }
+}
+
+function showFollow() {
+  const f = FOLLOW, lo = $('#lower');
+  $('#lName').textContent = f.player;
+  $('#lMeta').textContent = `${f.club} · ${f.position} · #${f.shirt} · ${f.metric}`;
+  // NOTABLE_Z in form.py is 1.5: below it the claim sentence says "in
+  // line with his season norm", so the tag must not shout "above his
+  // level" beside it. The two are generated in different places and
+  // disagreeing on screen is worse than saying less.
+  const notable = Math.abs(f.z) >= 1.5;
+  $('#lTag').innerHTML = (
+    !notable ? ['in line with', 'his own norm']
+    : f.diverges ? [f.above ? 'above his level' : 'below his level',
+                    'ordinary league-wide']
+    : [f.above ? 'above his level' : 'below his level', 'tonight']
+  ).map(t => `<span>${t}</span>`).join('');
+  lo.classList.toggle('dn', notable && !f.above);
+  $('#lSaid').textContent = f.claim;
+  const hero = $('#lForm');
+  hero.textContent = `${f.z > 0 ? '+' : ''}${f.z} SD`;
+  hero.style.fontSize = '';
+  $('#lNums').innerHTML = `
+    <div class="ln"><div class="k micro">Tonight</div><div class="v fig">${f.value}</div>
+      <div class="s meta">${f.metric}</div></div>
+    <div class="ln league"><div class="k micro">League</div>
+      <div class="v fig">${Math.round(f.league_pct)}%</div>
+      <div class="s meta">beaten · norm ${f.league_mean}</div></div>
+    <div class="ln"><div class="k micro">His norm</div>
+      <div class="v fig">${f.season_mean}</div>
+      <div class="s meta">${f.appearances} matches</div></div>`;
+  lo.classList.add('up');
+  $('#sheet').classList.remove('up');
+}
+
 function sync() {
   const mn = minuteNow();
   $('#clk').textContent = mn + "'";
@@ -1284,6 +1458,9 @@ function sync() {
   document.querySelectorAll('.pip').forEach((p, i) =>
     p.classList.toggle('hit', FEED.moments[i].minute <= mn));
 
+  // A followed player owns the strap: the match's own moments stop
+  // interrupting him, which is the point of following someone.
+  if (FOLLOW && FOLLOW.metric) { showFollow(); return; }
   const due = FEED.moments.map((m, i) => [m.minute, i]).filter(([k]) => k <= mn);
   if (!due.length) { $('#lower').classList.remove('up'); $('#sheet').classList.remove('up'); idx = -1; return; }
   const want = due[due.length - 1][1];
@@ -1332,8 +1509,11 @@ fetch('feed.json').then(r => r.json()).then(d => {
     d.moments.map(m => `<div class="pip" style="left:${m.minute * 60 / FULL * 100}%"></div>`).join('');
 
   $('#follow').innerHTML = d.follow.map((f, i) =>
-    `<div class="item"><span class="r">${i + 1}</span><span>${f.player}</span>
-     <span class="v">${f.score.toFixed(3)}</span></div>`).join('');
+    `<button class="item" aria-pressed="false"><span class="r">${i + 1}</span>
+     <span>${f.player}</span>
+     <span class="v">${f.score.toFixed(3)}</span></button>`).join('');
+  document.querySelectorAll('#follow button').forEach((btn, i) =>
+    btn.onclick = () => setFollow(FOLLOW && FOLLOW.i === i ? null : i));
   $('#signal').innerHTML = d.signal.map(s =>
     `<div class="item"><span>${s.metric}</span>
      <span class="v ${s.personal ? 'yes' : 'no'}">${s.personal ? 'personal' : 'league only'}</span></div>`).join('');
