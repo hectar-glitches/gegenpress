@@ -124,7 +124,14 @@ PYTHONPATH=src python -m gegenpress state --adx
 
 **7/7, and the suite re-runs the whole check on seeds 7, 404 and 11111 — seeds the generator was never tuned against.** Calibration that only holds on its own tuning seed is not calibration.
 
-**Parity.** `tests/test_store.py::test_local_and_adx_agree` compares the Python implementation's ranked moments against the KQL's. It skips when `ADX_CLUSTER` is unset so CI stays green without Azure.
+**Parity.** `tests/test_store.py::test_local_and_adx_agree` compares the Python implementation's ranked moments against the KQL's — event for event, value for value, and the ICC gate itself, since `variancep` in KQL and `pvariance` in Python are two implementations of one definition and two implementations drift. It skips when `ADX_CLUSTER` is unset so CI stays green without Azure.
+
+```bash
+export ADX_CLUSTER="https://<cluster>.kusto.windows.net"
+bash scripts/verify_parity.sh     # rebuild, ingest, wait for queued ingestion, assert parity
+```
+
+**Status: not yet green end to end.** The KQL layer is verified on a live cluster (row counts and all eleven functions, above), but this specific test has not been run against one since the schema and the live match id last changed. It is listed here as the check that exists, not as a result that has been obtained — stating that is cheaper than the alternative, in a project whose argument is that claims should be refused when they cannot be supported.
 
 **The load-bearing test.** `test_form_lines_diverge_from_league_percentile`, across three seeds, asserts that moments exist which are strong for the player but ordinary league-wide. If that ever stops being true the Form Line is decoration and the project has no differentiator — which was literally true of an earlier version of the model.
 

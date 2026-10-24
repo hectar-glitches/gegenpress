@@ -84,7 +84,12 @@ def test_follow_target_is_ranked(fixture_set):
 def test_local_and_adx_agree(fixture_set):
     """Parity: the KQL and the Python must return the same moments.
 
-    Run after `python -m gegenpress ingest --bootstrap --load`.
+    Run after:
+        python -m gegenpress ingest --bootstrap --reset --load
+
+    Both sides must be built from the same seed, which they are: the
+    ingest command simulates with `build_league(seed)` and
+    `league.fixtures[0]`, exactly as this module's fixture does.
     """
     from gegenpress.adx import AdxStore
 
@@ -94,10 +99,31 @@ def test_local_and_adx_agree(fixture_set):
 
     a = local.top_moments(live, min_beats=0.98, limit=10)
     b = remote.top_moments(live, min_beats=0.98, limit=10)
-    assert [m.event_id for m in a] == [m.event_id for m in b]
+
+    # Fail loudly on an empty cluster rather than asserting [] == [] and
+    # reporting parity that was never tested. Queued ingestion on a free
+    # cluster lands a minute or two after the command returns.
+    assert a, "local found no moments: the fixture itself is wrong"
+    assert b, (
+        f"ADX returned no moments for {live.match_id}. Ingestion may still "
+        "be in flight, or the cluster holds a different season. Run "
+        "`python -m gegenpress doctor` and check the row counts."
+    )
+
+    assert [m.event_id for m in a] == [m.event_id for m in b], (
+        "the two implementations rank moments differently"
+    )
     for x, y in zip(a, b):
         assert x.metric == y.metric
-        assert abs(x.value - y.value) < 1e-6
+        assert abs(x.value - y.value) < 1e-6, (x.metric, x.value, y.value)
         # Percentiles differ slightly: KQL uses 101 cut points, Python the
         # full sorted sample. One percentile point of tolerance.
         assert abs(x.beats - y.beats) < 0.02, (x.metric, x.beats, y.beats)
+        # The ICC gate is the thing this project is actually about, and
+        # it is computed twice -- `variancep` in KQL, `pvariance` in
+        # Python. If those ever disagree, one of the two backends is
+        # permitting a personal claim the other refuses, which is the
+        # exact drift this test exists to catch.
+        assert x.personal_claim_allowed == y.personal_claim_allowed, (
+            x.metric, x.personal_claim_allowed, y.personal_claim_allowed
+        )
