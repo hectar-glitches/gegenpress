@@ -10,17 +10,22 @@ that looks like television.
 
 ## Before recording
 
-- [ ] `PYTHONPATH=src python -m gegenpress feed` — rebuild `docs/feed.json`
-- [ ] `python -m http.server -d docs 8000` — serve locally; do **not** film
-      the GitHub Pages copy, a deploy lag mid-record is unrecoverable
+- [ ] `python3 scripts/serve.py` — serves `docs/` with caching off, so a
+      reload is always the current build. Do **not** film the GitHub Pages
+      copy: a deploy lag mid-record is unrecoverable
+- [ ] Only rebuild the feed if you changed Python
+      (`PYTHONPATH=src python -m gegenpress feed`) — and if you do, re-read
+      the numbers below off the screen, because they will move
 - [ ] Browser at **1440×900**, zoom 100%, full screen, no bookmarks bar
 - [ ] Hard-reload once and confirm the type is Archivo, not a fallback —
       the figures should be visibly wide. If they are not, the font 404'd
 - [ ] Confirm it opens **paused on a diverging Form Line** with the strap
       already up. That is the opening frame; it should need no clicks
-- [ ] Click **Sound** and leave it on — the crowd is synthesized and
-      reacts to play, and the roar under a goal is worth ten seconds of
+- [ ] Click **Sound** and leave it on — the bed leans toward the box in
+      play and a goal gets the full roar, which is worth ten seconds of
       narration. Set system output to the mic mix or record system audio
+- [ ] Leave the speed at **1×**. The ball's flight-and-settle rhythm and
+      the duels around it are tuned for real time and blur at 4×
 - [ ] Close every notification source. A toast over the pitch is a retake
 
 ## The script
@@ -31,10 +36,12 @@ Total 115s, leaving margin. Times are cumulative.
 
 > *Open on the paused frame. Do not touch anything.*
 
+> *Verified against the current feed — but read the screen, not this page.*
+
 "Broadcast tells you a pass was long. This tells you it was long **for
-him**. Kwame Ferreira's range tonight is 14.0 — that's forty-second
+him**. Noor Kowalski's range tonight is 13.8 — that's thirty-seventh
 percentile, utterly ordinary for the league. Against his own season it's
-three and a half standard deviations down. He's having a bad night and the
+nearly four standard deviations down. He's having a bad night and the
 league table can't see it."
 
 *Why this works: the differentiator is spoken and on screen before the
@@ -42,13 +49,15 @@ viewer has been asked to understand anything. No architecture, no tour.*
 
 ### 0:12–0:35 — it's a real match, not a mock-up
 
-> *Press Play. Let it run at 4×. Say nothing for three seconds.*
+> *Press Play. Leave it at 1×. Say nothing for three seconds — let a
+> pass travel and settle before you speak over it.*
 
-"Everything here is a simulated season — twenty clubs, a persistent squad,
-a hundred and sixty matches, a hundred and fifty thousand events. The
-camera is a main camera forty-two metres back and twenty-eight up, tracking
-the ball. Those are all twenty-two players, positioned by a model, not
-sprites on a loop."
+"Everything here is a simulated season — ten clubs, a persistent squad,
+ninety matches, a hundred and fifty thousand events. The camera is a main
+camera forty-two metres back and twenty-eight up, tracking the ball. Those
+are all twenty-two players, positioned by a model — the two nearest the
+ball leave their shape and go to it, which is why there are duels rather
+than a formation sliding about."
 
 > *Hit `Wide` once, hold two seconds, hit it again.*
 
@@ -66,10 +75,12 @@ the claim."
 > *Point at the Personal claims allowed card.*
 
 "Intraclass correlation per metric. Above 0.08 a player's own history means
-something, below it his distribution is just the league's wearing his name.
+something; below it his distribution is just the league's wearing his name.
 Top speed, 0.58 — personal claims allowed. Recovery time, 0.006 — league
-only. Every entry in this field verifies its numbers are true. This one
-checks whether the sentence is **sayable**."
+only. And that threshold isn't taste: it's the value that puts a
+fifty-match mean on Koo and Li's reliability boundary. Every entry in this
+field verifies its numbers are true. This one checks whether the sentence
+is **sayable**."
 
 ### 1:00–1:25 — the receipts
 
@@ -87,11 +98,13 @@ are `xfail` tests, so fixing one gets noticed."
 
 ### 1:25–1:50 — where Azure actually is
 
-"Match state and grounding both run as KQL on Azure Data Explorer —
-eleven functions, including the ICC gate computed again in Kusto. There are
-two implementations of one interface, Python and KQL, and the agents don't
-know which is behind it. The same KQL runs unchanged on a Fabric
-Eventhouse."
+"Match state and grounding both run as KQL on Azure Data Explorer — eleven
+functions, including the ICC gate computed again in Kusto. Two
+implementations of one interface, and a parity test that holds them to the
+same answers. It caught two real bugs before it passed: a function that had
+never compiled, and the two backends ranking moments differently. It's
+green now. And the whole thing is callable over MCP — including a tool that
+checks a sentence before a model says it."
 
 ### 1:50–1:55 — close
 
