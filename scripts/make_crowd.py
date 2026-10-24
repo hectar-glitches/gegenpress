@@ -58,12 +58,12 @@ def voice_grain(dur: float, f1: float, f2: float, voiced: float) -> np.ndarray:
         out += w * sosfilt(sos, src)
     # Consonant onset: a short high-passed burst, the "t/s/k" that makes
     # it read as talking rather than humming.
-    if rng.random() < 0.6:
+    if rng.random() < 0.5:
         cn = int(rng.uniform(.02, .07) * SR)
         if cn < n:
             sos = butter(2, [2200, 7800], "bandpass", fs=SR, output="sos")
             burst = sosfilt(sos, rng.standard_normal(cn))
-            out[:cn] += burst * rng.uniform(.5, 1.3) * np.linspace(1, 0, cn)
+            out[:cn] += burst * rng.uniform(.35, .8) * np.linspace(1, 0, cn)
     syl = rng.uniform(3, 8)
     env = (np.sin(np.pi * np.minimum(1, t / dur)) ** 1.2
            * (0.55 + 0.45 * np.sin(2 * np.pi * syl * t + rng.uniform(0, 6))))
@@ -117,7 +117,9 @@ def rumble(secs: float) -> np.ndarray:
 def normalise(x: np.ndarray, rms_db: float) -> np.ndarray:
     rms = np.sqrt(np.mean(x ** 2))
     x = x * (10 ** (rms_db / 20) / max(rms, 1e-9))
-    return np.clip(x, -0.99, 0.99)
+    # Soft saturation, never a hard clip: a hard-clipped transient is
+    # electrical crackle by construction.
+    return np.tanh(x / .85) * .85
 
 
 def encode(x: np.ndarray, path: pathlib.Path) -> None:
@@ -154,15 +156,22 @@ def measure(x: np.ndarray, name: str) -> None:
     hi = np.abs(sosfilt(sos, mono))
     sos = butter(2, 60, "lowpass", fs=SR, output="sos")
     hi = sosfilt(sos, hi)
-    thresh = 2.2 * np.median(hi)
-    crossings = np.sum((hi[1:] > thresh) & (hi[:-1] <= thresh))
-    secs = len(mono) / SR
+
+    # Crackle vs wash. Sparse snaps sit on near-silence, so the hi-band
+    # envelope spends measurable time in brief spikes above 2x its own
+    # median; a wash hovers AT its median and never spikes. Low is good
+    # ONLY alongside a healthy hi/voice level, which proves the band is
+    # loud-and-steady rather than absent.
+    sosd = butter(2, 80, "lowpass", fs=SR, output="sos")
+    denv = sosfilt(sosd, hi)
+    duty = float((denv > 2 * np.median(denv)).mean())
 
     seam = abs(mono[0] - mono[-1])
     print(f"{name}: rms {20 * np.log10(np.sqrt(np.mean(mono ** 2))):.1f} dBFS, "
           f"centroid {centroid:.0f} Hz, hi/voice {hf_db:+.1f} dB, "
-          f"crackle {crossings / secs:.0f}/s, syllabic {syllabic:.2f}, "
-          f"seam {seam:.5f}")
+          f"hi-band spikiness {duty:.2f} (0 = steady wash), "
+          f"syllabic {syllabic:.2f}, "
+          f"peak {np.abs(x).max():.2f}, seam {seam:.5f}")
 
 
 def main() -> int:
@@ -177,8 +186,14 @@ def main() -> int:
                         rng.uniform(300, 850), rng.uniform(1000, 2600),
                         voiced=rng.uniform(0, .45))
         scatter(bed, g, rng.lognormal(-2.1, .55), int(rng.integers(0, n)))
-    for _ in range(int(SECS * 90)):                 # scattered applause
-        scatter(bed, clap(), rng.lognormal(-1.9, .6), int(rng.integers(0, n)))
+    # Applause as a WASH. Ninety claps a second is the density of a
+    # crackling fire: distinct snaps with silence between them, which is
+    # exactly what got heard as "disturbing crackling". Five hundred a
+    # second at a third the level is the density of applause -- the snaps
+    # fuse into texture. Levels are capped so no single clap pops out.
+    for _ in range(int(SECS * 520)):
+        scatter(bed, clap(), min(float(rng.lognormal(-2.6, .5)), .2),
+                int(rng.integers(0, n)))
     for _ in range(3):                              # a couple of far whistles
         scatter(bed, whistle(rng.uniform(.3, .7)), .05, int(rng.integers(0, n)))
     bed = bed + 0.45 * rumble(SECS)
@@ -200,10 +215,10 @@ def main() -> int:
         at = int(abs(rng.normal(.55, .9)) * SR)
         if at < rn:
             scatter(roar, g, rng.lognormal(-1.7, .5), at)
-    for _ in range(2600):                           # the applause wall
+    for _ in range(9000):                           # the applause wall
         at = int(abs(rng.normal(1.3, 1.3)) * SR)
         if at < rn:
-            scatter(roar, clap(), rng.lognormal(-1.4, .5), at)
+            scatter(roar, clap(), min(float(rng.lognormal(-2.0, .5)), .3), at)
     for _ in range(5):                              # whistles in the din
         at = int(abs(rng.normal(1.0, 1.0)) * SR)
         if at < rn:
@@ -214,6 +229,24 @@ def main() -> int:
     roar[:, -int(0.2 * SR):] *= np.linspace(1, 0, int(0.2 * SR))
     measure(roar, "roar.mp3 ")
     encode(roar, OUT / "roar.mp3")
+
+    print("rendering swell...")
+    sn = int(2.4 * SR)
+    sw = np.zeros((2, sn))
+    for _ in range(1400):                           # voices only, no claps:
+        g = voice_grain(rng.uniform(.25, .9),       # the "oooh" of a chance,
+                        rng.uniform(380, 820),      # not a burst of static
+                        rng.uniform(950, 2100),
+                        voiced=rng.uniform(.35, .7))
+        at = int(abs(rng.normal(.4, .5)) * SR)
+        if at < sn:
+            scatter(sw, g, rng.lognormal(-1.9, .45), at)
+    st = np.arange(sn) / SR
+    sw = sw * (np.minimum(1, st / .3) * np.exp(-np.maximum(0, st - .9) / .55))
+    sw = normalise(sw, -18.5)
+    sw[:, -int(.15 * SR):] *= np.linspace(1, 0, int(.15 * SR))
+    measure(sw, "swell.mp3")
+    encode(sw, OUT / "swell.mp3")
 
     for f in sorted(OUT.glob("*.mp3")):
         print(f"{f.relative_to(OUT.parent.parent)}  {f.stat().st_size // 1024} KB")

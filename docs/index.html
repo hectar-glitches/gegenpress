@@ -1074,8 +1074,8 @@ async function initCrowd() {
   AC = new (window.AudioContext || window.webkitAudioContext)();
   const load = async url =>
     AC.decodeAudioData(await (await fetch(url)).arrayBuffer());
-  const [bed, roar] = await Promise.all([
-    load('audio/crowd.mp3'), load('audio/roar.mp3'),
+  const [bed, roar, swell] = await Promise.all([
+    load('audio/crowd.mp3'), load('audio/roar.mp3'), load('audio/swell.mp3'),
   ]);
   const master = AC.createGain(); master.gain.value = .9;
   master.connect(AC.destination);
@@ -1086,24 +1086,21 @@ async function initCrowd() {
   bedF.type = 'lowpass'; bedF.frequency.value = 3200;
   const src = AC.createBufferSource(); src.buffer = bed; src.loop = true;
   src.connect(bedF); bedF.connect(bedG); bedG.connect(master); src.start();
-  CROWD = { master, bedG, bedF, roar };
+  CROWD = { master, bedG, bedF, roar, swell };
 }
 
-/* A reaction is the roar sample, scaled. A goal gets all of it; a miss
-   gets the rise and is then cut off -- which is exactly what a missed
-   chance sounds like. */
-function crowdShot(intensity, cutAfter) {
+/* A goal gets the roar. An ordinary shot gets the SWELL -- a clap-free
+   vocal "oooh" rendered for exactly this -- because the roar's front is
+   an applause wall, and firing a burst of applause texture at every
+   shot was the "disturbing crackling at intervals". */
+function crowdShot(goal) {
   if (!CROWD || AC.state !== 'running') return;
-  const t = AC.currentTime;
-  const s = AC.createBufferSource(); s.buffer = CROWD.roar;
-  s.playbackRate.value = .92 + Math.random() * .16 + (1 - intensity) * .15;
-  const g = AC.createGain(); g.gain.value = .1 + .85 * intensity;
+  const s = AC.createBufferSource();
+  s.buffer = goal ? CROWD.roar : CROWD.swell;
+  s.playbackRate.value = .94 + Math.random() * .12;
+  const g = AC.createGain(); g.gain.value = goal ? .95 : .5;
   s.connect(g); g.connect(CROWD.master);
-  s.start(t);
-  if (cutAfter) {
-    g.gain.setTargetAtTime(0, t + cutAfter, .3);
-    s.stop(t + cutAfter + 1.6);
-  }
+  s.start(AC.currentTime);
 }
 
 function crowdFrame(dtReal) {
@@ -1125,7 +1122,7 @@ function crowdFrame(dtReal) {
   while (audioPtr < st.length && st[audioPtr].t <= clock) {
     const e = st[audioPtr++];
     if (clock - e.t > 2) continue;
-    if (e.k === 'sh') crowdShot(e.g ? 1 : .4, e.g ? 0 : 1.1);
+    if (e.k === 'sh') crowdShot(!!e.g);
   }
   lastAClock = clock;
 }
