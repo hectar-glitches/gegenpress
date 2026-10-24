@@ -15,7 +15,7 @@ The name is deliberate: *gegenpressing* is the one piece of football tactics def
 | **Ingest** | [`simulate.py`](src/gegenpress/simulate.py), [`season.py`](src/gegenpress/season.py) | Deterministic possession-chain engine; a season played by a persistent squad |
 | **Interpret** | [`kql/02_functions.kql`](kql/02_functions.kql), [`baselines.py`](src/gegenpress/baselines.py) | Rolling match state and two reference classes, computed in KQL on Azure Data Explorer |
 | **Explain** | [`form.py`](src/gegenpress/form.py), [`signal.py`](src/gegenpress/signal.py), [`agents.py`](src/gegenpress/agents.py) | Significance measured, not asserted — and refused where it isn't supportable |
-| **Render** | [`docs/index.html`](docs/index.html), [`feed.py`](src/gegenpress/feed.py) | Studio console and a timed, machine-readable overlay cue feed |
+| **Render** | [`docs/index.html`](docs/index.html), [`feed.py`](src/gegenpress/feed.py) | Broadcast console — a tracking main camera over the real match — and a timed, machine-readable overlay cue feed |
 | **Personalize** | `FollowTarget()`, Analyst/Fan modes | Follow modes bound to a role, not a dropdown |
 
 ## Quickstart
@@ -27,7 +27,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 43 tests
+PYTHONPATH=src python -m pytest -q              # 49 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000
@@ -151,6 +151,10 @@ Gate recall, by how the claim was corrupted:
 The three missed inflations are not ordinary failures: in each case the corrupted value coincidentally equalled a *different* number already in the brief, so presence-checking cannot see it. That is the same structural limit as a misattached number, and it is why the honest claim is *the Gate removes invented numbers*, not *the Gate makes the sentence true*.
 
 Publishing 0.0% twice is deliberate. A measured zero on a known weakness is worth more than prose describing it, and `tests/test_evaluate.py` pins both so that fixing one is noticed.
+
+**The camera.** The console is not a tactics board seen from above. It is a tracking main camera in the stand — 42m back, 28m up, 21° of depression — that dollies along the touchline with the ball, and all 22 players are drawn as figures with height, shadow, gait and facing rather than as markers. The choice is forced by arithmetic, not taste: framing the whole pitch at 1440px puts a 1.85m player at 8 pixels, which no amount of detail rescues. Holding ~70m of pitch in frame puts him at 29–53px, which is enough for a kit, a stride and a number. `Wide` pulls out to the full pitch when the shape matters more than the people.
+
+Nothing in the view is invented to make it look better. Positions come from [`positions.py`](src/gegenpress/positions.py), the ball is interpolated between real events, and the stride length and run speeds are the ones [`calibrate.py`](src/gegenpress/calibrate.py) checks.
 
 **Documented holes.** Two `xfail` tests in [`tests/test_agents.py`](tests/test_agents.py) pin what the Gate *cannot* do: it reads digits rather than words, and it checks that a number is present in the brief rather than correctly attached to the right thing. It removes invented numbers; it does not make the sentence true. Those are different claims and only the first is made.
 

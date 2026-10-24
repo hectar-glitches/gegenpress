@@ -25,7 +25,7 @@
   .field{position:relative;flex:1;min-height:0}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   .vig{position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(ellipse at 50% 46%,transparent 55%,rgba(0,0,0,.52) 100%)}
+    background:radial-gradient(ellipse at 50% 56%,transparent 56%,rgba(0,0,0,.46) 100%)}
 
   /* ---------- broadcast bug ---------- */
   .bug{
@@ -61,13 +61,12 @@
   /* ---------- lower third ---------- */
   .lower{
     position:absolute;left:24px;right:24px;bottom:22px;
-    transition:right .4s var(--ease);
     display:flex;gap:0;align-items:stretch;
     background:var(--panel);backdrop-filter:blur(16px);
     border:1px solid var(--line);border-radius:13px;overflow:hidden;
     box-shadow:0 18px 56px rgba(0,0,0,.66);
     transform:translateY(130%);opacity:0;pointer-events:none;
-    transition:transform .5s var(--ease),opacity .4s;
+    transition:transform .5s var(--ease),opacity .4s,right .4s var(--ease);
   }
   .lower.up{transform:none;opacity:1;pointer-events:auto}
   .lower .bandL{width:4px;background:var(--accent)}
@@ -207,6 +206,7 @@
     <button class="btn p" id="play">▶ Play</button>
     <button class="btn" id="why">Why</button>
     <button class="btn" id="spd">4&times;</button>
+    <button class="btn" id="wide" aria-pressed="false">Wide</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
     <button class="btn" id="mAnalyst" aria-pressed="true">Analyst</button>
     <button class="btn" id="mFan" aria-pressed="false">Fan</button>
@@ -216,216 +216,468 @@
 <script>
 const $ = s => document.querySelector(s);
 const L = 105, W = 68, FULL = 5400;       // pitch metres, match seconds
-let FEED, cv, ctx, DPR = 1, box = {};
+let FEED, cv, ctx, DPR = 1, VW = 0, VH = 0;
 let clock = 0, playing = false, last = 0, idx = -1, mode = 'analyst', showWhy = false;
 const SPEEDS = [1, 4, 12];                // match-seconds per real second
-let SPEED = 4;                            // 4x, what a tracking viewer uses
-// Visible for ~0.75s of REAL time. TRAIL is in match-seconds and the
-// clock runs at SPEED x, so this must scale with it or events flash
-// past in milliseconds.
-let TRAIL = SPEED * 2.4;
+let SPEED = 4;
+let TRAIL = SPEED * 2.4;                  // event fade, in match-seconds
 
-/* ---------- geometry ---------- */
+/* ================== broadcast camera ==================
+   A real main camera does not show the whole pitch -- it sits in the
+   stand and tracks the ball, which is why its players read as people
+   and a full-pitch diagram's never do. Full-pitch framing puts the far
+   side at ~8px tall; this keeps them at 29-53px.
+
+   The camera dollies along the touchline rather than panning from a
+   fixed point. Visually identical at this distance, but it keeps the
+   player scale constant across the match, which panning would not. */
+const RIG = {
+  back: 42,     // metres behind the near touchline
+  up: 28,       // metres above pitch level
+  look: 32,     // aim point, metres across from the near touchline
+  span: 70,     // metres of pitch LENGTH across the viewport
+  wide: 118,    // "Wide" pulls out to the whole pitch
+};
+let camX = L / 2, wide = false;
+// Cached per-layout projection constants.
+let CAM = null;
+
+function buildCam() {
+  const reach = RIG.look + RIG.back, len = Math.hypot(reach, RIG.up);
+  // Camera basis collapses because the rig has no roll and no x-offset:
+  // right is +x, so a = dx and only b,c need the 2x2 below.
+  const fy = reach / len, fz = -RIG.up / len;
+  const span = wide ? RIG.wide : RIG.span;
+
+  // depth and height of a ground point at lateral distance y
+  const cAt = y => fy * (y + RIG.back) + fz * (0 - RIG.up);
+  const bAt = y => -fz * (y + RIG.back) + fy * (0 - RIG.up);
+
+  // Focal length so `span` metres at mid-pitch depth fills the width...
+  let fl = VW * cAt(W / 2) / span;
+  // ...but never so long that the far touchline leaves the frame.
+  const depth = fl * (bAt(W) / cAt(W) - bAt(0) / cAt(0));
+  const room = VH - 86;
+  if (Math.abs(depth) > room) fl *= room / Math.abs(depth);
+
+  const cy = VH * 0.54 + fl * (bAt(0) / cAt(0) + bAt(W) / cAt(W)) / 2;
+  CAM = { fy, fz, fl, cx: VW / 2, cy };
+}
+
+/* World (x, y, z) -> [screenX, screenY, depth]. z is height above turf. */
+function P(x, y, z) {
+  const dy = y + RIG.back, dz = (z || 0) - RIG.up;
+  const c = CAM.fy * dy + CAM.fz * dz;
+  const b = -CAM.fz * dy + CAM.fy * dz;
+  return [CAM.cx + CAM.fl * (x - camX) / c, CAM.cy - CAM.fl * b / c, c];
+}
+/* Pixels per metre at a given lateral depth -- line weights and marker
+   sizes have to shrink with distance or the far half looks pasted on. */
+const mpp = y => CAM.fl / (CAM.fy * (y + RIG.back) + CAM.fz * (0 - RIG.up));
+
 function layout() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
   const r = cv.getBoundingClientRect();
-  cv.width = r.width * DPR; cv.height = r.height * DPR;
-  const pad = 54;
-  const s = Math.min((r.width - pad * 2) / L, (r.height - pad * 2) / W);
-  box = { s, ox: (r.width - L * s) / 2, oy: (r.height - W * s) / 2, w: r.width, h: r.height };
+  VW = r.width; VH = r.height;
+  cv.width = VW * DPR; cv.height = VH * DPR;
+  buildCam();
 }
-// Home attacks right, away attacks left. Source x is always from the
-// possessing team's frame, so away events are mirrored.
-const PX = (x, away) => box.ox + (away ? L - x : x) * box.s;
-const PY = (y, away) => box.oy + (away ? W - y : y) * box.s;
 
-/* ---------- pitch ---------- */
+/* Away events arrive in the possessing team's frame. */
+const EX = (x, away) => (away ? L - x : x);
+const EY = (y, away) => (away ? W - y : y);
+
+/* ================== pitch ================== */
+function poly(g, pts, close) {
+  g.beginPath();
+  g.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+  if (close) g.closePath();
+}
+/* A circle on the turf is an ellipse on screen, and not a centred one --
+   perspective pushes the far side in. Sampling the real circle is both
+   simpler and correct. */
+function ring(x, y, r, from, to, n) {
+  const pts = [];
+  const a0 = from == null ? 0 : from, a1 = to == null ? Math.PI * 2 : to;
+  const steps = n || 48;
+  for (let i = 0; i <= steps; i++) {
+    const a = a0 + (a1 - a0) * i / steps;
+    pts.push(P(x + Math.cos(a) * r, y + Math.sin(a) * r, 0));
+  }
+  return pts;
+}
+
 function drawPitch() {
-  const g = ctx, s = box.s;
-  g.save(); g.scale(DPR, DPR);
-  const grd = g.createLinearGradient(0, box.oy, 0, box.oy + W * s);
-  grd.addColorStop(0, '#10212b'); grd.addColorStop(.5, '#152a35'); grd.addColorStop(1, '#0f1e27');
-  g.fillStyle = '#05080b'; g.fillRect(0, 0, box.w, box.h);
-  g.fillStyle = grd; g.fillRect(box.ox, box.oy, L * s, W * s);
+  const g = ctx;
+  g.fillStyle = '#05080b'; g.fillRect(0, 0, VW, VH);
 
-  // mown stripes
-  g.fillStyle = 'rgba(255,255,255,.022)';
-  for (let i = 0; i < 10; i += 2) g.fillRect(box.ox + i * L * s / 10, box.oy, L * s / 10, W * s);
+  // Beyond the far touchline: a dark stand, so the pitch has somewhere
+  // to be rather than floating on the page.
+  const horizon = P(camX, W, 0)[1];
+  const sky = g.createLinearGradient(0, horizon - 150, 0, horizon + 10);
+  sky.addColorStop(0, '#05080b');
+  sky.addColorStop(.72, '#080e13');
+  sky.addColorStop(1, '#0b141a');
+  g.fillStyle = sky; g.fillRect(0, 0, VW, horizon + 10);
 
-  g.strokeStyle = 'rgba(205,230,250,.38)'; g.lineWidth = Math.max(1.1, s * .13);
-  const R = (x, y, w, h) => g.strokeRect(box.ox + x * s, box.oy + y * s, w * s, h * s);
-  R(0, 0, L, W);
-  g.beginPath(); g.moveTo(box.ox + L / 2 * s, box.oy); g.lineTo(box.ox + L / 2 * s, box.oy + W * s); g.stroke();
-  g.beginPath(); g.arc(box.ox + L / 2 * s, box.oy + W / 2 * s, 9.15 * s, 0, 7); g.stroke();
-  g.beginPath(); g.arc(box.ox + L / 2 * s, box.oy + W / 2 * s, s * .35, 0, 7);
-  g.fillStyle = 'rgba(190,215,235,.3)'; g.fill();
-  R(0, (W - 40.3) / 2, 16.5, 40.3); R(L - 16.5, (W - 40.3) / 2, 16.5, 40.3);
-  R(0, (W - 18.3) / 2, 5.5, 18.3); R(L - 5.5, (W - 18.3) / 2, 5.5, 18.3);
-  g.restore();
+  const turf = [P(-14, 0, 0), P(L + 14, 0, 0), P(L + 14, W, 0), P(-14, W, 0)];
+  const grd = g.createLinearGradient(0, P(camX, W, 0)[1], 0, P(camX, 0, 0)[1]);
+  grd.addColorStop(0, '#173726'); grd.addColorStop(.52, '#22563b'); grd.addColorStop(1, '#1a4330');
+  poly(g, turf, true); g.fillStyle = grd; g.fill();
+
+  // Mown bands run across the pitch; under perspective they taper, which
+  // is most of what sells the camera angle.
+  g.fillStyle = 'rgba(255,255,255,.03)';
+  for (let i = -1; i < 11; i += 2) {
+    const a = i * L / 10, b = (i + 1) * L / 10;
+    poly(g, [P(a, 0, 0), P(b, 0, 0), P(b, W, 0), P(a, W, 0)], true); g.fill();
+  }
+
+  g.strokeStyle = 'rgba(214,236,252,.42)'; g.lineJoin = 'round';
+  const w = y => Math.max(.8, 0.12 * mpp(y));
+  const seg = (ax, ay, bx, by) => {
+    g.lineWidth = w((ay + by) / 2);
+    poly(g, [P(ax, ay, 0), P(bx, by, 0)]); g.stroke();
+  };
+  const box = (x0, y0, x1, y1) => {
+    g.lineWidth = w((y0 + y1) / 2);
+    poly(g, [P(x0, y0, 0), P(x1, y0, 0), P(x1, y1, 0), P(x0, y1, 0)], true); g.stroke();
+  };
+  box(0, 0, L, W);
+  seg(L / 2, 0, L / 2, W);
+  g.lineWidth = w(W / 2); poly(g, ring(L / 2, W / 2, 9.15), true); g.stroke();
+  box(0, (W - 40.3) / 2, 16.5, (W + 40.3) / 2);
+  box(L - 16.5, (W - 40.3) / 2, L, (W + 40.3) / 2);
+  box(0, (W - 18.3) / 2, 5.5, (W + 18.3) / 2);
+  box(L - 5.5, (W - 18.3) / 2, L, (W + 18.3) / 2);
+
+  // Penalty arcs: the part of the 9.15m circle outside the box.
+  const th = Math.acos((16.5 - 11) / 9.15);
+  g.lineWidth = w(W / 2);
+  poly(g, ring(11, W / 2, 9.15, -th, th, 22)); g.stroke();
+  poly(g, ring(L - 11, W / 2, 9.15, Math.PI - th, Math.PI + th, 22)); g.stroke();
+
+  g.fillStyle = 'rgba(214,236,252,.42)';
+  for (const sx of [11, L / 2, L - 11]) {
+    poly(g, ring(sx, W / 2, .35, 0, Math.PI * 2, 12), true); g.fill();
+  }
+
+  // Perimeter boards beyond the far touchline. Without a horizon the
+  // pitch hangs in black and the frame reads as a diagram on a page
+  // rather than a camera pointed at a stadium.
+  const bY = W + 1.1, bH = 1.05;
+  const bl = P(-16, bY, 0), br = P(L + 16, bY, 0);
+  const tl = P(-16, bY, bH), tr = P(L + 16, bY, bH);
+  const bg = g.createLinearGradient(0, tl[1], 0, bl[1]);
+  bg.addColorStop(0, '#1b2731'); bg.addColorStop(1, '#0d151b');
+  poly(g, [bl, br, tr, tl], true); g.fillStyle = bg; g.fill();
+  g.strokeStyle = 'rgba(150,180,205,.2)'; g.lineWidth = 1;
+  poly(g, [tl, tr]); g.stroke();
+
+  drawGoals();
 }
 
-/* ---------- live events ---------- */
+/* Real posts with height. A goal drawn as a flat line is the single
+   clearest tell that a pitch is a diagram. */
+function drawGoals() {
+  const g = ctx, H = 2.44, half = 3.66;
+  for (const gx of [0, L]) {
+    const depth = gx === 0 ? -1.9 : 1.9;        // net runs away from play
+    const y0 = W / 2 - half, y1 = W / 2 + half;
+    const p0 = P(gx, y0, 0), p1 = P(gx, y1, 0);
+    const t0 = P(gx, y0, H), t1 = P(gx, y1, H);
+    const b0 = P(gx + depth, y0, 0), b1 = P(gx + depth, y1, 0);
+    const u0 = P(gx + depth, y0, H * .78), u1 = P(gx + depth, y1, H * .78);
+
+    g.strokeStyle = 'rgba(150,180,205,.17)'; g.lineWidth = 1;
+    for (let i = 0; i <= 8; i++) {              // net
+      const f = i / 8;
+      const a = [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f];
+      const b = [b0[0] + (b1[0] - b0[0]) * f, b0[1] + (b1[1] - b0[1]) * f];
+      const c = [t0[0] + (t1[0] - t0[0]) * f, t0[1] + (t1[1] - t0[1]) * f];
+      const d = [u0[0] + (u1[0] - u0[0]) * f, u0[1] + (u1[1] - u0[1]) * f];
+      poly(g, [c, d, b]); g.stroke();
+      poly(g, [a, b]); g.stroke();
+    }
+    for (let i = 0; i <= 4; i++) {
+      const f = i / 4;
+      const a = [t0[0] + (u0[0] - t0[0]) * f, t0[1] + (u0[1] - t0[1]) * f];
+      const b = [t1[0] + (u1[0] - t1[0]) * f, t1[1] + (u1[1] - t1[1]) * f];
+      poly(g, [a, b]); g.stroke();
+    }
+    g.strokeStyle = 'rgba(236,246,255,.92)';
+    g.lineWidth = Math.max(1.6, .13 * mpp(W / 2)); g.lineCap = 'round';
+    poly(g, [p0, t0]); g.stroke();
+    poly(g, [p1, t1]); g.stroke();
+    poly(g, [t0, t1]); g.stroke();
+  }
+}
+
+/* ================== event trails ================== */
 function drawEvents() {
-  const g = ctx, s = box.s;
-  g.save(); g.scale(DPR, DPR); g.lineCap = 'round';
+  const g = ctx;
+  g.lineCap = 'round';
   const home = FEED.match.home.id;
   for (const e of FEED.stream) {
     const age = clock - e.t;
     if (age < 0 || age > TRAIL) continue;
-    const a = Math.pow(1 - age / TRAIL, 1.7);          // fade out
-    const grow = Math.min(1, age / .45);               // draw in
+    const a = Math.pow(1 - age / TRAIL, 1.7);
+    const grow = Math.min(1, age / .45);
     const away = e.m !== home;
     const col = away ? '255,176,32' : '90,169,255';
-    const x1 = PX(e.x, away), y1 = PY(e.y, away);
+    const ex = EX(e.x, away), ey = EY(e.y, away);
+    const p1 = P(ex, ey, 0);
+    const k = mpp(ey);
 
     if (e.k === 'pa' || e.k === 'ca') {
-      const x2 = e.X != null ? PX(e.X, away) : x1, y2 = e.Y != null ? PY(e.Y, away) : y1;
-      g.strokeStyle = e.f ? `rgba(255,95,95,${a * .3})` : `rgba(${col},${a * .4})`;
-      g.lineWidth = (e.k === 'ca' ? 2.4 : 1.5);
-      if (e.f) g.setLineDash([3, 3]);
-      g.beginPath(); g.moveTo(x1, y1);
-      g.lineTo(x1 + (x2 - x1) * grow, y1 + (y2 - y1) * grow); g.stroke();
-      g.setLineDash([]);
-      g.fillStyle = `rgba(${col},${a})`;
-      g.beginPath(); g.arc(x1, y1, 2, 0, 7); g.fill();
+      const tx = e.X != null ? EX(e.X, away) : ex, ty = e.Y != null ? EY(e.Y, away) : ey;
+      const p2 = P(ex + (tx - ex) * grow, ey + (ty - ey) * grow, 0);
+      g.strokeStyle = e.f ? `rgba(255,95,95,${a * .32})` : `rgba(${col},${a * .42})`;
+      g.lineWidth = Math.max(1, (e.k === 'ca' ? .18 : .11) * k);
+      if (e.f) g.setLineDash([3, 4]);
+      poly(g, [p1, p2]); g.stroke(); g.setLineDash([]);
     } else if (e.k === 'sh') {
-      const gx = box.ox + (away ? 0 : L * s), gy = box.oy + W / 2 * s;
+      const gx = away ? 0 : L;
+      const p2 = P(ex + (gx - ex) * grow, ey + (W / 2 - ey) * grow, 0);
       g.strokeStyle = e.g ? `rgba(61,220,132,${a})` : `rgba(${col},${a * .8})`;
-      g.lineWidth = 3;
-      g.beginPath(); g.moveTo(x1, y1);
-      g.lineTo(x1 + (gx - x1) * grow, y1 + (gy - y1) * grow); g.stroke();
+      g.lineWidth = Math.max(1.6, .2 * k);
+      poly(g, [p1, p2]); g.stroke();
       if (e.g) {
-        g.strokeStyle = `rgba(61,220,132,${a * .9})`; g.lineWidth = 2;
-        g.beginPath(); g.arc(x1, y1, (1 - a) * 34 + 6, 0, 7); g.stroke();
+        g.strokeStyle = `rgba(61,220,132,${a * .9})`; g.lineWidth = Math.max(1.4, .13 * k);
+        poly(g, ring(ex, ey, (1 - a) * 7 + 1.2, 0, Math.PI * 2, 24), true); g.stroke();
       }
     } else if (e.k === 're') {
-      g.strokeStyle = `rgba(255,255,255,${a * .55})`; g.lineWidth = 1.4;
-      g.beginPath(); g.arc(x1, y1, (1 - a) * 16 + 3, 0, 7); g.stroke();
+      g.strokeStyle = `rgba(255,255,255,${a * .5})`; g.lineWidth = Math.max(1, .1 * k);
+      poly(g, ring(ex, ey, (1 - a) * 3.4 + .7, 0, Math.PI * 2, 20), true); g.stroke();
     } else if (e.k === 'pr') {
-      g.fillStyle = `rgba(255,95,95,${a * .32})`;
-      g.beginPath(); g.arc(x1, y1, 2.6, 0, 7); g.fill();
+      g.fillStyle = `rgba(255,95,95,${a * .3})`;
+      poly(g, ring(ex, ey, .55, 0, Math.PI * 2, 10), true); g.fill();
     }
   }
+}
+
+/* ================== people ==================
+   A numbered circle is a counter. What makes it a player is height: a
+   figure that stands on the grass, casts a shadow, faces where it is
+   running and leans into a turn. */
+const KIT = {
+  home: { shirt: '#2f7fe0', trim: '#8cc6ff', short: '#16294b', sock: '#23548f', ink: '#eaf4ff' },
+  away: { shirt: '#eca322', trim: '#ffdc96', short: '#3d2c0c', sock: '#9c6b12', ink: '#2a1d04' },
+};
+const SKIN = '#434b55', LEG = '#333a44';
+const STRIDE = 1.75;                 // metres per half gait cycle
+const phase = { home: new Float32Array(11), away: new Float32Array(11) };
+const facing = { home: new Float32Array(11), away: new Float32Array(11) };
+
+/* Catmull-Rom through the 1.5s samples. Straight-line interpolation
+   renders a smooth run as a dog-leg at every sample boundary. */
+function cr(p0, p1, p2, p3, u) {
+  const u2 = u * u, u3 = u2 * u;
+  return .5 * (2 * p1 + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2
+    + (-p0 + 3 * p1 - 3 * p2 + p3) * u3);
+}
+function at(arr, stride, off, t) {
+  const F = FEED.frames;
+  const k = (t - F.t0) / F.dt;
+  const i = Math.max(0, Math.min(F.n - 1, Math.floor(k)));
+  const u = Math.max(0, Math.min(1, k - i));
+  const a = Math.max(0, i - 1), b = Math.min(F.n - 1, i + 1), c = Math.min(F.n - 1, i + 2);
+  return [
+    cr(arr[a * stride + off], arr[i * stride + off], arr[b * stride + off], arr[c * stride + off], u),
+    cr(arr[a * stride + off + 1], arr[i * stride + off + 1], arr[b * stride + off + 1], arr[c * stride + off + 1], u),
+  ];
+}
+
+/* One footballer, drawn in body-height units from the feet up.
+   The silhouette is the whole job at this size: a head bump, narrow
+   shoulders and -- the part that matters -- daylight between two legs.
+   A solid tapered body over a dark ellipse is a chess pawn, which is
+   exactly what the first version of this looked like. */
+function figure(g, h, kit, ph, front, profile, num, lean, gait) {
+  const sp = Math.sin(ph) * gait;                // gait=0 -> feet together
+  const sw = .30 * (.62 + .38 * front);          // wide head-on, narrow in profile
+  const sx = .155 * profile, sy = .038 * front;  // stride reads in x, foreshortens in y
+  const stance = .04;                            // feet apart even at rest
+  const HIP = -.46, WAIST = -.58, SHOULDER = -.81;
+
+  g.save();
+  g.rotate(lean); g.scale(h, h);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+
+  // Legs, hip to foot, bent at the knee, with a muted kit sock on the
+  // shin. Thin and dark: at this size a bright leg shouts louder than
+  // the shirt, and the shirt is what identifies the team.
+  const leg = (dir) => {
+    const hx = dir * stance, fx = dir * stance + sp * dir * sx;
+    const fy = -Math.max(0, sp * dir) * .07 + sp * dir * sy;
+    const kx = (hx + fx) / 2 + sp * dir * sx * .4, ky = (HIP + fy) / 2;
+    g.lineWidth = .05; g.strokeStyle = LEG;
+    g.beginPath(); g.moveTo(hx, HIP); g.quadraticCurveTo(kx, ky, fx, fy); g.stroke();
+    g.lineWidth = .052; g.strokeStyle = kit.sock;
+    g.beginPath(); g.moveTo(kx * .5 + fx * .5, ky * .5 + fy * .5); g.lineTo(fx, fy); g.stroke();
+  };
+  leg(-1); leg(1);
+
+  // shorts
+  g.fillStyle = kit.short;
+  g.beginPath(); g.roundRect(-sw * .45, WAIST, sw * .90, WAIST * -1 + HIP, .03); g.fill();
+
+  // arms swing against the legs, close to the body
+  g.strokeStyle = kit.shirt; g.lineWidth = .046;
+  g.beginPath(); g.moveTo(-sw * .44, SHOULDER + .03); g.lineTo(-sw * .5 + sp * sx * .45, WAIST + .02); g.stroke();
+  g.beginPath(); g.moveTo(sw * .44, SHOULDER + .03); g.lineTo(sw * .5 - sp * sx * .45, WAIST + .02); g.stroke();
+
+  // torso
+  g.beginPath();
+  g.moveTo(-sw / 2, SHOULDER); g.lineTo(sw / 2, SHOULDER);
+  g.lineTo(sw * .41, WAIST + .02); g.lineTo(-sw * .41, WAIST + .02);
+  g.closePath();
+  g.fillStyle = kit.shirt; g.fill();
+  g.strokeStyle = 'rgba(4,8,11,.42)'; g.lineWidth = .02; g.stroke();
+  g.fillStyle = kit.trim;                        // centre stripe
+  g.fillRect(-sw * .062, SHOULDER, sw * .124, -SHOULDER + WAIST + .02);
+
+  if (num != null) {
+    g.fillStyle = kit.ink;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '700 .15px ui-monospace,monospace';
+    g.fillText(num, 0, SHOULDER + .11);
+  }
+
+  // neck, then head -- without the neck the head floats like a pinhead
+  g.fillStyle = SKIN;
+  g.fillRect(-.036, SHOULDER - .05, .072, .06);
+  g.beginPath(); g.arc(0, -.905, .078, 0, 7); g.fill();
   g.restore();
 }
 
-/* ---------- players and ball ---------- */
-function drawPlayers() {
+function drawPeople() {
   const F = FEED.frames;
   if (!F || !F.n) return;
-  const g = ctx, s = box.s;
-  // Where we are between two sampled frames.
-  const k = (clock - F.t0) / F.dt;
-  const i = Math.max(0, Math.min(F.n - 1, Math.floor(k)));
-  const j = Math.min(F.n - 1, i + 1);
-  const raw = Math.max(0, Math.min(1, k - i));
-  const f = raw * raw * (3 - 2 * raw);          // ease, so dots glide
+  const g = ctx;
+  const back = Math.max(F.t0, clock - .22);
+  const [bx, by] = at(F.b, 2, 0, clock);
 
-  // Catmull-Rom through four samples: straight-line interpolation
-  // between 1.5s samples renders a smooth path as a dog-leg at every
-  // frame boundary, which reads as stepping.
-  const h0 = Math.max(0, i - 1), h3 = Math.min(F.n - 1, i + 2);
-  const cr = (p0, p1, p2, p3, u) => {
-    const u2 = u * u, u3 = u2 * u;
-    return 0.5 * ((2 * p1) + (-p0 + p2) * u +
-      (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 +
-      (-p0 + 3 * p1 - 3 * p2 + p3) * u3);
-  };
-  const lerp = (arr, a, b, o) => [
-    cr(arr[h0 * 22 + o], arr[a * 22 + o], arr[b * 22 + o], arr[h3 * 22 + o], raw),
-    cr(arr[h0 * 22 + o + 1], arr[a * 22 + o + 1], arr[b * 22 + o + 1],
-       arr[h3 * 22 + o + 1], raw),
-  ];
-  const bx = cr(F.b[h0 * 2], F.b[i * 2], F.b[j * 2], F.b[h3 * 2], raw);
-  const by = cr(F.b[h0 * 2 + 1], F.b[i * 2 + 1], F.b[j * 2 + 1], F.b[h3 * 2 + 1], raw);
-
-  g.save(); g.scale(DPR, DPR);
-  const BX = box.ox + bx * s, BY = box.oy + by * s;
-  const r = Math.max(5, s * .62);
-
-  // Nearest player to the ball is carrying it: the frames hold
-  // positions, not possession, and a ring beats shipping another field.
-  let best = null, bestD = 1e9;
-  for (const [arr, col] of [[F.h, '90,169,255'], [F.a, '255,176,32']]) {
-    for (let p = 0; p < 11; p++) {
-      const [px, py] = lerp(arr, i, j, p * 2);
-      const d = Math.hypot(px - bx, py - by);
-      if (d < bestD) {
-        bestD = d;
-        const side = arr === F.h ? 'home' : 'away';
-        best = [px, py, col, FEED.lineups ? FEED.lineups[side][p] : null];
-      }
-    }
-  }
-
-  const back = Math.max(0, i - 1);
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  for (const [arr, col, side] of [[F.h, '90,169,255', 'home'], [F.a, '255,176,32', 'away']]) {
+  const cast = [];
+  let carry = null, carryD = 1e9;
+  for (const side of ['home', 'away']) {
+    const arr = side === 'home' ? F.h : F.a;
+    const kit = KIT[side];
     const xi = FEED.lineups ? FEED.lineups[side] : null;
     for (let p = 0; p < 11; p++) {
-      const [px, py] = lerp(arr, i, j, p * 2);
-      const X = box.ox + px * s, Y = box.oy + py * s;
-
-      // Where he has come from: direction of travel reads as motion
-      // even in a still frame, which dots alone never do.
-      const vx = px - arr[back * 22 + p * 2], vy = py - arr[back * 22 + p * 2 + 1];
+      const [x, y] = at(arr, 22, p * 2, clock);
+      const [px, py] = at(arr, 22, p * 2, back);
+      const vx = (x - px) / .22, vy = (y - py) / .22;
       const sp = Math.hypot(vx, vy);
-      // Only show a tail when he is actually moving, and keep it short.
-      if (sp > 1.1) {
-        const k2 = Math.min(1, sp / 9);
-        g.beginPath();
-        g.moveTo(X - vx * s * .42, Y - vy * s * .42); g.lineTo(X, Y);
-        g.strokeStyle = `rgba(${col},${.12 + k2 * .26})`;
-        g.lineWidth = r * .78; g.lineCap = 'round'; g.stroke();
-      }
-
-      g.beginPath(); g.arc(X, Y + r * .22, r, 0, 7);
-      g.fillStyle = 'rgba(0,0,0,.4)'; g.fill();               // grounding shadow
-      g.beginPath(); g.arc(X, Y, r, 0, 7);
-      g.fillStyle = `rgb(${col})`; g.fill();
-      g.lineWidth = 1.1; g.strokeStyle = 'rgba(5,8,11,.9)'; g.stroke();
-
-      if (xi && r > 7) {
-        g.fillStyle = side === 'home' ? '#06101c' : '#1a1203';
-        g.font = `700 ${Math.round(r * 1.05)}px ui-monospace,monospace`;
-        g.fillText(String(xi[p].n), X, Y + .5);
-      }
-    }
-  }
-  if (best && bestD < 4) {
-    const BXc = box.ox + best[0] * s, BYc = box.oy + best[1] * s;
-    g.beginPath(); g.arc(BXc, BYc, r + 5, 0, 7);
-    g.strokeStyle = `rgba(${best[2]},.9)`; g.lineWidth = 2; g.stroke();
-    if (best[3]) {
-      const label = `${best[3].n}  ${best[3].last}`;
-      g.font = `600 ${Math.max(11, Math.round(r * .95))}px -apple-system,system-ui,sans-serif`;
-      const w = g.measureText(label).width + 14;
-      g.fillStyle = 'rgba(5,8,11,.82)';
-      g.beginPath(); g.roundRect(BXc - w / 2, BYc - r - 26, w, 19, 5); g.fill();
-      g.fillStyle = '#eef4fa';
-      g.fillText(label, BXc, BYc - r - 16);
+      const d = Math.hypot(x - bx, y - by);
+      const rec = { side, p, x, y, vx, vy, sp, kit, man: xi ? xi[p] : null };
+      if (d < carryD) { carryD = d; carry = rec; }
+      cast.push(rec);
     }
   }
 
-  g.beginPath(); g.arc(BX, BY, r * .55, 0, 7);
-  g.fillStyle = '#fff'; g.shadowColor = 'rgba(255,255,255,.85)';
-  g.shadowBlur = 11; g.fill(); g.shadowBlur = 0;
-  g.restore();
+  // Ground marker under the man on the ball: a broadcast spotlight reads
+  // far better than a ring round a dot, and survives the perspective.
+  if (carry && carryD < 3.5) {
+    g.strokeStyle = carry.side === 'home'
+      ? 'rgba(90,169,255,.85)' : 'rgba(255,176,32,.85)';
+    g.lineWidth = Math.max(1.4, .1 * mpp(carry.y));
+    poly(g, ring(carry.x, carry.y, 1.25, 0, Math.PI * 2, 26), true); g.stroke();
+  }
+
+  // Ball on the turf, sorted in with the players so it can be occluded.
+  cast.push({ ball: true, x: bx, y: by });
+  cast.sort((a, b) => (b.y + RIG.back) - (a.y + RIG.back));   // far first
+
+  for (const r of cast) {
+    const foot = P(r.x, r.y, 0);
+    const k = mpp(r.y);
+
+    if (r.ball) {
+      const rad = Math.max(1.6, .17 * k);
+      g.fillStyle = 'rgba(0,0,0,.45)';
+      g.beginPath(); g.ellipse(foot[0], foot[1], rad * 1.25, rad * .45, 0, 0, 7); g.fill();
+      g.beginPath(); g.arc(foot[0], foot[1] - rad * .7, rad, 0, 7);
+      g.fillStyle = '#fff'; g.shadowColor = 'rgba(255,255,255,.8)';
+      g.shadowBlur = 9; g.fill(); g.shadowBlur = 0;
+      continue;
+    }
+
+    const h = foot[1] - P(r.x, r.y, 1.84)[1];
+    if (h < 4) continue;
+    const front = r.sp > .4 ? Math.min(1, Math.abs(r.vy) / r.sp) : .5;
+    const profile = r.sp > .4 ? Math.min(1, Math.abs(r.vx) / r.sp) : .4;
+
+    // gait advances with distance covered, but capped: at 12x a true
+    // cycle is a strobe, and legs that blur read as noise.
+    const ph = phase[r.side];
+    ph[r.p] += r.sp * GAIT / STRIDE * Math.PI;
+    const lean = Math.max(-.16, Math.min(.16, r.vx / 9 * .15));
+
+    // Shadow: soft and close. A flat dark ellipse under the feet is a
+    // pedestal, and a figure on a pedestal is a chess piece however well
+    // the figure itself is drawn.
+    const sr = Math.max(5, .95 * k);
+    g.save(); g.translate(foot[0], foot[1] + Math.max(.5, .06 * k)); g.scale(1, .3);
+    const sh = g.createRadialGradient(0, 0, 0, 0, 0, sr);
+    sh.addColorStop(0, 'rgba(0,0,0,.55)');
+    sh.addColorStop(.42, 'rgba(0,0,0,.33)');
+    sh.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = sh;
+    g.beginPath(); g.arc(0, 0, sr, 0, 7); g.fill();
+    g.restore();
+
+    g.save(); g.translate(foot[0], foot[1]);
+    figure(g, h, r.kit, ph[r.p], front, profile,
+      h > 42 && r.man ? String(r.man.n) : null, lean,
+      Math.min(1, r.sp / 3.4));          // stride grows with pace, so a
+    g.restore();                         // standing player stands still
+
+    // Name the man on the ball, as a broadcast would.
+    if (r === carry && carryD < 3.5 && r.man) {
+      const label = `${r.man.n}  ${r.man.last}`;
+      g.font = `600 ${Math.max(11, Math.min(15, h * .32))}px -apple-system,system-ui,sans-serif`;
+      const tw = g.measureText(label).width + 15;
+      const ty = foot[1] - h - 13;
+      g.fillStyle = 'rgba(5,8,11,.84)';
+      g.beginPath(); g.roundRect(foot[0] - tw / 2, ty - 10, tw, 20, 5); g.fill();
+      g.fillStyle = '#eef4fa'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(label, foot[0], ty);
+    }
+  }
 }
 
+/* ================== loop ================== */
+let GAIT = 0;
 function frame(now) {
+  const dtReal = Math.min(.1, (now - last) / 1000);
+  last = now;
   if (playing) {
-    const dt = Math.min(.1, (now - last) / 1000);
-    clock = Math.min(FULL, clock + dt * SPEED);
+    clock = Math.min(FULL, clock + dtReal * SPEED);
     if (clock >= FULL) pause();
     sync();
   }
-  last = now;
-  drawPitch(); drawEvents(); drawPlayers();
+  // Gait is driven by real seconds, not match seconds: at 12x the legs
+  // would otherwise cycle twelve times too fast and read as vibration.
+  GAIT = dtReal * Math.min(SPEED, 3);
+
+  // Camera dolly: hold for small movements, then ease across. A camera
+  // that tracks every touch makes the world move instead of the lens.
+  if (FEED.frames && FEED.frames.n) {
+    const [bx] = at(FEED.frames.b, 2, 0, clock);
+    const target = Math.max(28, Math.min(L - 28, bx));
+    const err = target - camX, dz = 7;
+    const want = Math.abs(err) <= dz ? camX : target - Math.sign(err) * dz;
+    camX += (want - camX) * (1 - Math.exp(-dtReal * Math.min(SPEED, 6) / 1.4));
+  }
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  drawPitch(); drawEvents(); drawPeople();
   requestAnimationFrame(frame);
 }
 
-/* ---------- moments ---------- */
+/* ================== moments ================== */
 function minuteNow() { return Math.floor(clock / 60); }
 
 function showMoment(i) {
@@ -509,7 +761,6 @@ function setMode(next) {
   mode = next;
   $('#mAnalyst').setAttribute('aria-pressed', mode === 'analyst');
   $('#mFan').setAttribute('aria-pressed', mode === 'fan');
-  // Fan mode is the match and the claim, nothing else.
   $('#rail').classList.toggle('off', mode === 'fan');
   document.body.classList.toggle('analyst', mode === 'analyst');
   $('#why').classList.toggle('hide', mode === 'fan');
@@ -553,6 +804,11 @@ fetch('feed.json').then(r => r.json()).then(d => {
     TRAIL = SPEED * 2.4;
     $('#spd').innerHTML = SPEED + '&times;';
   };
+  $('#wide').onclick = () => {
+    wide = !wide;
+    $('#wide').setAttribute('aria-pressed', wide);
+    buildCam();
+  };
   $('#mAnalyst').onclick = () => setMode('analyst');
   $('#mFan').onclick = () => setMode('fan');
   $('#track').onclick = e => {
@@ -564,8 +820,21 @@ fetch('feed.json').then(r => r.json()).then(d => {
     if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
   });
   setMode('analyst');
-  clock = Math.max(0, d.moments[0].minute * 60 - 50);
-  sync();
+
+  // Open ON the claim, not at kickoff. Every competitor's demo loads at
+  // 0-0 with an empty insight panel; the one thing this project exists
+  // to say should be on screen before anyone touches a control.
+  const centre = d.window && d.window.centre_minute != null
+    ? d.window.centre_minute : d.moments[0].minute;
+  let open = 0, bestGap = 1e9;
+  d.moments.forEach((m, i) => {
+    const gap = Math.abs(m.minute - centre) + (m.diverges ? 0 : 6);
+    if (gap < bestGap) { bestGap = gap; open = i; }
+  });
+  clock = d.moments[open].minute * 60 + 1;
+  camX = Math.max(28, Math.min(L - 28, at(d.frames.b, 2, 0, clock)[0]));
+  sync(); showMoment(open);
+  last = performance.now();
   requestAnimationFrame(frame);
 }).catch(() => {
   document.body.innerHTML =
