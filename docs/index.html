@@ -67,6 +67,14 @@
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   .vig{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(ellipse at 50% 56%,transparent 58%,rgba(8,0,14,.5) 100%)}
+  .grain{position:absolute;inset:-130px;pointer-events:none;z-index:1;
+    background-repeat:repeat;animation:gr .9s steps(1) infinite}
+  @keyframes gr{
+    0%{transform:translate(0,0)}      14%{transform:translate(-47px,31px)}
+    28%{transform:translate(23px,-59px)} 42%{transform:translate(-71px,-13px)}
+    56%{transform:translate(53px,41px)}  70%{transform:translate(-19px,-83px)}
+    84%{transform:translate(37px,7px)}   100%{transform:translate(0,0)}
+  }
 
   /* ---------- scorebug: flush to the corner, not floating ---------- */
   .bug{position:absolute;top:0;left:0;display:flex;align-items:stretch;
@@ -262,6 +270,7 @@
     <button class="btn" id="why">Why</button>
     <button class="btn" id="spd">4&times;</button>
     <button class="btn" id="wide" aria-pressed="false">Wide</button>
+    <button class="btn" id="snd" aria-pressed="false">Sound</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
     <div class="right">
       <button class="btn" id="mAnalyst" aria-pressed="true">Analyst</button>
@@ -368,6 +377,152 @@ function ring(x, y, r, from, to, n) {
   return pts;
 }
 
+/* ================== turf ==================
+   Grass is a texture, not a fill. Everything static about the surface --
+   the two-tone mow bands, a faint cross-cut, wear at the goalmouths and
+   down the central channel, mottling, the floodlight pools -- is baked
+   once into an offscreen canvas in PITCH coordinates, then drawn through
+   the camera every frame.
+
+   Canvas 2D cannot draw an image in perspective, but this camera has no
+   roll, so every row of the pitch maps to exactly one horizontal row of
+   the screen with a uniform scale. That means the texture can be drawn
+   as a stack of thin screen-space bands, each a plain scaled drawImage:
+   the mode-7 trick, and here it is exact rather than an approximation. */
+const TURF_T = 14;                       // texture pixels per metre
+const TX0 = -16, TX1 = L + 16, TY0 = -9, TY1 = W + 2.2;
+let TURF = null;
+
+function mulberry(seed) {
+  return () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function buildTurf() {
+  const wM = TX1 - TX0, hM = TY1 - TY0;
+  const c = document.createElement('canvas');
+  c.width = Math.round(wM * TURF_T); c.height = Math.round(hM * TURF_T);
+  const t = c.getContext('2d');
+  const X = x => (x - TX0) * TURF_T;
+  const Y = y => (TY1 - y) * TURF_T;      // row 0 is the far edge
+  const rng = mulberry(2026);
+
+  // Base: cooled from pure broadcast green, because the chrome around it
+  // is aubergine and a saturated green fights purple. Darker at the far
+  // side, where the light has further to travel.
+  const base = t.createLinearGradient(0, 0, 0, c.height);
+  base.addColorStop(0, '#163526');
+  base.addColorStop(.5, '#1f5039');
+  base.addColorStop(1, '#19422f');
+  t.fillStyle = base; t.fillRect(0, 0, c.width, c.height);
+
+  // Mow bands: a real two-tone, not a white wash. The light band leans
+  // yellow because bent blades show their undersides to the camera.
+  for (let i = -2; i < 18; i += 2) {
+    t.fillStyle = 'rgba(190,220,120,.055)';
+    t.fillRect(X(i * L / 16), 0, L / 16 * TURF_T, c.height);
+  }
+  // Faint cross-cut the other way: the grid a groundsman leaves.
+  for (let j = 0; j < 10; j += 2) {
+    t.fillStyle = 'rgba(255,255,255,.016)';
+    t.fillRect(0, Y((j + 1) * W / 10), c.width, W / 10 * TURF_T);
+  }
+
+  // Mottle: low-frequency patchiness. A uniform lawn is a render; grass
+  // grows unevenly.
+  for (let i = 0; i < 420; i++) {
+    const px = TX0 + rng() * wM, py = TY0 + rng() * hM;
+    const r = (1.5 + rng() * 5.5) * TURF_T;
+    const up = rng() > .5;
+    const gl = t.createRadialGradient(X(px), Y(py), 0, X(px), Y(py), r);
+    gl.addColorStop(0, up ? 'rgba(205,235,150,.040)' : 'rgba(8,24,14,.05)');
+    gl.addColorStop(1, 'rgba(0,0,0,0)');
+    t.fillStyle = gl;
+    t.beginPath(); t.arc(X(px), Y(py), r, 0, 7); t.fill();
+  }
+
+  // Wear: the goalmouths, the penalty spots, the centre, and a tired
+  // central channel. Sand and thin grass, not paint.
+  const wear = (px, py, rx, ry, a) => {
+    const gl = t.createRadialGradient(X(px), Y(py), 0, X(px), Y(py), rx * TURF_T);
+    gl.addColorStop(0, `rgba(122,106,64,${a})`);
+    gl.addColorStop(.55, `rgba(122,106,64,${a * .5})`);
+    gl.addColorStop(1, 'rgba(0,0,0,0)');
+    t.fillStyle = gl;
+    t.save(); t.translate(X(px), Y(py)); t.scale(1, ry / rx);
+    t.beginPath(); t.arc(0, 0, rx * TURF_T, 0, 7); t.fill(); t.restore();
+  };
+  wear(3.2, W / 2, 9, 5, .16); wear(L - 3.2, W / 2, 9, 5, .16);
+  wear(11, W / 2, 3.4, 2.4, .12); wear(L - 11, W / 2, 3.4, 2.4, .12);
+  wear(L / 2, W / 2, 7, 5, .1);
+  for (let i = 0; i < 9; i++) wear(L * .2 + rng() * L * .6, W / 2 + (rng() - .5) * 14,
+                                   3 + rng() * 4, 2 + rng() * 2, .05);
+
+  // Blade grain, anchored to the pitch (the screen-space grain that runs
+  // over the whole frame each frame belongs to the camera; this belongs
+  // to the grass).
+  const n = document.createElement('canvas'); n.width = n.height = 128;
+  const nx = n.getContext('2d'), d = nx.createImageData(128, 128);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const v = 90 + (rng() * 165) | 0;
+    d.data[i] = v * .8; d.data[i + 1] = v; d.data[i + 2] = v * .82;
+    d.data[i + 3] = 14;
+  }
+  nx.putImageData(d, 0, 0);
+  t.fillStyle = t.createPattern(n, 'repeat');
+  t.fillRect(0, 0, c.width, c.height);
+
+  // Floodlight pools, baked: they are fixed to the ground, so they cost
+  // nothing per frame here.
+  for (const fx of [L * .16, L * .5, L * .84]) {
+    const r = 34 * TURF_T;
+    const gl = t.createRadialGradient(X(fx), Y(W * .45), 0, X(fx), Y(W * .45), r);
+    gl.addColorStop(0, 'rgba(226,255,238,.06)');
+    gl.addColorStop(.6, 'rgba(226,255,238,.02)');
+    gl.addColorStop(1, 'rgba(0,0,0,0)');
+    t.fillStyle = gl;
+    t.beginPath(); t.arc(X(fx), Y(W * .45), r, 0, 7); t.fill();
+  }
+  TURF = c;
+}
+
+/* Invert the projection for the ground plane: which pitch row is on
+   screen row ys. Exact because the rig has no roll. */
+function yAtScreen(ys) {
+  const q = CAM.cy - ys;
+  const dy = RIG.up * (q * CAM.fz - CAM.fl * CAM.fy) / (q * CAM.fy + CAM.fl * CAM.fz);
+  return dy - RIG.back;
+}
+
+function drawTurf() {
+  const g = ctx;
+  if (!TURF) return;
+  const top = Math.max(0, Math.ceil(P(camX, TY1, 0)[1]));
+  const bot = Math.min(VH, P(camX, TY0, 0)[1]);
+  // Adaptive bands: perspective changes fast at the horizon and slowly
+  // near the camera, so the strips can be thin where it matters and
+  // thick where it does not. Roughly a third the draw calls of a fixed
+  // step for the same picture.
+  const span = Math.max(1, bot - top);
+  for (let ys = top; ys < bot;) {
+    const f = (ys - top) / span;
+    const h = Math.min(3 + 11 * f * f, bot - ys);
+    const y0 = Math.min(TY1, yAtScreen(ys));          // far edge of band
+    const y1 = Math.max(TY0, yAtScreen(ys + h));      // near edge
+    if (y0 > y1) {
+      const s = mpp((y0 + y1) / 2);
+      g.drawImage(TURF,
+        0, (TY1 - y0) * TURF_T, TURF.width, Math.max(1, (y0 - y1) * TURF_T),
+        CAM.cx + s * (TX0 - camX), ys, s * (TX1 - TX0), h);
+    }
+    ys += h;
+  }
+}
+
 function drawPitch() {
   const g = ctx;
   g.fillStyle = '#05080b'; g.fillRect(0, 0, VW, VH);
@@ -389,38 +544,7 @@ function drawPitch() {
     g.fillRect(0, y, VW, Math.max(1, horizon / 26));
   }
 
-  const turf = [P(-14, 0, 0), P(L + 14, 0, 0), P(L + 14, W, 0), P(-14, W, 0)];
-  const grd = g.createLinearGradient(0, P(camX, W, 0)[1], 0, P(camX, 0, 0)[1]);
-  // Cooled and slightly desaturated from a pure broadcast green: the
-  // chrome around it is aubergine, and a saturated green fights purple.
-  grd.addColorStop(0, '#153224');
-  grd.addColorStop(.52, '#1e4e38'); grd.addColorStop(1, '#173d2d');
-  poly(g, turf, true); g.fillStyle = grd; g.fill();
-
-  // Mown bands run across the pitch; under perspective they taper, which
-  // is most of what sells the camera angle. Sixteen, not ten -- wide
-  // bands read as a graphic device, narrow ones read as cut grass.
-  g.fillStyle = 'rgba(255,255,255,.026)';
-  for (let i = -1; i < 17; i += 2) {
-    const a = i * L / 16, b = (i + 1) * L / 16;
-    poly(g, [P(a, 0, 0), P(b, 0, 0), P(b, W, 0), P(a, W, 0)], true); g.fill();
-  }
-
-  // Floodlight pools. Real turf is never evenly lit; four overlapping
-  // pools from the corners is what a stadium actually puts on the grass.
-  g.save();
-  poly(g, turf, true); g.clip();
-  for (const fx of [L * .16, L * .5, L * .84]) {
-    const c = P(fx, W * .42, 0), far = P(fx, W * .1, 0);
-    const rad = Math.abs(c[1] - far[1]) * 3.4 + 90;
-    const pool = g.createRadialGradient(c[0], c[1], 0, c[0], c[1], rad);
-    pool.addColorStop(0, 'rgba(226,255,238,.055)');
-    pool.addColorStop(.6, 'rgba(226,255,238,.018)');
-    pool.addColorStop(1, 'rgba(226,255,238,0)');
-    g.fillStyle = pool;
-    g.beginPath(); g.ellipse(c[0], c[1], rad, rad * .42, 0, 0, 7); g.fill();
-  }
-  g.restore();
+  drawTurf();
 
   g.strokeStyle = 'rgba(214,236,252,.42)'; g.lineJoin = 'round';
   const w = y => Math.max(.8, 0.12 * mpp(y));
@@ -652,6 +776,20 @@ const STRIDE = 1.75;                 // metres per half gait cycle
 const phase = { home: new Float32Array(11), away: new Float32Array(11) };
 const facing = { home: new Float32Array(11), away: new Float32Array(11) };
 
+let SHADOW = null;
+function buildShadow() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const gl = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gl.addColorStop(0, 'rgba(0,0,0,.55)');
+  gl.addColorStop(.42, 'rgba(0,0,0,.33)');
+  gl.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = gl;
+  x.beginPath(); x.arc(32, 32, 32, 0, 7); x.fill();
+  SHADOW = c;
+}
+
 /* Catmull-Rom through the 1.5s samples. Straight-line interpolation
    renders a smooth run as a dog-leg at every sample boundary. */
 function cr(p0, p1, p2, p3, u) {
@@ -837,15 +975,12 @@ function drawPeople() {
     // Shadow: soft and close. A flat dark ellipse under the feet is a
     // pedestal, and a figure on a pedestal is a chess piece however well
     // the figure itself is drawn.
+    // One pre-rendered soft shadow, scaled per player. Building a radial
+    // gradient per player per frame was pure waste: the shadow never
+    // changes, only its size does.
     const sr = Math.max(5, .95 * k);
-    g.save(); g.translate(foot[0], foot[1] + Math.max(.5, .06 * k)); g.scale(1, .3);
-    const sh = g.createRadialGradient(0, 0, 0, 0, 0, sr);
-    sh.addColorStop(0, 'rgba(0,0,0,.55)');
-    sh.addColorStop(.42, 'rgba(0,0,0,.33)');
-    sh.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = sh;
-    g.beginPath(); g.arc(0, 0, sr, 0, 7); g.fill();
-    g.restore();
+    g.drawImage(SHADOW, foot[0] - sr, foot[1] + Math.max(.5, .06 * k) - sr * .3,
+      sr * 2, sr * .6);
 
     g.save(); g.translate(foot[0], foot[1]);
     figure(g, h, r.kit, ph[r.p], front, profile,
@@ -871,20 +1006,110 @@ function drawPeople() {
   }
 }
 
-/* ================== loop ================== */
-let GAIT = 0, GRAIN = null;
+/* ================== crowd ==================
+   What sits under live play on a broadcast is not music, it is forty
+   thousand people. No recording is used -- a recording loops, carries a
+   licence, and cannot react. This crowd is synthesized: three voices of
+   looped brownish noise through bandpass filters (a murmur, an airy top,
+   and a surge voice driven by envelopes), with the murmur's level
+   following where the ball is. It leans toward the boxes, swells for a
+   shot, and roars for a goal, because it is computed from the same
+   events as everything else on screen. */
+let AC = null, CROWD = null, sndOn = false, audioPtr = 0, lastAClock = -1, EXC = 0;
 
+function noiseBuffer(ac, secs) {
+  const b = ac.createBuffer(2, secs * ac.sampleRate, ac.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch);
+    let a = 0;
+    for (let i = 0; i < d.length; i++) {
+      a = a * .985 + (Math.random() * 2 - 1) * .15;
+      d[i] = a * 2.4;
+    }
+  }
+  return b;
+}
+
+function initCrowd() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const master = AC.createGain(); master.gain.value = .6;
+  master.connect(AC.destination);
+  const buf = noiseBuffer(AC, 4);
+  const voice = (freq, q, g0, rate) => {
+    const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+    src.playbackRate.value = rate;
+    const f = AC.createBiquadFilter(); f.type = 'bandpass';
+    f.frequency.value = freq; f.Q.value = q;
+    const g = AC.createGain(); g.gain.value = g0;
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start();
+    return { f, g };
+  };
+  CROWD = {
+    murmur: voice(420, .6, .09, .82),
+    air: voice(1600, .5, .018, 1.13),
+    surge: voice(900, .8, 0, .95),
+  };
+}
+
+function crowdSwell(intensity, dur) {
+  if (!CROWD || AC.state !== 'running') return;
+  const t = AC.currentTime, s = CROWD.surge.g.gain;
+  s.cancelScheduledValues(t);
+  s.setTargetAtTime(.08 + .5 * intensity, t, .07 + .12 * (1 - intensity));
+  s.setTargetAtTime(0, t + dur * .35, dur * .3);
+  const f = CROWD.surge.f.frequency;
+  f.cancelScheduledValues(t);
+  f.setValueAtTime(700, t);
+  f.linearRampToValueAtTime(700 + 900 * intensity, t + dur * .4);
+}
+
+function crowdFrame(dtReal) {
+  if (!CROWD || AC.state !== 'running') return;
+  // The crowd leans toward whichever box the ball is near.
+  const want = Math.max(0, Math.min(1, (Math.abs(ballAt(clock).x - L / 2) - 12) / 38));
+  EXC += (want - EXC) * Math.min(1, dtReal * 1.5);
+  const t = AC.currentTime;
+  const breath = .85 + .15 * Math.sin(t * .31) * Math.sin(t * .13 + 2);
+  CROWD.murmur.g.gain.setTargetAtTime((playing ? .08 : .035) * breath + .07 * EXC, t, .25);
+  CROWD.air.g.gain.setTargetAtTime(playing ? .018 + .02 * EXC : .007, t, .4);
+
+  // React to what just happened. On a seek, drop the backlog rather than
+  // roaring through half a match in one frame.
+  if (clock < lastAClock - 1) audioPtr = 0;
+  const st = FEED.stream;
+  while (audioPtr < st.length && st[audioPtr].t <= clock) {
+    const e = st[audioPtr++];
+    if (clock - e.t > 2) continue;
+    if (e.k === 'sh') crowdSwell(e.g ? 1 : .55, e.g ? 6 : 1.8);
+    else if (e.k === 'ta' || e.k === 'du') crowdSwell(.16, .9);
+  }
+  lastAClock = clock;
+}
+
+/* ================== loop ================== */
+let GAIT = 0;
+
+/* Film grain is a property of the camera, not the pitch, so it sits over
+   the whole frame -- but painting it INTO the canvas was two thirds of
+   the entire frame budget (a full-screen pattern fill at retina scale,
+   every frame). It lives in a composited CSS overlay instead: the canvas
+   never touches it, and a stepped transform animation keeps it moving,
+   because grain that holds still reads as a dirty lens. */
 function makeGrain() {
   const c = document.createElement('canvas');
-  c.width = c.height = 110;
-  const x = c.getContext('2d'), d = x.createImageData(110, 110);
+  c.width = c.height = 128;
+  const x = c.getContext('2d'), d = x.createImageData(128, 128);
   for (let i = 0; i < d.data.length; i += 4) {
     const v = 110 + ((Math.random() * 145) | 0);
     d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
-    d.data[i + 3] = 9;
+    d.data[i + 3] = 10;
   }
   x.putImageData(d, 0, 0);
-  return ctx.createPattern(c, 'repeat');
+  const el = document.createElement('div');
+  el.className = 'grain';
+  el.style.backgroundImage = `url(${c.toDataURL()})`;
+  document.querySelector('.field').appendChild(el);
 }
 function frame(now) {
   const dtReal = Math.min(.1, (now - last) / 1000);
@@ -907,14 +1132,10 @@ function frame(now) {
     camX += (want - camX) * (1 - Math.exp(-dtReal * Math.min(SPEED, 6) / 1.4));
   }
 
+  crowdFrame(dtReal);
+
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawPitch(); drawEvents(); drawPeople();
-
-  // Film grain, last and over everything. Grain is a property of the
-  // camera, not of the pitch, so it belongs in screen space across the
-  // whole frame -- and it is most of what separates "photographed" from
-  // "drawn" in a flat vector render.
-  if (GRAIN) { ctx.fillStyle = GRAIN; ctx.fillRect(0, 0, VW, VH); }
   requestAnimationFrame(frame);
 }
 
@@ -1021,7 +1242,9 @@ fetch('feed.json').then(r => r.json()).then(d => {
   FEED = d;
   cv = $('#cv'); ctx = cv.getContext('2d');
   layout(); addEventListener('resize', layout);
-  GRAIN = makeGrain();
+  makeGrain();
+  buildTurf();
+  buildShadow();
 
   $('#hTag').textContent = d.match.home.short; $('#hG').textContent = d.match.home.goals;
   $('#aTag').textContent = d.match.away.short; $('#aG').textContent = d.match.away.goals;
@@ -1059,6 +1282,12 @@ fetch('feed.json').then(r => r.json()).then(d => {
     wide = !wide;
     $('#wide').setAttribute('aria-pressed', wide);
     buildCam();
+  };
+  $('#snd').onclick = async () => {
+    if (!AC) initCrowd();
+    if (sndOn) { await AC.suspend(); sndOn = false; }
+    else { await AC.resume(); sndOn = true; }
+    $('#snd').setAttribute('aria-pressed', sndOn);
   };
   $('#mAnalyst').onclick = () => setMode('analyst');
   $('#mFan').onclick = () => setMode('fan');

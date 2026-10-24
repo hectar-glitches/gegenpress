@@ -18,6 +18,9 @@ that looks like television.
       the figures should be visibly wide. If they are not, the font 404'd
 - [ ] Confirm it opens **paused on a diverging Form Line** with the strap
       already up. That is the opening frame; it should need no clicks
+- [ ] Click **Sound** and leave it on — the crowd is synthesized and
+      reacts to play, and the roar under a goal is worth ten seconds of
+      narration. Set system output to the mic mix or record system audio
 - [ ] Close every notification source. A toast over the pitch is a retake
 
 ## The script
