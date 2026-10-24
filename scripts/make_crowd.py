@@ -1,20 +1,22 @@
 """Render the crowd, offline, from nothing.
 
 The first crowd was three bandpassed noise loops shaped in real time, and
-it sounded like what it was: wind. A crowd is not filtered static -- it is
-tens of thousands of short voiced sounds overlapping, which is a granular
-texture, and granular synthesis is an offline job.
+it sounded like what it was: wind. The second was granular but built only
+from two narrow vowel formants with nothing above 2.8 kHz -- hollow sung
+tones, which is the recipe for a ghost choir, and that is what it got
+called. A real crowd is mostly TRANSIENTS and AIR: scattered clapping,
+the fricative crackle of thousands of consonants, whistles, energy out
+past 6 kHz. The vowels are the minority.
 
-Two files come out of this, both ours, no third-party audio anywhere:
+So each voice grain now has three wide formants plus a consonant burst on
+its onset, and two further layers exist outright: claps (short decaying
+broadband snaps -- the single most recognisable crowd texture) and sparse
+distant whistles. All of it ours, no third-party audio anywhere:
 
-  docs/audio/crowd.mp3   a seamless ~28s murmur loop: ~9,000 chatter
-                         grains, each a noise burst pushed through two
-                         vocal formants with syllabic (3-8 Hz) amplitude
-                         movement, panned across the stand, over a low
-                         stadium rumble
-  docs/audio/roar.mp3    a ~6s one-shot: the same grains, denser, louder,
-                         formants shifted toward open-mouth vowels, with
-                         a fast swell and a long decay
+  docs/audio/crowd.mp3   seamless ~28s: chatter + scattered applause +
+                         a couple of far whistles over a low rumble
+  docs/audio/roar.mp3    ~6s one-shot: open-vowel shout grains over an
+                         applause wall, fast swell, long decay
 
 Run: python scripts/make_crowd.py        (writes docs/audio/, prints the
                                           measurements that define done)
@@ -35,60 +37,81 @@ rng = np.random.default_rng(2026)
 OUT = pathlib.Path(__file__).resolve().parent.parent / "docs" / "audio"
 
 
-def formant_grain(dur: float, f1: float, f2: float, voiced: float) -> np.ndarray:
-    """One short utterance: noise (and a touch of buzz) through two
-    vocal-tract resonances, with a syllabic envelope."""
+def voice_grain(dur: float, f1: float, f2: float, voiced: float) -> np.ndarray:
+    """One short utterance. Three WIDE formants -- narrow ones whistle --
+    and a consonant burst at the onset, because speech without consonants
+    is a seance."""
     n = int(dur * SR)
     t = np.arange(n) / SR
     src = rng.standard_normal(n) * 0.6
     if voiced > 0:
-        f0 = rng.uniform(95, 260)                      # a speaking pitch
-        buzz = np.sign(np.sin(2 * np.pi * f0 * t + rng.uniform(0, 6)))
-        src = src * (1 - voiced) + buzz * voiced * 0.5
+        f0 = rng.uniform(100, 280)
+        # A pulse train with jitter: square-wave buzz through a narrow
+        # band is an organ pipe.
+        ph = 2 * np.pi * f0 * t * (1 + 0.02 * np.sin(2 * np.pi * 5.3 * t))
+        buzz = (np.sin(ph) + .5 * np.sin(2 * ph + .7) + .25 * np.sin(3 * ph + 1.9))
+        src = src * (1 - voiced * .8) + buzz * voiced * 0.45
     out = np.zeros(n)
-    for fc, bw, w in ((f1, 110, 1.0), (f2, 160, 0.55)):
+    f3 = rng.uniform(2400, 3400)
+    for fc, bw, w in ((f1, 180, 1.0), (f2, 300, 0.6), (f3, 500, 0.3)):
         sos = butter(2, [max(60, fc - bw), fc + bw], "bandpass", fs=SR, output="sos")
         out += w * sosfilt(sos, src)
-    # Syllables: a few amplitude humps across the grain.
+    # Consonant onset: a short high-passed burst, the "t/s/k" that makes
+    # it read as talking rather than humming.
+    if rng.random() < 0.6:
+        cn = int(rng.uniform(.02, .07) * SR)
+        if cn < n:
+            sos = butter(2, [2200, 7800], "bandpass", fs=SR, output="sos")
+            burst = sosfilt(sos, rng.standard_normal(cn))
+            out[:cn] += burst * rng.uniform(.5, 1.3) * np.linspace(1, 0, cn)
     syl = rng.uniform(3, 8)
-    env = (np.sin(np.pi * np.minimum(1, t / dur)) ** 1.5
+    env = (np.sin(np.pi * np.minimum(1, t / dur)) ** 1.2
            * (0.55 + 0.45 * np.sin(2 * np.pi * syl * t + rng.uniform(0, 6))))
     return out * env
 
 
-def chatter_bed(secs: float, grains: int, spread: float = 1.0) -> np.ndarray:
-    """Overlap-add a crowd of grains into a stereo bed."""
-    n = int(secs * SR)
-    bed = np.zeros((2, n))
-    for _ in range(grains):
-        dur = rng.uniform(0.25, 1.1)
-        g = formant_grain(dur, rng.uniform(280, 820), rng.uniform(900, 2600),
-                          voiced=rng.uniform(0, 0.5))
-        amp = rng.lognormal(mean=-2.1, sigma=0.55)
-        pan = rng.uniform(0.5 - 0.5 * spread, 0.5 + 0.5 * spread)
-        at = rng.integers(0, n)
-        m = min(len(g), n - at)
-        bed[0, at:at + m] += g[:m] * amp * (1 - pan)
-        bed[1, at:at + m] += g[:m] * amp * pan
-        if m < len(g):                                  # wrap: keeps the loop seamless
-            r = len(g) - m
-            bed[0, :r] += g[m:] * amp * (1 - pan)
-            bed[1, :r] += g[m:] * amp * pan
-    return bed
+def clap() -> np.ndarray:
+    """One clap: a few milliseconds of broadband snap with a fast decay.
+    Thousands of these, uncoordinated, are the crackle every stadium
+    recording is full of and every 'ghost choir' lacks."""
+    n = int(rng.uniform(.008, .02) * SR)
+    sos = butter(2, [900, 7500], "bandpass", fs=SR, output="sos")
+    c = sosfilt(sos, rng.standard_normal(n))
+    return c * np.exp(-np.arange(n) / (n * rng.uniform(.25, .5)))
+
+
+def whistle(dur: float) -> np.ndarray:
+    """A far-off crowd whistle: a bright tone that bends."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    f = rng.uniform(1700, 2600) * (1 + .08 * np.sin(2 * np.pi * rng.uniform(2, 5) * t))
+    w = np.sin(2 * np.pi * np.cumsum(f) / SR)
+    return w * np.sin(np.pi * t / dur) ** 2
+
+
+def scatter(bed: np.ndarray, g: np.ndarray, amp: float, at: int) -> None:
+    """Drop a grain into the stereo bed, wrapping so loops stay seamless."""
+    n = bed.shape[1]
+    pan = rng.uniform(0, 1)
+    at %= n
+    m = min(len(g), n - at)
+    bed[0, at:at + m] += g[:m] * amp * (1 - pan)
+    bed[1, at:at + m] += g[:m] * amp * pan
+    if m < len(g):
+        r = len(g) - m
+        bed[0, :r] += g[m:] * amp * (1 - pan)
+        bed[1, :r] += g[m:] * amp * pan
 
 
 def rumble(secs: float) -> np.ndarray:
-    """The low stadium bed under everything."""
     n = int(secs * SR)
     sos = butter(2, 180, "lowpass", fs=SR, output="sos")
     r = np.stack([sosfilt(sos, rng.standard_normal(n)),
                   sosfilt(sos, rng.standard_normal(n))])
-    # Fade the join so the loop point is silent in this layer too.
     k = int(0.5 * SR)
     w = np.linspace(0, 1, k)
     r[:, :k] = r[:, :k] * w + r[:, -k:] * (1 - w)
-    r[:, -k:] = r[:, :k][:, ::-1] * 0 + r[:, -k:] * 0  # tail unused after wrap
-    return np.concatenate([r[:, :n - k], r[:, :k]], axis=1)[:, :n]
+    return r
 
 
 def normalise(x: np.ndarray, rms_db: float) -> np.ndarray:
@@ -108,29 +131,58 @@ def encode(x: np.ndarray, path: pathlib.Path) -> None:
 
 def measure(x: np.ndarray, name: str) -> None:
     mono = x.mean(axis=0)
-    # Modulation spectrum: a crowd chatters at syllable rate. Filtered
-    # static has no such peak; speech-like texture does.
+    # Syllabic modulation: chatter peaks at 3-8 Hz, static has no peak.
     env = np.abs(mono)
     sos = butter(2, 30, "lowpass", fs=SR, output="sos")
-    env = sosfilt(sos, env)[:: SR // 200]               # 200 Hz envelope
+    env = sosfilt(sos, env)[:: SR // 200]
     env = env - env.mean()
     spec = np.abs(np.fft.rfft(env * np.hanning(len(env))))
     freqs = np.fft.rfftfreq(len(env), 1 / 200)
     band = lambda a, b: spec[(freqs >= a) & (freqs < b)].mean()
     syllabic = band(3, 8) / max(band(12, 30), 1e-9)
+
+    # Muffle test: spectral centroid, and high band vs voice band. The
+    # ghost-choir version centroided around 600 Hz; a crowd has air.
+    fspec = np.abs(np.fft.rfft(mono * np.hanning(len(mono)))) ** 2
+    ff = np.fft.rfftfreq(len(mono), 1 / SR)
+    centroid = float((fspec * ff).sum() / fspec.sum())
+    e = lambda a, b: fspec[(ff >= a) & (ff < b)].sum()
+    hf_db = 10 * np.log10(e(2000, 6000) / max(e(300, 800), 1e-12))
+
+    # Crackle: clap/consonant transients per second in the 2-8 kHz band.
+    sos = butter(2, [2000, 8000], "bandpass", fs=SR, output="sos")
+    hi = np.abs(sosfilt(sos, mono))
+    sos = butter(2, 60, "lowpass", fs=SR, output="sos")
+    hi = sosfilt(sos, hi)
+    thresh = 2.2 * np.median(hi)
+    crossings = np.sum((hi[1:] > thresh) & (hi[:-1] <= thresh))
+    secs = len(mono) / SR
+
     seam = abs(mono[0] - mono[-1])
     print(f"{name}: rms {20 * np.log10(np.sqrt(np.mean(mono ** 2))):.1f} dBFS, "
-          f"syllabic/flutter energy ratio {syllabic:.2f} (chatter if > 1), "
-          f"loop seam delta {seam:.5f}")
+          f"centroid {centroid:.0f} Hz, hi/voice {hf_db:+.1f} dB, "
+          f"crackle {crossings / secs:.0f}/s, syllabic {syllabic:.2f}, "
+          f"seam {seam:.5f}")
 
 
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
+    SECS = 28.0
+    n = int(SECS * SR)
 
-    print("rendering bed (~9,000 grains)...")
-    bed = chatter_bed(28.0, 9000) + 0.8 * rumble(28.0)
+    print("rendering bed...")
+    bed = np.zeros((2, n))
+    for _ in range(9000):                           # chatter
+        g = voice_grain(rng.uniform(.15, .9),
+                        rng.uniform(300, 850), rng.uniform(1000, 2600),
+                        voiced=rng.uniform(0, .45))
+        scatter(bed, g, rng.lognormal(-2.1, .55), int(rng.integers(0, n)))
+    for _ in range(int(SECS * 90)):                 # scattered applause
+        scatter(bed, clap(), rng.lognormal(-1.9, .6), int(rng.integers(0, n)))
+    for _ in range(3):                              # a couple of far whistles
+        scatter(bed, whistle(rng.uniform(.3, .7)), .05, int(rng.integers(0, n)))
+    bed = bed + 0.45 * rumble(SECS)
     bed = normalise(bed, -21.0)
-    # Belt and braces on the seam: a 40ms equal-power crossfade.
     k = int(0.04 * SR)
     w = np.sin(np.linspace(0, np.pi / 2, k)) ** 2
     bed[:, :k] = bed[:, :k] * w + bed[:, -k:] * (1 - w)
@@ -138,23 +190,26 @@ def main() -> int:
     measure(bed, "crowd.mp3")
     encode(bed, OUT / "crowd.mp3")
 
-    print("rendering roar (~5,000 grains)...")
-    n = int(6.0 * SR)
-    roar = np.zeros((2, n))
-    for _ in range(5000):
-        dur = rng.uniform(0.3, 1.6)
-        g = formant_grain(dur, rng.uniform(500, 1000), rng.uniform(1100, 2400),
-                          voiced=rng.uniform(0.3, 0.75))    # open-mouth vowels
-        at = int(abs(rng.normal(0.55, 0.9)) * SR)           # bunched at the front
-        if at >= n:
-            continue
-        m = min(len(g), n - at)
-        amp = rng.lognormal(-1.7, 0.5)
-        pan = rng.uniform(0.15, 0.85)
-        roar[0, at:at + m] += g[:m] * amp * (1 - pan)
-        roar[1, at:at + m] += g[:m] * amp * pan
-    t = np.arange(n) / SR
-    shape = np.minimum(1, t / 0.35) * np.exp(-np.maximum(0, t - 1.6) / 1.9)
+    print("rendering roar...")
+    rn = int(6.0 * SR)
+    roar = np.zeros((2, rn))
+    for _ in range(4200):                           # the shout
+        g = voice_grain(rng.uniform(.3, 1.4),
+                        rng.uniform(500, 1000), rng.uniform(1100, 2400),
+                        voiced=rng.uniform(.3, .7))
+        at = int(abs(rng.normal(.55, .9)) * SR)
+        if at < rn:
+            scatter(roar, g, rng.lognormal(-1.7, .5), at)
+    for _ in range(2600):                           # the applause wall
+        at = int(abs(rng.normal(1.3, 1.3)) * SR)
+        if at < rn:
+            scatter(roar, clap(), rng.lognormal(-1.4, .5), at)
+    for _ in range(5):                              # whistles in the din
+        at = int(abs(rng.normal(1.0, 1.0)) * SR)
+        if at < rn:
+            scatter(roar, whistle(rng.uniform(.25, .6)), .08, at)
+    t = np.arange(rn) / SR
+    shape = np.minimum(1, t / 0.3) * np.exp(-np.maximum(0, t - 1.6) / 1.9)
     roar = normalise(roar * shape, -16.0)
     roar[:, -int(0.2 * SR):] *= np.linspace(1, 0, int(0.2 * SR))
     measure(roar, "roar.mp3 ")

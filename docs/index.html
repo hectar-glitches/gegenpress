@@ -1080,9 +1080,10 @@ async function initCrowd() {
   const master = AC.createGain(); master.gain.value = .9;
   master.connect(AC.destination);
   const bedG = AC.createGain(); bedG.gain.value = .4;
-  // A crowd heard across a pitch is dark; it brightens as it leans in.
+  // A gentle distance filter only: the first version sat at 1.8kHz and
+  // muffled the life out of a bed that now carries its own air.
   const bedF = AC.createBiquadFilter();
-  bedF.type = 'lowpass'; bedF.frequency.value = 2000;
+  bedF.type = 'lowpass'; bedF.frequency.value = 3200;
   const src = AC.createBufferSource(); src.buffer = bed; src.loop = true;
   src.connect(bedF); bedF.connect(bedG); bedG.connect(master); src.start();
   CROWD = { master, bedG, bedF, roar };
@@ -1115,7 +1116,7 @@ function crowdFrame(dtReal) {
   CROWD.bedG.gain.setTargetAtTime(
     ((playing ? .4 : .18) + .45 * EXC) * breath, t, .3);
   CROWD.bedF.frequency.setTargetAtTime(
-    (playing ? 1800 : 1100) + 3600 * EXC, t, .4);
+    (playing ? 3000 : 1900) + 4800 * EXC, t, .4);
 
   // React to what just happened. On a seek, drop the backlog rather than
   // roaring through half a match in one frame.
