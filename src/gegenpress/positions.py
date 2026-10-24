@@ -208,22 +208,45 @@ class PositionModel:
 
     def _target(self, player: Player, index: int, attacking_right: bool,
                 ball: tuple[float, float], has_ball: bool,
-                team_id: str = "", t: float = 0.0) -> tuple[float, float]:
+                team_id: str = "", t: float = 0.0,
+                rank: int = 99, in_possession: bool = False,
+                lead: tuple[float, float] = (0.0, 0.0)) -> tuple[float, float]:
         if has_ball:
             return ball
         ax, ay = _anchor(index, attacking_right)
         bx, by = ball
+
+        # Football is a CONTEST. A formation that merely slides along with
+        # the ball is a lattice drifting under the camera -- which is what
+        # this looked like: the ball flying across a field of men holding
+        # station, barely one of them within five metres of it.
+        #
+        # So the players nearest the ball stop holding shape and go to it:
+        # the closest defender presses the spot the ball is arriving at,
+        # his partner covers behind, and the nearest attackers come short
+        # to offer the pass. Everyone else keeps the block.
+        if player.position != "GK" and rank <= 1:
+            # Press the intercept point, not where the ball already was.
+            lx, ly = bx + lead[0], by + lead[1]
+            if rank == 0:
+                return (min(L - 1, max(1.0, lx)), min(W - 1, max(1.0, ly)))
+            # Second man: support a stride off the ball, goal-side.
+            side = -1.0 if attacking_right else 1.0
+            return (min(L - 1, max(1.0, lx + side * 3.2)),
+                    min(W - 1, max(1.0, ly + (3.0 if index % 2 else -3.0))))
 
         # The block slides along the pitch with the ball.
         shift = SHIFT.get(player.position, 0.6)
         centre = L / 2
         ax += (bx - centre) * shift * 0.55
 
-        # Individual pull toward the ball, stronger when it is near.
-        pull = BALL_PULL.get(player.position, 0.25)
+        # Individual pull toward the ball, stronger when it is near, and
+        # stronger again for the team that has it -- they are the ones
+        # making angles for the next pass.
+        pull = BALL_PULL.get(player.position, 0.25) * (1.25 if in_possession else 1.0)
         dist = math.hypot(bx - ax, by - ay)
         near = max(0.0, 1.0 - dist / 45.0)
-        w = pull * (0.35 + near)
+        w = pull * (0.55 + 1.15 * near)
         tx = ax + (bx - ax) * w
         ty = ay + (by - ay) * w
 
@@ -265,18 +288,32 @@ class PositionModel:
             bx, by, _bz, _dwell = ball_at(self.track, t)
             ball = (bx, by)
 
+            # Where the ball will be in half a second: chasers run at the
+            # intercept, not at the spot it has already left.
+            fx, fy, _fz, _fd = ball_at(self.track, t + 0.5)
+            lead = (max(-9.0, min(9.0, fx - ball[0])),
+                    max(-9.0, min(9.0, fy - ball[1])))
+
             for team_id, xi, right in (
                 (self.home_id, self.home_xi, True),
                 (self.away_id, self.away_xi, False),
             ):
                 current = self.pos[team_id]
                 vels = self.vel[team_id]
+                # Who on this team is nearest the ball right now.
+                order = sorted(
+                    (i for i, p in enumerate(xi) if p.position != "GK"),
+                    key=lambda i: math.hypot(current[i][0] - ball[0],
+                                             current[i][1] - ball[1]))
+                rank_of = {i: r for r, i in enumerate(order)}
+                mine = (team_id == team)
                 nxt: list[tuple[float, float]] = []
                 nvel: list[tuple[float, float]] = []
                 for i, player in enumerate(xi):
                     has_ball = (player.player_id == carrier)
+                    rank = rank_of.get(i, 99)
                     tx, ty = self._target(player, i, right, ball, has_ball,
-                                          team_id, t)
+                                          team_id, t, rank, mine, lead)
                     cx, cy = current[i]
                     vx, vy = vels[i]
 
@@ -285,7 +322,11 @@ class PositionModel:
                     # inertia, which no amount of interpolation smooths.
                     gx, gy = tx - cx, ty - cy
                     gap = math.hypot(gx, gy)
-                    top = SPRINT if has_ball else RUN
+                    # A man going to the ball is sprinting; a man holding
+                    # shape is not. One top speed for everyone is most of
+                    # why the shape read as a lattice adrift.
+                    top = SPRINT if (has_ball or rank == 0) else (
+                        RUN if rank <= 2 else RUN * 0.82)
                     want = min(top, gap * 0.9)
                     if gap > 1e-6:
                         wx, wy = gx / gap * want, gy / gap * want
