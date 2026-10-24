@@ -175,8 +175,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
               "  https://aka.ms/kustofree")
         return 2
     print(f"cluster: {store.cluster}\ndatabase: {store.database}\n")
+    boot_failures = 0
     if args.bootstrap:
-        if store.bootstrap() and not args.load:
+        boot_failures = store.bootstrap()
+        if boot_failures and not args.load:
             print("\nSome commands failed. Fix those before loading data.")
             return 1
     if args.reset:
@@ -191,6 +193,14 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         print(f"[adx] live match id: {live.match_id}")
     if not (args.bootstrap or args.load or args.reset):
         print("nothing to do: pass --bootstrap and/or --load")
+    if boot_failures:
+        # Data loaded, but a failed create-or-alter leaves the OLD
+        # definition in place, so the cluster may be running stale KQL
+        # that still reports ok. Exit non-zero so nothing downstream
+        # trusts it.
+        print(f"\n{boot_failures} bootstrap command(s) failed: the cluster may "
+              "be running stale function definitions.")
+        return 1
     return 0
 
 

@@ -87,6 +87,11 @@ PlayerBaselines(excludeMatch:string = "") {
 // would be noise with his name on it. Mirrors signal.py; variancep()
 // matches Python's statistics.pvariance.
 //
+// The columns are var_between / var_within, not between / within:
+// `between` is a KQL range operator, and as a bare column name it made
+// this whole function fail to compile -- silently taking Ground down
+// with it -- until the parity run caught it.
+//
 .create-or-alter function with (docstring = "Per-metric ICC and whether a personal claim is supportable")
 MetricSignal(excludeMatch:string = "") {
     MetricValues()
@@ -94,11 +99,11 @@ MetricSignal(excludeMatch:string = "") {
     | summarize n = count(), player_mean = avg(value), player_var = variancep(value)
       by player_id, metric
     | where n >= 50
-    | summarize between = variancep(player_mean), within = avg(player_var),
+    | summarize var_between = variancep(player_mean), var_within = avg(player_var),
                 players = count()
       by metric
     | where players >= 10
-    | extend icc = round(between / (between + within), 4)
+    | extend icc = round(var_between / (var_between + var_within), 4)
     | extend personal_claim_allowed = icc >= 0.08
     | project metric, icc, players, personal_claim_allowed
 }

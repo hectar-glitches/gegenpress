@@ -50,7 +50,13 @@ PY
 done
 
 say "Row counts and every KQL function"
-python -m gegenpress doctor
+# A failed create-or-alter leaves the PREVIOUS definition on the cluster,
+# so a broken function can sit behind a dependent that still reports ok.
+# Parity against stale KQL would be a lie with a green tick on it.
+if ! python -m gegenpress doctor; then
+  say "doctor found problems -- parity NOT run (it would test stale KQL)"
+  exit 1
+fi
 
 say "Parity"
 python -m pytest tests/test_store.py::test_local_and_adx_agree -q

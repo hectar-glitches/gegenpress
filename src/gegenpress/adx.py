@@ -78,16 +78,24 @@ class AdxStore:
             print(f"\n[adx] {name}")
             for command in _split_commands(path.read_text()):
                 label = command.splitlines()[0][:62]
-                try:
-                    self._client.execute_mgmt(self.database, command)
-                    print(f"  ok    {label}")
-                except Exception as exc:
-                    failures += 1
-                    detail = str(exc).replace("\n", " ")[:150]
-                    print(f"  FAIL  {label}")
-                    print(f"        {detail}")
-                    if strict:
-                        raise
+                for attempt in (1, 2):
+                    try:
+                        self._client.execute_mgmt(self.database, command)
+                        print(f"  ok    {label}")
+                        break
+                    except Exception as exc:
+                        detail = str(exc).replace("\n", " ")[:150]
+                        # The first command of a run races the sign-in and
+                        # can lose with a network error. That is a retry,
+                        # not a schema problem.
+                        if attempt == 1 and "network request" in detail:
+                            continue
+                        failures += 1
+                        print(f"  FAIL  {label}")
+                        print(f"        {detail}")
+                        if strict:
+                            raise
+                        break
         print(f"\n[adx] bootstrap finished, {failures} failure(s)")
         return failures
 
