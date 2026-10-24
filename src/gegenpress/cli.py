@@ -194,6 +194,16 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    """Serve the Form Line to any model that speaks MCP."""
+    try:
+        from .mcp_server import serve
+    except ImportError:
+        print("the MCP SDK is not installed. run:\n  pip install mcp")
+        return 2
+    return serve()
+
+
 def cmd_form(args: argparse.Namespace) -> int:
     """The differentiator, on one screen."""
     league = build_league(seed=args.seed)
@@ -331,6 +341,9 @@ def main(argv: list[str] | None = None) -> int:
     fm = sub.add_parser("form", help="signal report + form lines for one match")
     fm.add_argument("--seed", type=int, default=2026)
     fm.set_defaults(func=cmd_form)
+
+    mc = sub.add_parser("mcp", help="serve the Form Line as MCP tools over stdio")
+    mc.set_defaults(func=cmd_mcp)
 
     dk = sub.add_parser("desk", help="run the agent layer over one match")
     dk.add_argument("--seed", type=int, default=2026)

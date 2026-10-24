@@ -27,7 +27,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 51 tests
+PYTHONPATH=src python -m pytest -q              # 58 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000
@@ -113,6 +113,21 @@ PYTHONPATH=src python -m gegenpress doctor      # row counts + every function
 PYTHONPATH=src python -m gegenpress state --adx
 ```
 
+### The Form Line as a service (MCP)
+
+```bash
+pip install mcp
+PYTHONPATH=src python -m gegenpress mcp     # stdio; plugs into Claude Desktop, VS Code, Copilot, Foundry agents
+```
+
+Eight tools over the same Store the console reads, so the numbers agree to the digit. Most are what you would expect — `form_line`, `top_moments`, `match_state`, `follow_targets`, `metric_signal_table` (the ICC gate as data). The one a stats feed does not have is **`verify_claim`**: hand it any sentence about a player's night and it runs the deterministic Gate against the measured brief — which numbers are unsupportable, what the allowed set was, and whether a personal claim is even *sayable* for that metric. The refusal semantics are in the service, not just the UI: ask for `form_line("...", "recovery time")` and you get the refusal and the reason, not a number.
+
+```json
+{"mcpServers": {"gegenpress": {"command": "python",
+  "args": ["-m", "gegenpress", "mcp"],
+  "env": {"PYTHONPATH": "src"}}}}
+```
+
 ---
 
 ## Evidence
@@ -191,6 +206,7 @@ src/gegenpress/
   store.py       Store interface + LocalStore
   adx.py         Azure Data Explorer backend, ingestion, doctor
   feed.py        broadcast feed and overlay cues
+  mcp_server.py  the Form Line as MCP tools; verify_claim is the Gate as a service
   calibrate.py   realism checks
 kql/             schema and eleven KQL functions
 docs/            the studio console (served by GitHub Pages)
