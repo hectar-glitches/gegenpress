@@ -5,165 +5,216 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gegenpress — Studio</title>
 <style>
+  /* Archivo: one grotesque with a WIDTH axis as well as weight, so the
+     whole package is a single typeface differentiated by width -- wide
+     figures, narrow names. Self-hosted: the demo must not depend on a
+     font CDN being up. */
+  @font-face{
+    font-family:'Archivo Variable';font-style:normal;font-display:block;
+    font-weight:100 900;font-stretch:62% 125%;
+    src:url(fonts/archivo-latin-wdth-normal.woff2) format('woff2-variations');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,
+      U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,
+      U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  @font-face{
+    font-family:'Archivo Variable';font-style:normal;font-display:block;
+    font-weight:100 900;font-stretch:62% 125%;
+    src:url(fonts/archivo-latin-ext-wdth-normal.woff2) format('woff2-variations');
+    unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,
+      U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,
+      U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+  }
+
   :root{
-    --bg:#05080b; --ink:#eef4fa; --mute:#8d9bab; --dim:#56646f;
-    --line:#1a242e; --panel:rgba(14,20,27,.82);
-    --accent:#ffb020; --down:#ff5f5f; --home:#5aa9ff; --away:#ffb020;
-    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+    /* Premier League purple family. The chrome reads as near-black but
+       is unmistakably warm; the league's own signal colours carry the
+       claim. Nothing else on screen is allowed to be coloured. */
+    --ink0:#0B0010; --ink1:#1C0423; --ink2:#2A0733; --ink3:#3A0F46;
+    --rule:#471A54; --pl:#37003C;
+    --up:#00FF85; --down:#E90052; --data:#04F5FF;
+    --white:#fff; --soft:#C9B4D3; --dim:#8A6E97;
+    --home:#5aa9ff; --away:#ecA322;
+    --f:'Archivo Variable',system-ui,sans-serif;
     --ease:cubic-bezier(.2,.7,.3,1);
   }
+  /* The width axis is the signature. Weight alone is what everyone
+     else varies, which is why everyone else looks the same. */
+  .fig  {font-variation-settings:'wght' 800,'wdth' 118;letter-spacing:-.025em;
+         font-feature-settings:'tnum' 1}
+  .name {font-variation-settings:'wght' 650,'wdth' 80}
+  .meta {font-variation-settings:'wght' 450,'wdth' 88}
+  .micro{font-variation-settings:'wght' 700,'wdth' 74;
+         text-transform:uppercase;letter-spacing:.075em}
+
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
-    background:var(--bg);color:var(--ink);overflow:hidden;
-    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:var(--ink0);color:var(--white);overflow:hidden;
+    font:15px/1.5 var(--f);font-variation-settings:'wght' 400,'wdth' 100;
     -webkit-font-smoothing:antialiased;
   }
 
-  /* ---------- stage ---------- */
+  /* ---------- stage ----------
+     No rounded corners, no backdrop blur, no 1px translucent borders, no
+     drop shadows. Those are the dashboard dialect every entry in this
+     field speaks, and they are also the broadcast era that current
+     practice has moved on from: strip the decoration, let the game
+     breathe, let type carry it. Every panel here is an opaque plane
+     flush to an edge, divided by solid hairlines. */
   .stage{position:fixed;inset:0;display:flex;flex-direction:column}
-  .field{position:relative;flex:1;min-height:0}
+  .field{position:relative;flex:1;min-height:0;overflow:hidden}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   .vig{position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(ellipse at 50% 56%,transparent 56%,rgba(0,0,0,.46) 100%)}
+    background:radial-gradient(ellipse at 50% 56%,transparent 58%,rgba(8,0,14,.5) 100%)}
 
-  /* ---------- broadcast bug ---------- */
-  .bug{
-    position:absolute;top:22px;left:24px;display:flex;align-items:center;gap:0;
-    background:var(--panel);backdrop-filter:blur(14px);
-    border:1px solid var(--line);border-radius:10px;overflow:hidden;
-    box-shadow:0 10px 34px rgba(0,0,0,.55);
-  }
-  .bug .side{display:flex;align-items:center;gap:10px;padding:11px 15px}
-  .bug .tag{font:700 12px/1 var(--mono);letter-spacing:.1em}
+  /* ---------- scorebug: flush to the corner, not floating ---------- */
+  .bug{position:absolute;top:0;left:0;display:flex;align-items:stretch;
+    background:var(--ink1);z-index:3}
+  .bug .mark{display:flex;align-items:center;background:var(--up);color:var(--pl);
+    padding:0 13px;font:13px/1 var(--f);
+    font-variation-settings:'wght' 800,'wdth' 74;letter-spacing:.1em}
+  .bug .side{display:flex;align-items:center;gap:11px;padding:13px 16px}
+  .bug .tag{font:12px/1 var(--f);font-variation-settings:'wght' 750,'wdth' 74;
+    letter-spacing:.09em}
   .bug .h .tag{color:var(--home)} .bug .a .tag{color:var(--away)}
-  .bug .g{font:700 21px/1 var(--mono)}
-  .bug .clk{
-    padding:11px 16px;border-left:1px solid var(--line);
-    font:700 15px/1 var(--mono);color:var(--accent);min-width:62px;text-align:center;
-  }
-  .bug .live{
-    display:flex;align-items:center;gap:6px;padding:11px 14px;
-    border-left:1px solid var(--line);font:700 10px/1 inherit;letter-spacing:.14em;
-    color:var(--down);opacity:.35;transition:opacity .3s;
-  }
+  .bug .g{font:23px/1 var(--f);font-variation-settings:'wght' 800,'wdth' 118;
+    font-feature-settings:'tnum' 1}
+  .bug .clk{padding:13px 17px;border-left:1px solid var(--rule);
+    font:15px/1 var(--f);font-variation-settings:'wght' 700,'wdth' 112;
+    font-feature-settings:'tnum' 1;color:var(--data);min-width:64px;text-align:center}
+  .bug .live{display:flex;align-items:center;gap:7px;padding:13px 15px;
+    border-left:1px solid var(--rule);font:10px/1 var(--f);
+    font-variation-settings:'wght' 750,'wdth' 74;letter-spacing:.13em;
+    color:var(--down);opacity:.3;transition:opacity .3s}
   .bug .live.on{opacity:1}
-  .bug .live i{width:6px;height:6px;border-radius:50%;background:var(--down)}
+  .bug .live i{width:6px;height:6px;background:var(--down)}
   .bug .live.on i{animation:beat 1.5s infinite}
-  @keyframes beat{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes beat{0%,100%{opacity:1}50%{opacity:.2}}
 
-  .bug .mark{
-    font:800 13px/1 var(--mono);letter-spacing:.06em;color:#05080b;
-    background:var(--accent);padding:13px 12px;align-self:stretch;
-    display:flex;align-items:center;
-  }
+  /* ---------- lower third ----------
+     Hierarchy first: the Form Line is the one thing this project exists
+     to say, so it is read first and sized accordingly. The old layout
+     put it last, in the least-read corner, at the same weight as two
+     stats any competitor also shows. */
+  .lower{position:absolute;left:0;right:0;bottom:0;z-index:3;
+    display:flex;align-items:stretch;background:var(--ink1);
+    transform:translateY(101%);transition:transform .45s var(--ease),right .35s var(--ease)}
+  .lower.up{transform:none}
+  .lower .band{width:6px;background:var(--up);flex:none}
+  .lower.dn .band{background:var(--down)}
 
-  /* ---------- lower third ---------- */
-  .lower{
-    position:absolute;left:24px;right:24px;bottom:22px;
-    display:flex;gap:0;align-items:stretch;
-    background:var(--panel);backdrop-filter:blur(16px);
-    border:1px solid var(--line);border-radius:13px;overflow:hidden;
-    box-shadow:0 18px 56px rgba(0,0,0,.66);
-    transform:translateY(130%);opacity:0;pointer-events:none;
-    transition:transform .5s var(--ease),opacity .4s,right .4s var(--ease);
-  }
-  .lower.up{transform:none;opacity:1;pointer-events:auto}
-  .lower .bandL{width:4px;background:var(--accent)}
-  .lower.dn .bandL{background:var(--down)}
-  .lower .body{flex:1;padding:16px 20px;min-width:0}
-  .ltop{display:flex;align-items:baseline;gap:11px;margin-bottom:5px;flex-wrap:wrap}
-  .lname{font:650 21px/1.1 inherit;letter-spacing:-.015em}
-  .lmeta{font-size:12.5px;color:var(--mute)}
-  .ltag{
-    font:700 9.5px/1 inherit;letter-spacing:.11em;text-transform:uppercase;
-    color:var(--accent);border:1px solid rgba(255,176,32,.35);
-    background:rgba(255,176,32,.1);border-radius:999px;padding:5px 10px;
-  }
-  .lower.dn .ltag{color:var(--down);border-color:rgba(255,95,95,.35);background:rgba(255,95,95,.1)}
-  .lsaid{font-size:15px;color:#dde6ef;margin-top:7px;max-width:72ch}
+  .hero{flex:none;padding:14px 22px 13px;border-right:1px solid var(--rule);
+    min-width:218px;background:var(--ink2)}
+  .hero .k{font-size:9.5px;color:var(--up);margin-bottom:7px}
+  .lower.dn .hero .k{color:var(--down)}
+  .hero .v{font-size:38px;line-height:1;color:var(--up)}
+  .lower.dn .hero .v{color:var(--down)}
+  .hero .tag{font-size:9px;color:var(--soft);margin-top:9px;line-height:1.5}
+  .hero .tag span{display:block;white-space:nowrap}
 
-  .lnums{display:flex;border-left:1px solid var(--line)}
-  .ln{padding:15px 22px;min-width:152px;border-right:1px solid var(--line)}
-  .ln:last-child{border-right:0}
-  .ln .k{font:700 9.5px/1 inherit;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--dim);margin-bottom:9px}
-  .ln.form .k{color:var(--accent)}
-  .lower.dn .ln.form .k{color:var(--down)}
-  .ln .v{font:700 27px/1 var(--mono);letter-spacing:-.02em}
-  .ln .s{font-size:11.5px;color:var(--mute);margin-top:6px}
+  .lower .body{flex:1 1 300px;min-width:0;padding:15px 22px}
+  .ltop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .lname{font-size:21px;line-height:1.1}
+  .lmeta{font-size:12.5px;color:var(--soft)}
+  .lsaid{font-size:14.5px;color:#E8DCEE;margin-top:6px;max-width:68ch}
 
-  /* ---------- transport ---------- */
-  .bar{
-    display:flex;align-items:center;gap:13px;padding:12px 24px;
-    background:#080c10;border-top:1px solid var(--line);
-  }
-  .btn{
-    font:600 12px/1 inherit;letter-spacing:.05em;text-transform:uppercase;
-    color:var(--mute);background:#111922;border:1px solid var(--line);
-    padding:10px 16px;border-radius:8px;cursor:pointer;transition:.14s var(--ease);
-    white-space:nowrap;
-  }
-  .btn:hover{color:var(--ink);border-color:#2b3744}
-  .btn.p,.btn[aria-pressed=true]{color:#05080b;background:var(--accent);border-color:var(--accent)}
-  .track{flex:1;height:6px;background:#111922;border:1px solid var(--line);
-    border-radius:4px;position:relative;cursor:pointer}
-  .track .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);
-    border-radius:4px;transition:width .12s linear}
-  .track .pip{position:absolute;top:50%;width:3px;height:12px;margin-top:-6px;
-    background:var(--dim);border-radius:2px;transition:.2s}
-  .track .pip.hit{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .lnums{display:flex;flex:none}
+  .ln{padding:15px 22px;min-width:132px;border-left:1px solid var(--rule)}
+  .ln .k{font-size:9.5px;color:var(--dim);margin-bottom:8px}
+  .ln .v{font-size:25px;line-height:1}
+  .ln .s{font-size:11px;color:var(--soft);margin-top:6px}
 
-  /* ---------- rail ---------- */
-  .rail{
-    position:absolute;top:22px;right:26px;bottom:168px;width:296px;
-    display:flex;flex-direction:column;gap:11px;overflow-y:auto;overflow-x:hidden;
-    transition:transform .4s var(--ease),opacity .3s;
-  }
-  .rail.off{transform:translateX(118%);opacity:0;pointer-events:none}
-  body.analyst .lower{right:346px}
+  /* ---------- transport: labels and rules, not pills ---------- */
+  .bar{display:flex;align-items:stretch;background:var(--ink1);
+    border-top:1px solid var(--rule);flex:none}
+  .btn{font:11.5px/1 var(--f);font-variation-settings:'wght' 700,'wdth' 74;
+    text-transform:uppercase;letter-spacing:.085em;
+    color:var(--soft);background:transparent;border:0;
+    border-right:1px solid var(--rule);
+    padding:14px 19px;cursor:pointer;transition:.14s var(--ease);white-space:nowrap}
+  .btn:hover{color:var(--white);background:var(--ink2)}
+  .btn.p,.btn[aria-pressed=true]{color:var(--pl);background:var(--up)}
+  .bar .right{margin-left:auto;display:flex}
+  .bar .right .btn{border-right:0;border-left:1px solid var(--rule)}
+  .track{flex:1;min-width:60px;position:relative;cursor:pointer;
+    background:var(--ink0);border-right:1px solid var(--rule)}
+  .track .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--ink3);
+    transition:width .12s linear}
+  .track .pip{position:absolute;top:50%;width:2px;height:13px;margin-top:-6px;
+    background:var(--dim)}
+  .track .pip.hit{background:var(--up)}
+
+  /* ---------- rail: flush to the right edge, full height ---------- */
+  .rail{position:absolute;top:0;right:0;bottom:0;width:clamp(232px,23vw,300px);
+    z-index:2;background:var(--ink1);border-left:1px solid var(--rule);
+    display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
+    transition:transform .4s var(--ease)}
+  .rail.off{transform:translateX(101%)}
   .rail::-webkit-scrollbar{width:0}
-  #timeline{max-height:232px;overflow:auto}
-  #follow,#signal{max-height:196px;overflow:auto}
-  #follow::-webkit-scrollbar,#signal::-webkit-scrollbar{width:0}
-  #timeline::-webkit-scrollbar{width:0}
-  .card{background:var(--panel);backdrop-filter:blur(14px);
-    border:1px solid var(--line);border-radius:11px;overflow:hidden}
-  .card h2{font:600 10px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--dim);padding:12px 15px;border-bottom:1px solid var(--line)}
-  .row{display:block;width:100%;text-align:left;cursor:pointer;padding:10px 15px;
-    border:0;border-bottom:1px solid var(--line);background:transparent;color:inherit;
-    font:inherit;opacity:.3;transition:.18s var(--ease)}
+  body.analyst .lower{right:clamp(232px,23vw,300px)}
+  .card{flex:none;border-bottom:1px solid var(--rule);min-height:0}
+  .card>div{overflow-y:auto;overscroll-behavior:contain}
+  .card>div::-webkit-scrollbar{width:0}
+  /* Fade the cut rather than slicing a row in half, which reads as a
+     rendering fault instead of "there is more below". */
+  #timeline{max-height:38vh;
+    mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
+  #follow{max-height:26vh}
+  #signal{max-height:24vh}
+  .card h2{font:9.5px/1 var(--f);font-variation-settings:'wght' 700,'wdth' 74;
+    text-transform:uppercase;letter-spacing:.11em;color:var(--dim);
+    padding:14px 16px;background:var(--ink2)}
+  .row{display:block;width:100%;text-align:left;cursor:pointer;padding:10px 16px;
+    border:0;border-top:1px solid var(--rule);background:transparent;color:inherit;
+    font:inherit;opacity:.32;transition:.18s var(--ease)}
   .row.fired{opacity:1}
-  .row:hover{background:rgba(255,255,255,.035)}
-  .row[aria-current=true]{background:rgba(255,176,32,.07);box-shadow:inset 3px 0 0 var(--accent)}
-  .row .t{display:flex;align-items:baseline;gap:8px}
-  .row .mn{font:600 10.5px var(--mono);color:var(--dim);min-width:28px}
-  .row .nm{font-weight:600;font-size:13px}
-  .row .dt{width:5px;height:5px;border-radius:50%;margin-left:auto}
-  .row .mt{font-size:11.5px;color:var(--mute);padding-left:36px;margin-top:2px}
-  .item{display:flex;align-items:center;gap:9px;padding:8px 15px;font-size:12.5px}
-  .item .r{font:600 10px var(--mono);color:var(--dim);min-width:13px}
-  .item .v{margin-left:auto;font:600 11px var(--mono);color:var(--home)}
-  .item .yes{color:#3ddc84} .item .no{color:var(--dim)}
+  .row:hover{background:var(--ink2)}
+  .row[aria-current=true]{background:var(--ink3);box-shadow:inset 3px 0 0 var(--up)}
+  .row .t{display:flex;align-items:baseline;gap:9px}
+  .row .mn{font-size:10.5px;color:var(--dim);min-width:26px;
+    font-variation-settings:'wght' 700,'wdth' 90;font-feature-settings:'tnum' 1}
+  .row .nm{font-size:13px;font-variation-settings:'wght' 650,'wdth' 84}
+  .row .dt{width:5px;height:5px;margin-left:auto}
+  .row .mt{font-size:11px;color:var(--soft);padding-left:35px;margin-top:3px}
+  .item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:12.5px;
+    border-top:1px solid var(--rule)}
+  .item .r{font-size:10px;color:var(--dim);min-width:12px;
+    font-variation-settings:'wght' 700,'wdth' 90}
+  .item .v{margin-left:auto;font-size:11.5px;color:var(--data);
+    font-variation-settings:'wght' 700,'wdth' 100;font-feature-settings:'tnum' 1}
+  .item .yes{color:var(--up)} .item .no{color:var(--dim)}
 
   /* ---------- why sheet ---------- */
-  .sheet{
-    position:absolute;left:24px;bottom:22px;width:min(640px,calc(100% - 360px));
-    background:var(--panel);backdrop-filter:blur(16px);border:1px solid var(--line);
-    border-radius:13px;padding:17px 20px;box-shadow:0 18px 56px rgba(0,0,0,.66);
-    transform:translateY(130%);opacity:0;pointer-events:none;
-    transition:transform .45s var(--ease),opacity .35s;
-  }
-  .sheet.up{transform:none;opacity:1;pointer-events:auto}
-  .sheet h3{font:600 10px/1 inherit;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--dim);margin-bottom:12px}
-  .step{display:flex;gap:11px;align-items:flex-start;font-size:13px;margin-bottom:8px}
-  .step b{font:600 9.5px/1.7 var(--mono);color:var(--dim);min-width:66px;
-    letter-spacing:.06em;text-transform:uppercase;flex-shrink:0}
-  .step span{color:var(--mute)}
-  .step code{font:12px var(--mono);color:var(--ink)}
+  .sheet{position:absolute;left:0;bottom:0;z-index:4;
+    width:min(660px,calc(100% - clamp(232px,23vw,300px)));
+    background:var(--ink1);border-top:1px solid var(--rule);
+    border-right:1px solid var(--rule);padding:18px 22px;
+    transform:translateY(101%);transition:transform .4s var(--ease)}
+  .sheet.up{transform:none}
+  .sheet h3{font:9.5px/1 var(--f);font-variation-settings:'wght' 700,'wdth' 74;
+    text-transform:uppercase;letter-spacing:.11em;color:var(--dim);margin-bottom:13px}
+  .step{display:flex;gap:12px;align-items:flex-start;font-size:13px;margin-bottom:8px}
+  .step b{font-size:9.5px;line-height:1.75;color:var(--dim);min-width:68px;
+    font-variation-settings:'wght' 700,'wdth' 74;
+    text-transform:uppercase;letter-spacing:.075em;flex-shrink:0}
+  .step span{color:var(--soft)}
+  .step code{color:var(--white);font-family:var(--f);
+    font-variation-settings:'wght' 650,'wdth' 100;font-feature-settings:'tnum' 1}
   .hide{display:none !important}
+
+  /* Narrow viewports: the lower third used to squeeze its body to ~180px
+     and wrap the tag into a blob. Shed the supporting figures instead --
+     the claim and the Form Line are what must survive. */
+  @media (max-width:1180px){
+    .ln.league{display:none}
+    .lsaid{font-size:13.5px}
+  }
+  @media (max-width:960px){
+    .lnums{display:none}
+    .hero{min-width:164px}
+    .hero .v{font-size:32px}
+  }
 </style>
 </head>
 <body>
@@ -181,12 +232,16 @@
     </div>
 
     <div class="lower" id="lower">
-      <div class="bandL"></div>
+      <div class="band"></div>
+      <div class="hero">
+        <div class="k micro">Form line</div>
+        <div class="v fig" id="lForm">—</div>
+        <div class="tag micro" id="lTag"></div>
+      </div>
       <div class="body">
         <div class="ltop">
-          <span class="lname" id="lName"></span>
-          <span class="lmeta" id="lMeta"></span>
-          <span class="ltag" id="lTag"></span>
+          <span class="lname name" id="lName"></span>
+          <span class="lmeta meta" id="lMeta"></span>
         </div>
         <div class="lsaid" id="lSaid"></div>
       </div>
@@ -208,8 +263,10 @@
     <button class="btn" id="spd">4&times;</button>
     <button class="btn" id="wide" aria-pressed="false">Wide</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
-    <button class="btn" id="mAnalyst" aria-pressed="true">Analyst</button>
-    <button class="btn" id="mFan" aria-pressed="false">Fan</button>
+    <div class="right">
+      <button class="btn" id="mAnalyst" aria-pressed="true">Analyst</button>
+      <button class="btn" id="mFan" aria-pressed="false">Fan</button>
+    </div>
   </div>
 </div>
 
@@ -235,7 +292,7 @@ const RIG = {
   back: 42,     // metres behind the near touchline
   up: 28,       // metres above pitch level
   look: 32,     // aim point, metres across from the near touchline
-  span: 70,     // metres of pitch LENGTH across the viewport
+  span: 62,     // metres of pitch LENGTH across the viewport
   wide: 118,    // "Wide" pulls out to the whole pitch
 };
 let camX = L / 2, wide = false;
@@ -253,14 +310,17 @@ function buildCam() {
   const cAt = y => fy * (y + RIG.back) + fz * (0 - RIG.up);
   const bAt = y => -fz * (y + RIG.back) + fy * (0 - RIG.up);
 
-  // Focal length so `span` metres at mid-pitch depth fills the width...
-  let fl = VW * cAt(W / 2) / span;
-  // ...but never so long that the far touchline leaves the frame.
-  const depth = fl * (bAt(W) / cAt(W) - bAt(0) / cAt(0));
+  // Focal length so `span` metres at mid-pitch depth fills the width,
+  // then clamped so the grass always FILLS the frame: never so long that
+  // the far touchline leaves it, never so short that the pitch floats in
+  // a band of black. On a narrow window that means showing less pitch
+  // rather than shrinking it, which is what a camera operator would do.
+  const dUnit = Math.abs(bAt(W) / cAt(W) - bAt(0) / cAt(0));
   const room = VH - 86;
-  if (Math.abs(depth) > room) fl *= room / Math.abs(depth);
+  const fl = Math.max(room * .88 / dUnit,
+    Math.min(room / dUnit, VW * cAt(W / 2) / span));
 
-  const cy = VH * 0.54 + fl * (bAt(0) / cAt(0) + bAt(W) / cAt(W)) / 2;
+  const cy = VH * 0.50 + fl * (bAt(0) / cAt(0) + bAt(W) / cAt(W)) / 2;
   CAM = { fy, fz, fl, cx: VW / 2, cy };
 }
 
@@ -312,27 +372,55 @@ function drawPitch() {
   const g = ctx;
   g.fillStyle = '#05080b'; g.fillRect(0, 0, VW, VH);
 
-  // Beyond the far touchline: a dark stand, so the pitch has somewhere
-  // to be rather than floating on the page.
+  // Beyond the far touchline: a stand in shadow, tinted toward the
+  // chrome's aubergine rather than left as flat black. Dead black above
+  // the grass reads as a crop; a tinted stand reads as a stadium, and
+  // ties the frame to the graphics package around it.
   const horizon = P(camX, W, 0)[1];
-  const sky = g.createLinearGradient(0, horizon - 150, 0, horizon + 10);
-  sky.addColorStop(0, '#05080b');
-  sky.addColorStop(.72, '#080e13');
-  sky.addColorStop(1, '#0b141a');
-  g.fillStyle = sky; g.fillRect(0, 0, VW, horizon + 10);
+  const sky = g.createLinearGradient(0, 0, 0, horizon + 6);
+  sky.addColorStop(0, '#0B0010');
+  sky.addColorStop(.55, '#140420');
+  sky.addColorStop(1, '#220C2B');
+  g.fillStyle = sky; g.fillRect(0, 0, VW, horizon + 6);
+  // Faint tiers, so the shadow has structure in it.
+  g.fillStyle = 'rgba(255,255,255,.012)';
+  for (let i = 1; i <= 7; i++) {
+    const y = horizon - i * (horizon / 7.6);
+    g.fillRect(0, y, VW, Math.max(1, horizon / 26));
+  }
 
   const turf = [P(-14, 0, 0), P(L + 14, 0, 0), P(L + 14, W, 0), P(-14, W, 0)];
   const grd = g.createLinearGradient(0, P(camX, W, 0)[1], 0, P(camX, 0, 0)[1]);
-  grd.addColorStop(0, '#173726'); grd.addColorStop(.52, '#22563b'); grd.addColorStop(1, '#1a4330');
+  // Cooled and slightly desaturated from a pure broadcast green: the
+  // chrome around it is aubergine, and a saturated green fights purple.
+  grd.addColorStop(0, '#153224');
+  grd.addColorStop(.52, '#1e4e38'); grd.addColorStop(1, '#173d2d');
   poly(g, turf, true); g.fillStyle = grd; g.fill();
 
   // Mown bands run across the pitch; under perspective they taper, which
-  // is most of what sells the camera angle.
-  g.fillStyle = 'rgba(255,255,255,.03)';
-  for (let i = -1; i < 11; i += 2) {
-    const a = i * L / 10, b = (i + 1) * L / 10;
+  // is most of what sells the camera angle. Sixteen, not ten -- wide
+  // bands read as a graphic device, narrow ones read as cut grass.
+  g.fillStyle = 'rgba(255,255,255,.026)';
+  for (let i = -1; i < 17; i += 2) {
+    const a = i * L / 16, b = (i + 1) * L / 16;
     poly(g, [P(a, 0, 0), P(b, 0, 0), P(b, W, 0), P(a, W, 0)], true); g.fill();
   }
+
+  // Floodlight pools. Real turf is never evenly lit; four overlapping
+  // pools from the corners is what a stadium actually puts on the grass.
+  g.save();
+  poly(g, turf, true); g.clip();
+  for (const fx of [L * .16, L * .5, L * .84]) {
+    const c = P(fx, W * .42, 0), far = P(fx, W * .1, 0);
+    const rad = Math.abs(c[1] - far[1]) * 3.4 + 90;
+    const pool = g.createRadialGradient(c[0], c[1], 0, c[0], c[1], rad);
+    pool.addColorStop(0, 'rgba(226,255,238,.055)');
+    pool.addColorStop(.6, 'rgba(226,255,238,.018)');
+    pool.addColorStop(1, 'rgba(226,255,238,0)');
+    g.fillStyle = pool;
+    g.beginPath(); g.ellipse(c[0], c[1], rad, rad * .42, 0, 0, 7); g.fill();
+  }
+  g.restore();
 
   g.strokeStyle = 'rgba(214,236,252,.42)'; g.lineJoin = 'round';
   const w = y => Math.max(.8, 0.12 * mpp(y));
@@ -541,7 +629,7 @@ function figure(g, h, kit, ph, front, profile, num, lean, gait) {
   if (num != null) {
     g.fillStyle = kit.ink;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '700 .15px ui-monospace,monospace';
+    g.font = '700 .15px "Archivo Variable",system-ui,sans-serif';
     g.fillText(num, 0, SHOULDER + .11);
   }
 
@@ -636,20 +724,37 @@ function drawPeople() {
 
     // Name the man on the ball, as a broadcast would.
     if (r === carry && carryD < 3.5 && r.man) {
-      const label = `${r.man.n}  ${r.man.last}`;
-      g.font = `600 ${Math.max(11, Math.min(15, h * .32))}px -apple-system,system-ui,sans-serif`;
-      const tw = g.measureText(label).width + 15;
-      const ty = foot[1] - h - 13;
-      g.fillStyle = 'rgba(5,8,11,.84)';
-      g.beginPath(); g.roundRect(foot[0] - tw / 2, ty - 10, tw, 20, 5); g.fill();
-      g.fillStyle = '#eef4fa'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(label, foot[0], ty);
+      const label = `${r.man.n}  ${r.man.last.toUpperCase()}`;
+      g.font = `700 ${Math.max(11, Math.min(14, h * .3))}px "Archivo Variable",system-ui,sans-serif`;
+      const tw = g.measureText(label).width + 16;
+      const ty = foot[1] - h - 14;
+      // Hard-edged, opaque, with a kit-coloured leading rule: the same
+      // language as the chrome, not a rounded tooltip.
+      g.fillStyle = '#1C0423';
+      g.fillRect(foot[0] - tw / 2, ty - 10, tw, 21);
+      g.fillStyle = r.side === 'home' ? '#5aa9ff' : '#ecA322';
+      g.fillRect(foot[0] - tw / 2, ty - 10, 3, 21);
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(label, foot[0] + 1.5, ty + .5);
     }
   }
 }
 
 /* ================== loop ================== */
-let GAIT = 0;
+let GAIT = 0, GRAIN = null;
+
+function makeGrain() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 110;
+  const x = c.getContext('2d'), d = x.createImageData(110, 110);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const v = 110 + ((Math.random() * 145) | 0);
+    d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
+    d.data[i + 3] = 9;
+  }
+  x.putImageData(d, 0, 0);
+  return ctx.createPattern(c, 'repeat');
+}
 function frame(now) {
   const dtReal = Math.min(.1, (now - last) / 1000);
   last = now;
@@ -674,6 +779,12 @@ function frame(now) {
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawPitch(); drawEvents(); drawPeople();
+
+  // Film grain, last and over everything. Grain is a property of the
+  // camera, not of the pitch, so it belongs in screen space across the
+  // whole frame -- and it is most of what separates "photographed" from
+  // "drawn" in a flat vector render.
+  if (GRAIN) { ctx.fillStyle = GRAIN; ctx.fillRect(0, 0, VW, VH); }
   requestAnimationFrame(frame);
 }
 
@@ -688,25 +799,34 @@ function showMoment(i) {
   lo.classList.toggle('dn', !m.above);
   $('#lName').textContent = m.player;
   $('#lMeta').textContent = `${m.club} · ${m.minute}' · ${m.metric}`;
-  $('#lTag').textContent = m.diverges
-    ? (m.above ? 'above his level · ordinary league-wide'
-               : 'below his level · ordinary league-wide')
-    : (m.above ? "above his level and the league's" : 'below his own level');
+  // Two deliberate lines rather than one that wraps: "league-/wide"
+  // breaking across a line looks like a bug, because it is one.
+  const tag = m.diverges
+    ? [m.above ? 'above his level' : 'below his level', 'ordinary league-wide']
+    : (m.above ? ['above his level', "and the league's"] : ['below', 'his own level']);
+  $('#lTag').innerHTML = tag.map(t => `<span>${t}</span>`).join('');
   $('#lSaid').textContent = m.text;
 
-  const form = m.season_mean != null
-    ? `<div class="ln form"><div class="k">Form line</div>
-         <div class="v">${m.z > 0 ? '+' : ''}${m.z} SD</div>
-         <div class="s">his norm ${m.season_mean} · ${m.appearances} matches</div></div>`
-    : `<div class="ln"><div class="k">Form line</div>
-         <div class="v" style="font-size:15px;color:var(--dim)">not supported</div>
-         <div class="s">no between-player signal</div></div>`;
+  // The Form Line is the hero block, read first. Everything else on the
+  // strap is a supporting figure any competitor could also show.
+  const hero = $('#lForm');
+  if (m.season_mean != null) {
+    hero.textContent = `${m.z > 0 ? '+' : ''}${m.z} SD`;
+    hero.style.fontSize = '';
+  } else {
+    hero.textContent = 'refused';
+    hero.style.fontSize = '22px';
+    $('#lTag').textContent = 'no between-player signal · league claim only';
+  }
   $('#lNums').innerHTML = `
-    <div class="ln"><div class="k">Tonight</div><div class="v">${m.value}</div>
-      <div class="s">${m.metric}</div></div>
-    <div class="ln"><div class="k">League</div><div class="v">${Math.round(m.league_pct)}%</div>
-      <div class="s">beaten · norm ${m.expected}</div></div>
-    ${form}`;
+    <div class="ln"><div class="k micro">Tonight</div><div class="v fig">${m.value}</div>
+      <div class="s meta">${m.metric}</div></div>
+    <div class="ln league"><div class="k micro">League</div>
+      <div class="v fig">${Math.round(m.league_pct)}%</div>
+      <div class="s meta">beaten · norm ${m.expected}</div></div>
+    <div class="ln"><div class="k micro">His norm</div>
+      <div class="v fig">${m.season_mean ?? '—'}</div>
+      <div class="s meta">${m.season_mean != null ? m.appearances + ' matches' : 'not supported'}</div></div>`;
   lo.classList.add('up');
 
   const chain = [
@@ -771,6 +891,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
   FEED = d;
   cv = $('#cv'); ctx = cv.getContext('2d');
   layout(); addEventListener('resize', layout);
+  GRAIN = makeGrain();
 
   $('#hTag').textContent = d.match.home.short; $('#hG').textContent = d.match.home.goals;
   $('#aTag').textContent = d.match.away.short; $('#aG').textContent = d.match.away.goals;
