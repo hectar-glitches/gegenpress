@@ -46,6 +46,116 @@ ACCEL = 3.1      # m/s^2 -- a footballer, not a car
 DAMP = 0.86      # per second; bleeds speed so players settle
 
 
+# Ball flight speeds, m/s. A ball has two speeds -- it zips along a pass
+# and dwells at someone's feet -- and that rhythm is what makes a match
+# read as football rather than as drifting markers.
+BALL_V = {"pass": 17.0, "shot": 24.0}
+
+
+@dataclass(slots=True)
+class BallSeg:
+    """One event's worth of ball: a flight, then a settle."""
+
+    t0: float
+    t1: float
+    ax: float
+    ay: float
+    bx: float
+    by: float
+    cx: float            # where the next event begins; the settle glides here
+    cy: float
+    ft: float            # flight duration
+    loft: float          # peak height, metres
+    carry: bool
+
+
+def build_ball_track(match: Match) -> list[BallSeg]:
+    """The ball's path, in absolute coordinates.
+
+    THE single source of truth: the position model steers players at this,
+    the feed ships it, and the console draws it. When this was computed
+    twice -- once here for the players and once in the browser for the
+    drawing -- the two paths diverged by up to 53 metres and the players
+    visibly chased a ball that was not on screen.
+
+    Pressure events are excluded: a presser is NEAR the ball, not the
+    ball, and steering at him makes the track wobble.
+    """
+    def absolute(x: float, y: float, team_id: str, home_id: str):
+        return (x, y) if team_id == home_id else (L - x, W - y)
+
+    home_id = match.home_club_id
+    evs = [e for e in match.events if e.type != "pressure"]
+    segs: list[BallSeg] = []
+    for i, e in enumerate(evs):
+        t0 = (e.period - 1) * 2700 + e.clock
+        ax, ay = absolute(e.x, e.y, e.team_id, home_id)
+        if e.end_x is not None:
+            bx, by = absolute(e.end_x, e.end_y, e.team_id, home_id)
+        else:
+            bx, by = ax, ay
+        nxt = evs[i + 1] if i + 1 < len(evs) else None
+        t1 = max((nxt.period - 1) * 2700 + nxt.clock, t0 + 0.05) if nxt else t0 + 4.0
+        if nxt:
+            cx, cy = absolute(nxt.x, nxt.y, nxt.team_id, home_id)
+        else:
+            cx, cy = bx, by
+
+        dist = math.hypot(bx - ax, by - ay)
+        carry = e.type == "carry"
+        if carry:
+            ft = t1 - t0
+        else:
+            v = BALL_V.get(e.type)
+            ft = max(0.25, min(2.2, dist / v)) if v else 0.0
+        # The flight never fills the window: the settle keeps a share of
+        # it, so the glide to the next event is a movement, not a jump.
+        ft = max(0.01, min(ft, (t1 - t0) * (0.9 if carry else 0.74)))
+        loft = min(7.0, dist * 0.18) if (e.type == "pass" and dist > 20) else (
+            0.9 if e.type == "shot" else 0.0)
+        # A long gap to the next event is a RESTART -- a goal, then a
+        # kickoff fifty metres away -- not a journey the ball makes.
+        if math.hypot(cx - bx, cy - by) > 12:
+            cx, cy = bx, by
+        segs.append(BallSeg(t0, t1, ax, ay, bx, by, cx, cy, ft, loft, carry))
+    return segs
+
+
+def ball_at(track: list[BallSeg], t: float) -> tuple[float, float, float, bool]:
+    """-> (x, y, height, dwell). Mirrors ballAt() in the console exactly."""
+    if not track:
+        return L / 2, W / 2, 0.0, True
+    lo, hi = 0, len(track) - 1
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if track[mid].t0 <= t:
+            lo = mid
+        else:
+            hi = mid - 1
+    g = track[lo]
+    if t <= g.t0:
+        return g.ax, g.ay, 0.0, True
+    u = min(1.0, (t - g.t0) / g.ft)
+    if u < 1.0:
+        # A ground pass decelerates into the receiver; only a ball in the
+        # air travels at a roughly even pace.
+        ue = u if (g.carry or g.loft > 0) else 1 - (1 - u) ** 1.7
+        return (g.ax + (g.bx - g.ax) * ue, g.ay + (g.by - g.ay) * ue,
+                g.loft * 4 * u * (1 - u), g.carry)
+    rest = max(0.01, g.t1 - g.t0 - g.ft)
+    v = max(0.0, min(1.0, (t - g.t0 - g.ft) / rest))
+    e2 = v * v * (3 - 2 * v)
+    return g.bx + (g.cx - g.bx) * e2, g.by + (g.cy - g.by) * e2, 0.0, True
+
+
+def pack_ball(track: list[BallSeg]) -> list[list[float]]:
+    """Wire form: one compact row per segment, rounded."""
+    r2 = lambda v: round(v, 2)
+    return [[r2(s.t0), r2(s.t1), r2(s.ax), r2(s.ay), r2(s.bx), r2(s.by),
+             r2(s.cx), r2(s.cy), r2(s.ft), r2(s.loft), 1 if s.carry else 0]
+            for s in track]
+
+
 @dataclass(slots=True)
 class Frame:
     """One sampled instant: the ball and all 22 players, absolute frame."""
@@ -87,6 +197,8 @@ class PositionModel:
                    self.rng.uniform(1.2, 3.4)) for _ in range(11)]
             for tid in (self.home_id, self.away_id)
         }
+        # The one ball everything agrees on.
+        self.track = build_ball_track(match)
 
     def _to_absolute(self, x: float, y: float, team_id: str) -> tuple[float, float]:
         """Event coords are from the possessing team's frame."""
@@ -129,10 +241,11 @@ class PositionModel:
         timestep with the ball interpolated between events, and players
         moving at bounded speed toward their targets, does.
         """
+        # Carrier identity comes from the events; the ball's POSITION comes
+        # from the shared track, so players steer at the ball the console
+        # actually draws rather than at a second, private interpolation.
         marks = [
-            ((e.period - 1) * 2700 + e.clock,
-             self._to_absolute(e.x, e.y, e.team_id),
-             e.player_id, e.team_id)
+            ((e.period - 1) * 2700 + e.clock, e.player_id, e.team_id)
             for e in self.match.events
         ]
         if not marks:
@@ -148,15 +261,9 @@ class PositionModel:
         while t <= hi:
             while k + 1 < len(marks) and marks[k + 1][0] <= t:
                 k += 1
-            t0, b0, carrier, team = marks[k]
-            if k + 1 < len(marks):
-                t1, b1, _, _ = marks[k + 1]
-                f = 0.0 if t1 <= t0 else max(0.0, min(1.0, (t - t0) / (t1 - t0)))
-                # Ease the ball between events rather than sliding linearly.
-                e = f * f * (3 - 2 * f)
-                ball = (b0[0] + (b1[0] - b0[0]) * e, b0[1] + (b1[1] - b0[1]) * e)
-            else:
-                ball = b0
+            _t0, carrier, team = marks[k]
+            bx, by, _bz, _dwell = ball_at(self.track, t)
+            ball = (bx, by)
 
             for team_id, xi, right in (
                 (self.home_id, self.home_xi, True),

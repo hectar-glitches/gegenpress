@@ -423,12 +423,12 @@ function buildTurf() {
   // Mow bands: a real two-tone, not a white wash. The light band leans
   // yellow because bent blades show their undersides to the camera.
   for (let i = -2; i < 18; i += 2) {
-    t.fillStyle = 'rgba(190,220,120,.055)';
+    t.fillStyle = 'rgba(196,224,132,.032)';
     t.fillRect(X(i * L / 16), 0, L / 16 * TURF_T, c.height);
   }
   // Faint cross-cut the other way: the grid a groundsman leaves.
   for (let j = 0; j < 10; j += 2) {
-    t.fillStyle = 'rgba(255,255,255,.016)';
+    t.fillStyle = 'rgba(255,255,255,.010)';
     t.fillRect(0, Y((j + 1) * W / 10), c.width, W / 10 * TURF_T);
   }
 
@@ -442,7 +442,7 @@ function buildTurf() {
     // The dark flecks carry less weight than the light ones: under
     // perspective compression a dark spot reads as a mark on the pitch,
     // a light one reads as light.
-    gl.addColorStop(0, up ? 'rgba(205,235,150,.040)' : 'rgba(10,28,17,.028)');
+    gl.addColorStop(0, up ? 'rgba(205,235,150,.034)' : 'rgba(12,30,19,.016)');
     gl.addColorStop(1, 'rgba(0,0,0,0)');
     t.fillStyle = gl;
     t.beginPath(); t.arc(X(px), Y(py), r, 0, 7); t.fill();
@@ -718,7 +718,19 @@ function flightTime(kind, dist) {
 }
 
 let BALL = null;
+/* The feed ships the ball as segments, computed once in Python by the
+   same code the position model steers players at. Rebuilding it here
+   from the stream is the fallback for an older feed -- and the reason
+   players once chased a ball up to 53 metres from the drawn one. */
+function ballFromFeed() {
+  return (FEED.ball || []).map(r => ({
+    t0: r[0], t1: r[1], ax: r[2], ay: r[3], bx: r[4], by: r[5],
+    cx: r[6], cy: r[7], ft: r[8], loft: r[9], carry: !!r[10],
+  }));
+}
 function buildBallTrack() {
+  const shipped = ballFromFeed();
+  if (shipped.length) return shipped;
   const home = FEED.match.home.id;
   const evs = FEED.stream.filter(e => e.k !== 'pr');
   const seg = [];

@@ -18,7 +18,8 @@ from .agents import Segment, run_desk
 from .form import METRIC_LABELS
 from .models import Match
 from .season import League
-from .positions import build_frames, pack, pick_window
+from .positions import (build_ball_track, build_frames, pack,
+                        pack_ball, pick_window)
 from .signal import measure_signal
 from .store import Store
 
@@ -189,6 +190,10 @@ def build_feed(
             ]
             for side, club in (("home", live.home_club_id), ("away", live.away_club_id))
         },
+        # The ball, as segments: one source of truth for the position
+        # model, this feed and the console. Finer than the 1.5s frame
+        # sampling, which low-pass filtered every pass into a drift.
+        "ball": pack_ball(build_ball_track(live)),
         "frames": pack(frames),
         "match": {
             "id": live.match_id,
