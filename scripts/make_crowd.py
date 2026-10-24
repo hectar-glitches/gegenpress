@@ -61,9 +61,9 @@ def voice_grain(dur: float, f1: float, f2: float, voiced: float) -> np.ndarray:
     if rng.random() < 0.5:
         cn = int(rng.uniform(.02, .07) * SR)
         if cn < n:
-            sos = butter(2, [2200, 7800], "bandpass", fs=SR, output="sos")
+            sos = butter(2, [2000, 5600], "bandpass", fs=SR, output="sos")
             burst = sosfilt(sos, rng.standard_normal(cn))
-            out[:cn] += burst * rng.uniform(.35, .8) * np.linspace(1, 0, cn)
+            out[:cn] += burst * rng.uniform(.3, .65) * np.linspace(1, 0, cn)
     syl = rng.uniform(3, 8)
     env = (np.sin(np.pi * np.minimum(1, t / dur)) ** 1.2
            * (0.55 + 0.45 * np.sin(2 * np.pi * syl * t + rng.uniform(0, 6))))
@@ -75,18 +75,9 @@ def clap() -> np.ndarray:
     Thousands of these, uncoordinated, are the crackle every stadium
     recording is full of and every 'ghost choir' lacks."""
     n = int(rng.uniform(.008, .02) * SR)
-    sos = butter(2, [900, 7500], "bandpass", fs=SR, output="sos")
+    sos = butter(2, [800, 4200], "bandpass", fs=SR, output="sos")
     c = sosfilt(sos, rng.standard_normal(n))
     return c * np.exp(-np.arange(n) / (n * rng.uniform(.25, .5)))
-
-
-def whistle(dur: float) -> np.ndarray:
-    """A far-off crowd whistle: a bright tone that bends."""
-    n = int(dur * SR)
-    t = np.arange(n) / SR
-    f = rng.uniform(1700, 2600) * (1 + .08 * np.sin(2 * np.pi * rng.uniform(2, 5) * t))
-    w = np.sin(2 * np.pi * np.cumsum(f) / SR)
-    return w * np.sin(np.pi * t / dur) ** 2
 
 
 def scatter(bed: np.ndarray, g: np.ndarray, amp: float, at: int) -> None:
@@ -101,6 +92,17 @@ def scatter(bed: np.ndarray, g: np.ndarray, amp: float, at: int) -> None:
         r = len(g) - m
         bed[0, :r] += g[m:] * amp * (1 - pan)
         bed[1, :r] += g[m:] * amp * pan
+
+
+def tilt(x: np.ndarray, mix: float = .62) -> np.ndarray:
+    """Distance. A crowd heard across a pitch keeps its voices and loses
+    its sizzle: blend in a one-pole lowpass so the high band sits several
+    dB under the voice band -- toward the balance of swell.mp3, the one
+    render that passed the ear test, without falling back into the ghost
+    this project has already been cured of once."""
+    sos = butter(1, 1600, "lowpass", fs=SR, output="sos")
+    low = np.stack([sosfilt(sos, x[0]), sosfilt(sos, x[1])])
+    return x * (1 - mix) + low * mix
 
 
 def rumble(secs: float) -> np.ndarray:
@@ -192,11 +194,9 @@ def main() -> int:
     # second at a third the level is the density of applause -- the snaps
     # fuse into texture. Levels are capped so no single clap pops out.
     for _ in range(int(SECS * 520)):
-        scatter(bed, clap(), min(float(rng.lognormal(-2.6, .5)), .2),
+        scatter(bed, clap(), min(float(rng.lognormal(-2.6, .5)), .14),
                 int(rng.integers(0, n)))
-    for _ in range(3):                              # a couple of far whistles
-        scatter(bed, whistle(rng.uniform(.3, .7)), .05, int(rng.integers(0, n)))
-    bed = bed + 0.45 * rumble(SECS)
+    bed = tilt(bed) + 0.45 * rumble(SECS)
     bed = normalise(bed, -21.0)
     k = int(0.04 * SR)
     w = np.sin(np.linspace(0, np.pi / 2, k)) ** 2
@@ -219,13 +219,9 @@ def main() -> int:
         at = int(abs(rng.normal(1.3, 1.3)) * SR)
         if at < rn:
             scatter(roar, clap(), min(float(rng.lognormal(-2.0, .5)), .3), at)
-    for _ in range(5):                              # whistles in the din
-        at = int(abs(rng.normal(1.0, 1.0)) * SR)
-        if at < rn:
-            scatter(roar, whistle(rng.uniform(.25, .6)), .08, at)
     t = np.arange(rn) / SR
     shape = np.minimum(1, t / 0.3) * np.exp(-np.maximum(0, t - 1.6) / 1.9)
-    roar = normalise(roar * shape, -16.0)
+    roar = normalise(tilt(roar, .5) * shape, -16.0)
     roar[:, -int(0.2 * SR):] *= np.linspace(1, 0, int(0.2 * SR))
     measure(roar, "roar.mp3 ")
     encode(roar, OUT / "roar.mp3")
