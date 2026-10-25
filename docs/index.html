@@ -166,10 +166,18 @@
   .card>div::-webkit-scrollbar{width:0}
   /* Fade the cut rather than slicing a row in half, which reads as a
      rendering fault instead of "there is more below". */
-  #timeline{max-height:38vh;
-    mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
+  /* The moments list is the one card that can afford to be cut, so it takes
+     whatever height is left after the two below it are whole. Sizing by vh
+     instead would clip the gate table on a 768px or 800px screen. */
+  .card.grow{flex:1 1 0;min-height:132px;display:flex;flex-direction:column}
+  .card.grow>h2{flex:none}
+  .card.grow>div{flex:1 1 0}
+  #timeline{mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
   #follow{max-height:26vh}
-  #signal{max-height:24vh}
+  /* The gate table is the evidence the demo points at: it never scrolls and
+     never gets cut, so every metric's verdict is on screen at once. The
+     moments list above it is the one that gives up height for this. */
+  #signal{max-height:none;overflow:visible}
   .card h2{font:9.5px/1 var(--f);font-variation-settings:'wght' 700,'wdth' 74;
     text-transform:uppercase;letter-spacing:.11em;color:var(--dim);
     padding:14px 16px;background:var(--ink2)}
@@ -200,6 +208,11 @@
   .item .v{margin-left:auto;font-size:11.5px;color:var(--data);
     font-variation-settings:'wght' 700,'wdth' 100;font-feature-settings:'tnum' 1}
   .item .yes{color:var(--up)} .item .no{color:var(--dim)}
+  /* ICC carries the claim, so show the measurement next to the verdict
+     rather than making a viewer take the word on trust. */
+  #signal .icc{margin-left:auto;font-size:11px;color:var(--soft);
+    font-variation-settings:'wght' 600,'wdth' 90;font-feature-settings:'tnum' 1}
+  #signal .v{margin-left:0;min-width:70px;text-align:right}
 
   /* ---------- why sheet ---------- */
   .sheet{position:absolute;left:0;bottom:0;z-index:4;
@@ -267,9 +280,9 @@
     <div class="sheet" id="sheet"></div>
 
     <div class="rail" id="rail">
-      <section class="card"><h2>Moments</h2><div id="timeline"></div></section>
+      <section class="card grow"><h2>Moments</h2><div id="timeline"></div></section>
       <section class="card"><h2>Follow — lift over own norm</h2><div id="follow"></div></section>
-      <section class="card"><h2>Personal claims allowed</h2><div id="signal"></div></section>
+      <section class="card"><h2>Personal claims allowed — ICC ≥ 0.08</h2><div id="signal"></div></section>
     </div>
   </div>
 
@@ -1516,6 +1529,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
     btn.onclick = () => setFollow(FOLLOW && FOLLOW.i === i ? null : i));
   $('#signal').innerHTML = d.signal.map(s =>
     `<div class="item"><span>${s.metric}</span>
+     <span class="icc">${s.icc.toFixed(3)}</span>
      <span class="v ${s.personal ? 'yes' : 'no'}">${s.personal ? 'personal' : 'league only'}</span></div>`).join('');
 
   $('#play').onclick = () => playing ? pause() : play();

@@ -17,8 +17,10 @@ that looks like television.
       (`PYTHONPATH=src python -m gegenpress feed`) — and if you do, re-read
       the numbers below off the screen, because they will move
 - [ ] Browser at **1440×900**, zoom 100%, full screen, no bookmarks bar
-- [ ] Hard-reload once and confirm the type is Archivo, not a fallback —
-      the figures should be visibly wide. If they are not, the font 404'd
+- [ ] Hard-reload once, open the console and run
+      `document.fonts.check('700 16px Archivo')` — it must print `true`.
+      Do not eyeball this: Archivo at `wdth 125` measures *narrower* than
+      some system fallbacks, so "the figures look wide" is not a test
 - [ ] Confirm it opens **paused on a diverging Form Line** with the strap
       already up. That is the opening frame; it should need no clicks
 - [ ] Click **Sound** and leave it on — the bed leans toward the box in
@@ -63,8 +65,10 @@ than a formation sliding about."
 
 ### 0:35–1:00 — the part that is actually hard
 
-> *Click the moment in the rail whose metric is* recovery time *or*
-> *pass difficulty — one the gate refuses.*
+> *Point at the* **Personal claims allowed — ICC ≥ 0.08** *card, bottom
+> right. Do not click a moment: every moment in the rail is a metric the
+> gate allows, because a refused metric has no personal norm to diverge
+> from. The refusal lives in this card, and the card is the shot.*
 
 "Here's the bit I care about. Not every number can carry a personal claim.
 Recovery time measures how long a possession lasted — that's a property of
@@ -72,15 +76,16 @@ the match, not of whoever won the ball back. So the system measures
 between-player variance, and where there isn't any, it **refuses** to make
 the claim."
 
-> *Point at the Personal claims allowed card.*
+> *Read down the column. The numbers are on screen — read them, don't
+> recite these.*
 
-"Intraclass correlation per metric. Above 0.08 a player's own history means
-something; below it his distribution is just the league's wearing his name.
-Top speed, 0.58 — personal claims allowed. Recovery time, 0.006 — league
-only. And that threshold isn't taste: it's the value that puts a
-fifty-match mean on Koo and Li's reliability boundary. Every entry in this
-field verifies its numbers are true. This one checks whether the sentence
-is **sayable**."
+"That's intraclass correlation, per metric, measured off the season. Top
+speed, 0.577 — a player's own history means something, so personal claims
+are allowed. Recovery time, 0.006 — that's league only, and the system will
+not say 'fast for him' about it no matter who asks. The threshold isn't
+taste: 0.08 is the value that puts a fifty-match mean on Koo and Li's
+reliability boundary. Every entry in this field verifies its numbers are
+true. This one checks whether the sentence is **sayable**."
 
 ### 1:00–1:25 — the receipts
 
