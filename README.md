@@ -10,7 +10,7 @@ Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
 | **Two-minute video** | _paste URL before submitting_ |
 | **Category** | **Best Enterprise Solution** |
 | **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, the ICC gate computed again in Kusto, Python/KQL parity test green. |
-| **Agentic surface** | MCP server — 8 tools, 2 resources, 1 prompt contract. `verify_claim` checks a sentence *before* a model says it. |
+| **Agentic surface** | Four roles — Scout, Why, Desk, Gate — passing one closed `Brief` as shared state, with Desk on Microsoft Agent Framework and Gate recovering to templates when verification fails. Also an MCP server: 8 tools, 2 resources, 1 prompt contract, and `verify_claim` checks a sentence *before* a model says it. |
 | **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League match data is used. |
 
 ### The one thing nothing else here does
@@ -54,7 +54,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 58 tests
+PYTHONPATH=src python -m pytest -q              # 66 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000
@@ -122,7 +122,7 @@ Match state sits behind one interface with two implementations — `LocalStore` 
 | Service | Role | Status |
 | --- | --- | --- |
 | **Azure Data Explorer** | Event store; all match-state and grounding queries | **Verified on a live free cluster** — 153,041 events, every function green, **Python/KQL parity passing** |
-| Microsoft Foundry | Model for the Desk agent | Adapter written ([`agents.py`](src/gegenpress/agents.py)); falls back to deterministic templates when unconfigured |
+| Microsoft Foundry | Model for the Desk agent, via the Agent Framework | Adapter written ([`agents.py`](src/gegenpress/agents.py)) and **tested against `agent-framework` 1.23.0** ([8 tests](tests/test_foundry_adapter.py)): imports resolve, both constructor call sites bind, selection and fallback behave, and the response stringifies to the sentence rather than a repr. The live call needs a provisioned resource; everything before it is pinned. Falls back to deterministic templates when unconfigured |
 
 The KQL is plain Kusto and runs unchanged on a Fabric Eventhouse; only the connection string differs.
 
