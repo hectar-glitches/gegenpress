@@ -202,6 +202,21 @@
   button.item[aria-pressed=true]{background:var(--ink3);
     box-shadow:inset 3px 0 0 var(--up)}
   .lower.follow .band{background:var(--data)}
+  /* The language control is a control, not an ornament: same chrome as
+     the transport buttons beside it. */
+  .btn.sel{appearance:none;-webkit-appearance:none;padding-right:26px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--soft) 50%),
+      linear-gradient(135deg,var(--soft) 50%,transparent 50%);
+    background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;cursor:pointer}
+  .btn.sel option{background:var(--ink1);color:var(--fg)}
+  /* Right-to-left applies to the prose columns only. The figures stay
+     left-aligned in their tiles because a number is not text. */
+  [dir=rtl] .item,[dir=rtl] .row{direction:rtl;text-align:right}
+  [dir=rtl] .item .v,[dir=rtl] .item .icc{margin-left:0;margin-right:auto}
+  [dir=rtl] .row .mt{padding-left:0;padding-right:35px}
+  [dir=rtl] .lsaid,[dir=rtl] .tag,[dir=rtl] #lMeta{direction:rtl;text-align:right}
+  [dir=rtl] .ln .v.fig,[dir=rtl] .hero .v,[dir=rtl] .num{direction:ltr;unicode-bidi:isolate}
   .hero .who{font-size:9px;color:var(--data);margin-bottom:7px}
   .item .r{font-size:10px;color:var(--dim);min-width:12px;
     font-variation-settings:'wght' 700,'wdth' 90}
@@ -263,7 +278,7 @@
     <div class="lower" id="lower">
       <div class="band"></div>
       <div class="hero">
-        <div class="k micro">Form line</div>
+        <div class="k micro" id="lFormK">Form line</div>
         <div class="v fig" id="lForm">—</div>
         <div class="tag micro" id="lTag"></div>
       </div>
@@ -280,9 +295,9 @@
     <div class="sheet" id="sheet"></div>
 
     <div class="rail" id="rail">
-      <section class="card grow"><h2>Moments</h2><div id="timeline"></div></section>
-      <section class="card"><h2>Follow — lift over own norm</h2><div id="follow"></div></section>
-      <section class="card"><h2>Personal claims allowed — ICC ≥ 0.08</h2><div id="signal"></div></section>
+      <section class="card grow"><h2 id="hMoments">Moments</h2><div id="timeline"></div></section>
+      <section class="card"><h2 id="hFollow">Follow — lift over own norm</h2><div id="follow"></div></section>
+      <section class="card"><h2 id="hSignal">Personal claims allowed — ICC ≥ 0.08</h2><div id="signal"></div></section>
     </div>
   </div>
 
@@ -294,6 +309,7 @@
     <button class="btn" id="snd" aria-pressed="false">Sound</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
     <div class="right">
+      <select class="btn sel" id="lang" aria-label="Language"></select>
       <button class="btn" id="mAnalyst" aria-pressed="true">Analyst</button>
       <button class="btn" id="mFan" aria-pressed="false">Fan</button>
     </div>
@@ -305,6 +321,13 @@ const $ = s => document.querySelector(s);
 const L = 105, W = 68, FULL = 5400;       // pitch metres, match seconds
 let FEED, cv, ctx, DPR = 1, VW = 0, VH = 0;
 let clock = 0, playing = false, last = 0, idx = -1, mode = 'analyst', showWhy = false;
+// The broadcast language. Claims for every language ship inside the feed,
+// already checked by the same Gate, so switching is a re-render and never
+// a request -- which is also why a claim never leaves the region it was
+// computed in.
+let LANG = 'en';
+const T = k => (FEED.i18n?.ui?.[LANG]?.[k]) ?? (FEED.i18n?.ui?.en?.[k]) ?? k;
+const TX = (o, field) => (o?.[field + '_i18n']?.[LANG]) ?? o?.[field] ?? '';
 let FOLLOW = null;        // the player the console is bound to, if any
 const SPEEDS = [1, 4, 12];                // match-seconds per real second
 let SPEED = 1;        // real time: the ball's rhythm is tuned for it
@@ -1359,14 +1382,14 @@ function showMoment(i) {
   const lo = $('#lower');
   lo.classList.toggle('dn', !m.above);
   $('#lName').textContent = m.player;
-  $('#lMeta').textContent = `${m.club} · ${m.minute}' · ${m.metric}`;
+  $('#lMeta').textContent = `${m.club} · ${m.minute}' · ${TX(m, 'metric')}`;
   // Two deliberate lines rather than one that wraps: "league-/wide"
   // breaking across a line looks like a bug, because it is one.
   const tag = m.diverges
-    ? [m.above ? 'above his level' : 'below his level', 'ordinary league-wide']
-    : (m.above ? ['above his level', "and the league's"] : ['below', 'his own level']);
+    ? [m.above ? T('above') : T('below'), T('ordinary')]
+    : (m.above ? [T('above'), ''] : [T('below'), '']);
   $('#lTag').innerHTML = tag.map(t => `<span>${t}</span>`).join('');
-  $('#lSaid').textContent = m.text;
+  $('#lSaid').textContent = TX(m, 'text');
 
   // The Form Line is the hero block, read first. Everything else on the
   // strap is a supporting figure any competitor could also show.
@@ -1380,14 +1403,14 @@ function showMoment(i) {
     $('#lTag').textContent = 'no between-player signal · league claim only';
   }
   $('#lNums').innerHTML = `
-    <div class="ln"><div class="k micro">Tonight</div><div class="v fig">${m.value}</div>
-      <div class="s meta">${m.metric}</div></div>
-    <div class="ln league"><div class="k micro">League</div>
+    <div class="ln"><div class="k micro">${T('tonight')}</div><div class="v fig">${m.value}</div>
+      <div class="s meta">${TX(m, 'metric')}</div></div>
+    <div class="ln league"><div class="k micro">${T('league')}</div>
       <div class="v fig">${Math.round(m.league_pct)}%</div>
-      <div class="s meta">beaten · norm ${m.expected}</div></div>
-    <div class="ln"><div class="k micro">His norm</div>
+      <div class="s meta">${T('beaten')} ${m.expected}</div></div>
+    <div class="ln"><div class="k micro">${T('his_norm')}</div>
       <div class="v fig">${m.season_mean ?? '—'}</div>
-      <div class="s meta">${m.season_mean != null ? m.appearances + ' matches' : 'not supported'}</div></div>`;
+      <div class="s meta">${m.season_mean != null ? m.appearances + ' ' + T('matches') : '—'}</div></div>`;
   lo.classList.add('up');
 
   const chain = [
@@ -1432,7 +1455,7 @@ function setFollow(i) {
 function showFollow() {
   const f = FOLLOW, lo = $('#lower');
   $('#lName').textContent = f.player;
-  $('#lMeta').textContent = `${f.club} · ${f.position} · #${f.shirt} · ${f.metric}`;
+  $('#lMeta').textContent = `${f.club} · ${f.position} · #${f.shirt} · ${TX(f, 'metric')}`;
   // NOTABLE_Z in form.py is 1.5: below it the claim sentence says "in
   // line with his season norm", so the tag must not shout "above his
   // level" beside it. The two are generated in different places and
@@ -1445,19 +1468,19 @@ function showFollow() {
     : [f.above ? 'above his level' : 'below his level', 'tonight']
   ).map(t => `<span>${t}</span>`).join('');
   lo.classList.toggle('dn', notable && !f.above);
-  $('#lSaid').textContent = f.claim;
+  $('#lSaid').textContent = TX(f, 'claim');
   const hero = $('#lForm');
   hero.textContent = `${f.z > 0 ? '+' : ''}${f.z} SD`;
   hero.style.fontSize = '';
   $('#lNums').innerHTML = `
-    <div class="ln"><div class="k micro">Tonight</div><div class="v fig">${f.value}</div>
-      <div class="s meta">${f.metric}</div></div>
+    <div class="ln"><div class="k micro">${T('tonight')}</div><div class="v fig">${f.value}</div>
+      <div class="s meta">${TX(f, 'metric')}</div></div>
     <div class="ln league"><div class="k micro">League</div>
       <div class="v fig">${Math.round(f.league_pct)}%</div>
-      <div class="s meta">beaten · norm ${f.league_mean}</div></div>
-    <div class="ln"><div class="k micro">His norm</div>
+      <div class="s meta">${T('beaten')} ${f.league_mean}</div></div>
+    <div class="ln"><div class="k micro">${T('his_norm')}</div>
       <div class="v fig">${f.season_mean}</div>
-      <div class="s meta">${f.appearances} matches</div></div>`;
+      <div class="s meta">${f.appearances} ${T('matches')}</div></div>`;
   lo.classList.add('up');
   $('#sheet').classList.remove('up');
 }
@@ -1483,10 +1506,71 @@ function sync() {
 function play() {
   if (clock >= FULL) { clock = 0; idx = -1; }
   playing = true; last = performance.now();
-  $('#play').textContent = '❚❚ Pause'; $('#live').classList.add('on');
+  $('#play').textContent = '❚❚ ' + T('pause'); $('#live').classList.add('on');
 }
 function pause() {
-  playing = false; $('#play').textContent = '▶ Play'; $('#live').classList.remove('on');
+  playing = false; $('#play').textContent = '▶ ' + T('play'); $('#live').classList.remove('on');
+}
+
+// The three rail lists carry metric names and verdicts, so they are
+// rebuilt on a language change rather than translated in place. Handlers
+// are rebound here because replacing innerHTML discards them -- a silent
+// way to ship a rail that looks right and does nothing.
+function renderRail() {
+  const d = FEED;
+  $('#timeline').innerHTML = d.moments.map((m, i) => `
+    <button class="row"><div class="t"><span class="mn">${m.minute}'</span>
+      <span class="nm">${m.player}</span>
+      ${m.diverges ? `<span class="dt" style="background:${m.above ? 'var(--accent)' : 'var(--down)'}"></span>` : ''}
+    </div><div class="mt">${TX(m, 'metric')} · <span class="num">${m.value} vs ${m.season_mean ?? m.expected}</span></div></button>`).join('');
+  document.querySelectorAll('.row').forEach((r, i) => r.onclick = () => {
+    pause(); clock = d.moments[i].minute * 60 + 1; sync(); showMoment(i);
+  });
+  $('#follow').innerHTML = d.follow.map((f, i) =>
+    `<button class="item" aria-pressed="false"><span class="r">${i + 1}</span>
+     <span>${f.player}</span>
+     <span class="v">${f.score.toFixed(3)}</span></button>`).join('');
+  document.querySelectorAll('#follow button').forEach((btn, i) =>
+    btn.onclick = () => setFollow(FOLLOW && FOLLOW.i === i ? null : i));
+  $('#signal').innerHTML = d.signal.map(s =>
+    `<div class="item"><span>${TX(s, 'metric')}</span>
+     <span class="icc">${s.icc.toFixed(3)}</span>
+     <span class="v ${s.personal ? 'yes' : 'no'}">${s.personal ? T('personal') : T('league_only')}</span></div>`).join('');
+  if (idx >= 0) {
+    const cur = document.querySelectorAll('.row')[idx];
+    if (cur) cur.setAttribute('aria-current', 'true');
+  }
+  document.querySelectorAll('.row').forEach((r, i) => {
+    if (FEED.moments[i].minute * 60 <= clock) r.classList.add('fired');
+  });
+}
+
+// Switching language re-renders; it never refetches. Every claim in
+// every language is already in the feed and already gated, so the numbers
+// cannot move when the words do -- which is the point worth watching.
+function setLang(code) {
+  LANG = code;
+  const rtl = (FEED.i18n?.dir?.[code] ?? 'ltr') === 'rtl';
+  document.documentElement.lang = code;
+  // Only the prose flips. Mirroring the pitch would put the left back
+  // on the right wing, which is a different match.
+  for (const el of [$('#rail'), $('#lower'), $('#sheet')]) {
+    el.setAttribute('dir', rtl ? 'rtl' : 'ltr');
+  }
+  $('#lFormK').textContent = T('form_line');
+  $('#hMoments').textContent = T('moments');
+  $('#hFollow').textContent = T('follow');
+  $('#hSignal').textContent = T('signal');
+  $('#why').textContent = T('why');
+  $('#wide').textContent = T('wide');
+  $('#snd').textContent = T('sound');
+  $('#mAnalyst').textContent = T('analyst');
+  $('#mFan').textContent = T('fan');
+  $('#play').textContent = playing ? '❚❚ ' + T('pause') : '▶ ' + T('play');
+  $('#live').innerHTML = `<i></i>${T('live')}`;
+  renderRail();
+  if (FOLLOW && FOLLOW.metric) showFollow();
+  else if (idx >= 0) showMoment(idx);
 }
 
 function setMode(next) {
@@ -1510,27 +1594,9 @@ fetch('feed.json').then(r => r.json()).then(d => {
   $('#hTag').textContent = d.match.home.short; $('#hG').textContent = d.match.home.goals;
   $('#aTag').textContent = d.match.away.short; $('#aG').textContent = d.match.away.goals;
 
-  $('#timeline').innerHTML = d.moments.map((m, i) => `
-    <button class="row"><div class="t"><span class="mn">${m.minute}'</span>
-      <span class="nm">${m.player}</span>
-      ${m.diverges ? `<span class="dt" style="background:${m.above ? 'var(--accent)' : 'var(--down)'}"></span>` : ''}
-    </div><div class="mt">${m.metric} · ${m.value} vs ${m.season_mean ?? m.expected}</div></button>`).join('');
-  document.querySelectorAll('.row').forEach((r, i) => r.onclick = () => {
-    pause(); clock = d.moments[i].minute * 60 + 1; sync(); showMoment(i);
-  });
+  renderRail();
   $('#track').innerHTML = `<div class="fill" id="fill"></div>` +
-    d.moments.map(m => `<div class="pip" style="left:${m.minute * 60 / FULL * 100}%"></div>`).join('');
-
-  $('#follow').innerHTML = d.follow.map((f, i) =>
-    `<button class="item" aria-pressed="false"><span class="r">${i + 1}</span>
-     <span>${f.player}</span>
-     <span class="v">${f.score.toFixed(3)}</span></button>`).join('');
-  document.querySelectorAll('#follow button').forEach((btn, i) =>
-    btn.onclick = () => setFollow(FOLLOW && FOLLOW.i === i ? null : i));
-  $('#signal').innerHTML = d.signal.map(s =>
-    `<div class="item"><span>${s.metric}</span>
-     <span class="icc">${s.icc.toFixed(3)}</span>
-     <span class="v ${s.personal ? 'yes' : 'no'}">${s.personal ? 'personal' : 'league only'}</span></div>`).join('');
+    FEED.moments.map(m => `<div class="pip" style="left:${m.minute * 60 / FULL * 100}%"></div>`).join('');
 
   $('#play').onclick = () => playing ? pause() : play();
   $('#why').onclick = () => {
@@ -1560,6 +1626,10 @@ fetch('feed.json').then(r => r.json()).then(d => {
     }
     $('#snd').setAttribute('aria-pressed', sndOn);
   };
+  const sel = $('#lang');
+  sel.innerHTML = (d.i18n?.languages ?? [{code: 'en', name: 'English'}])
+    .map(l => `<option value="${l.code}">${l.name}</option>`).join('');
+  sel.onchange = () => setLang(sel.value);
   $('#mAnalyst').onclick = () => setMode('analyst');
   $('#mFan').onclick = () => setMode('fan');
   $('#track').onclick = e => {
@@ -1571,6 +1641,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
     if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
   });
   setMode('analyst');
+  setLang(d.i18n?.default ?? 'en');
 
   // Open ON the claim, not at kickoff. Every competitor's demo loads at
   // 0-0 with an empty insight panel; the one thing this project exists

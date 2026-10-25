@@ -13,6 +13,7 @@ Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
 | **Category** | **Best Enterprise Solution** |
 | **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, the ICC gate computed again in Kusto, Python/KQL parity test green. |
 | **Agentic surface** | Four roles — Scout, Why, Desk, Gate — passing one closed `Brief` as shared state, with Desk on Microsoft Agent Framework and Gate recovering to templates when verification fails. Also an MCP server: 8 tools, 2 resources, 1 prompt contract, and `verify_claim` checks a sentence *before* a model says it. |
+| **Reach** | English, Spanish, French and Arabic — RTL and all — plus a plain-English register for someone who has never watched a match. Every claim in every language passes the same gate. |
 | **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League match data is used. |
 
 ### The one thing nothing else here does
@@ -30,6 +31,8 @@ Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** 
 **The controls.** A broadcaster's risk is not that a number is wrong. It is that a claim goes to air which the data cannot support, in front of a rights-holder, a regulator and the player's club. The gate is deterministic, so the same inputs give the same verdict every time and it can be **audited** rather than re-sampled. Every claim carries a receipt — measured value, league reference, personal reference, verdict — rendered in the console and returned in the payload. It lives in the data layer, as KQL alongside the events it governs, not in a prompt that can be edited away. And its limits are published as measured numbers rather than described: the two corruption classes it cannot catch are `xfail` tests scoring a hard zero, which is the form an audit can actually read.
 
 **The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 66 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
+
+**Language is a residency property, not a feature.** The console ships in four languages and a plain-English register, and switching is a re-render rather than a request: every translated claim is already in the feed, already checked by the same gate. Nothing is sent to a translation service, so a claim never leaves the region that computed it. And because the gate reads digits rather than prose, one control covers every locale — a model-based fact-checker needs retraining, re-thresholding and re-evaluating per language, which is why most ship one. [Pinned by 14 tests](tests/test_i18n.py), including that the figures on screen are identical in all five.
 
 **The adoption path.** Match state sits behind one interface with two implementations — `LocalStore` in Python and `AdxStore` in KQL — held to the same answers by a parity test. That is what makes this deployable rather than demoable: the KQL is plain Kusto and runs unchanged on a Fabric Eventhouse, so adopting it is a connection string rather than a rewrite, and the parity test is the evidence that the move does not change a single verdict. The gate is exposed over MCP, so studio graphics, auto-recaps and a commentary assistant inherit one control instead of each re-implementing a different one. Being deterministic, it adds no per-call model cost and no nondeterminism to the audit trail.
 
@@ -58,7 +61,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 66 tests
+PYTHONPATH=src python -m pytest -q              # 80 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000

@@ -182898,6 +182898,20 @@
       "club": "Jarrowdale Park",
       "metric": "pass range",
       "text": "30' Noor Kowalski: pass range 13.77 tonight, against a season norm of 17.07.",
+      "text_i18n": {
+        "en": "30' Noor Kowalski: pass range 13.77 tonight, against a season norm of 17.07.",
+        "es": "30' Noor Kowalski: alcance de pase 13.77 esta noche, frente a una media de temporada de 17.07.",
+        "fr": "30' Noor Kowalski : port\u00e9e de passe 13.77 ce soir, contre une moyenne de saison de 17.07.",
+        "ar": "30' Noor Kowalski: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 13.77 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 17.07.",
+        "en-simple": "30' Noor Kowalski \u2014 how far he passes: 13.77 tonight. He normally manages about 17.07."
+      },
+      "metric_i18n": {
+        "en": "pass range",
+        "es": "alcance de pase",
+        "fr": "port\u00e9e de passe",
+        "ar": "\u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631",
+        "en-simple": "how far he passes"
+      },
       "value": 13.77,
       "expected": 14.64,
       "league_pct": 37.4,
@@ -183027,6 +183041,20 @@
       "club": "Jarrowdale Park",
       "metric": "ball speed",
       "text": "45' Tobias Beaumont: ball speed 16.16 tonight, against a season norm of 15.64.",
+      "text_i18n": {
+        "en": "45' Tobias Beaumont: ball speed 16.16 tonight, against a season norm of 15.64.",
+        "es": "45' Tobias Beaumont: velocidad del bal\u00f3n 16.16 esta noche, frente a una media de temporada de 15.64.",
+        "fr": "45' Tobias Beaumont : vitesse de balle 16.16 ce soir, contre une moyenne de saison de 15.64.",
+        "ar": "45' Tobias Beaumont: \u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629 16.16 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 15.64.",
+        "en-simple": "45' Tobias Beaumont \u2014 how hard he strikes it: 16.16 tonight. He normally manages about 15.64."
+      },
+      "metric_i18n": {
+        "en": "ball speed",
+        "es": "velocidad del bal\u00f3n",
+        "fr": "vitesse de balle",
+        "ar": "\u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how hard he strikes it"
+      },
       "value": 16.16,
       "expected": 16.69,
       "league_pct": 41.0,
@@ -183309,6 +183337,20 @@
       "club": "Ashcombe United",
       "metric": "pass range",
       "text": "60' Tendai Varga: pass range 16.21 tonight, against a season norm of 14.38.",
+      "text_i18n": {
+        "en": "60' Tendai Varga: pass range 16.21 tonight, against a season norm of 14.38.",
+        "es": "60' Tendai Varga: alcance de pase 16.21 esta noche, frente a una media de temporada de 14.38.",
+        "fr": "60' Tendai Varga : port\u00e9e de passe 16.21 ce soir, contre une moyenne de saison de 14.38.",
+        "ar": "60' Tendai Varga: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 16.21 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 14.38.",
+        "en-simple": "60' Tendai Varga \u2014 how far he passes: 16.21 tonight. He normally manages about 14.38."
+      },
+      "metric_i18n": {
+        "en": "pass range",
+        "es": "alcance de pase",
+        "fr": "port\u00e9e de passe",
+        "ar": "\u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631",
+        "en-simple": "how far he passes"
+      },
       "value": 16.21,
       "expected": 14.64,
       "league_pct": 74.6,
@@ -183573,6 +183615,20 @@
       "club": "Jarrowdale Park",
       "metric": "top speed",
       "text": "75' Jonah Esposito: top speed 7.69 tonight, against a season norm of 8.17.",
+      "text_i18n": {
+        "en": "75' Jonah Esposito: top speed 7.69 tonight, against a season norm of 8.17.",
+        "es": "75' Jonah Esposito: velocidad m\u00e1xima 7.69 esta noche, frente a una media de temporada de 8.17.",
+        "fr": "75' Jonah Esposito : vitesse maximale 7.69 ce soir, contre une moyenne de saison de 8.17.",
+        "ar": "75' Jonah Esposito: \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0642\u0635\u0648\u0649 7.69 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 8.17.",
+        "en-simple": "75' Jonah Esposito \u2014 how fast he runs: 7.69 tonight. He normally manages about 8.17."
+      },
+      "metric_i18n": {
+        "en": "top speed",
+        "es": "velocidad m\u00e1xima",
+        "fr": "vitesse maximale",
+        "ar": "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0642\u0635\u0648\u0649",
+        "en-simple": "how fast he runs"
+      },
       "value": 7.69,
       "expected": 7.55,
       "league_pct": 58.8,
@@ -183648,6 +183704,20 @@
       "club": "Jarrowdale Park",
       "metric": "carry range",
       "text": "90' Sunil Mbeki: carry range 7.1 tonight, against a season norm of 10.52.",
+      "text_i18n": {
+        "en": "90' Sunil Mbeki: carry range 7.1 tonight, against a season norm of 10.52.",
+        "es": "90' Sunil Mbeki: distancia de conducci\u00f3n 7.1 esta noche, frente a una media de temporada de 10.52.",
+        "fr": "90' Sunil Mbeki : distance de conduite 7.1 ce soir, contre une moyenne de saison de 10.52.",
+        "ar": "90' Sunil Mbeki: \u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629 7.1 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 10.52.",
+        "en-simple": "90' Sunil Mbeki \u2014 how far he runs with it: 7.1 tonight. He normally manages about 10.52."
+      },
+      "metric_i18n": {
+        "en": "carry range",
+        "es": "distancia de conducci\u00f3n",
+        "fr": "distance de conduite",
+        "ar": "\u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how far he runs with it"
+      },
       "value": 7.1,
       "expected": 9.34,
       "league_pct": 16.0,
@@ -183732,6 +183802,20 @@
       "club": "Jarrowdale Park",
       "metric": "pass range",
       "text": "30' Kwame Ferreira: pass range 14.01 tonight, against a season norm of 18.65.",
+      "text_i18n": {
+        "en": "30' Kwame Ferreira: pass range 14.01 tonight, against a season norm of 18.65.",
+        "es": "30' Kwame Ferreira: alcance de pase 14.01 esta noche, frente a una media de temporada de 18.65.",
+        "fr": "30' Kwame Ferreira : port\u00e9e de passe 14.01 ce soir, contre une moyenne de saison de 18.65.",
+        "ar": "30' Kwame Ferreira: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 14.01 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 18.65.",
+        "en-simple": "30' Kwame Ferreira \u2014 how far he passes: 14.01 tonight. He normally manages about 18.65."
+      },
+      "metric_i18n": {
+        "en": "pass range",
+        "es": "alcance de pase",
+        "fr": "port\u00e9e de passe",
+        "ar": "\u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631",
+        "en-simple": "how far he passes"
+      },
       "value": 14.01,
       "expected": 14.64,
       "league_pct": 41.7,
@@ -183906,6 +183990,20 @@
       "club": "Jarrowdale Park",
       "metric": "ball speed",
       "text": "45' Marco Keller: ball speed 18.14 tonight, against a season norm of 17.58.",
+      "text_i18n": {
+        "en": "45' Marco Keller: ball speed 18.14 tonight, against a season norm of 17.58.",
+        "es": "45' Marco Keller: velocidad del bal\u00f3n 18.14 esta noche, frente a una media de temporada de 17.58.",
+        "fr": "45' Marco Keller : vitesse de balle 18.14 ce soir, contre une moyenne de saison de 17.58.",
+        "ar": "45' Marco Keller: \u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629 18.14 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 17.58.",
+        "en-simple": "45' Marco Keller \u2014 how hard he strikes it: 18.14 tonight. He normally manages about 17.58."
+      },
+      "metric_i18n": {
+        "en": "ball speed",
+        "es": "velocidad del bal\u00f3n",
+        "fr": "vitesse de balle",
+        "ar": "\u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how hard he strikes it"
+      },
       "value": 18.14,
       "expected": 16.69,
       "league_pct": 78.9,
@@ -184152,6 +184250,20 @@
       "club": "Jarrowdale Park",
       "metric": "carry range",
       "text": "60' Noor Kowalski: carry range 4.78 tonight, against a season norm of 10.26.",
+      "text_i18n": {
+        "en": "60' Noor Kowalski: carry range 4.78 tonight, against a season norm of 10.26.",
+        "es": "60' Noor Kowalski: distancia de conducci\u00f3n 4.78 esta noche, frente a una media de temporada de 10.26.",
+        "fr": "60' Noor Kowalski : distance de conduite 4.78 ce soir, contre une moyenne de saison de 10.26.",
+        "ar": "60' Noor Kowalski: \u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629 4.78 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 10.26.",
+        "en-simple": "60' Noor Kowalski \u2014 how far he runs with it: 4.78 tonight. He normally manages about 10.26."
+      },
+      "metric_i18n": {
+        "en": "carry range",
+        "es": "distancia de conducci\u00f3n",
+        "fr": "distance de conduite",
+        "ar": "\u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how far he runs with it"
+      },
       "value": 4.78,
       "expected": 9.34,
       "league_pct": 2.1,
@@ -184213,6 +184325,185 @@
       "fell_back": false
     }
   ],
+  "i18n": {
+    "default": "en",
+    "languages": [
+      {
+        "code": "en",
+        "name": "English",
+        "dir": "ltr"
+      },
+      {
+        "code": "es",
+        "name": "Espa\u00f1ol",
+        "dir": "ltr"
+      },
+      {
+        "code": "fr",
+        "name": "Fran\u00e7ais",
+        "dir": "ltr"
+      },
+      {
+        "code": "ar",
+        "name": "\u0627\u0644\u0639\u0631\u0628\u064a\u0629",
+        "dir": "rtl"
+      },
+      {
+        "code": "en-simple",
+        "name": "Plain English",
+        "dir": "ltr"
+      }
+    ],
+    "dir": {
+      "en": "ltr",
+      "es": "ltr",
+      "fr": "ltr",
+      "ar": "rtl",
+      "en-simple": "ltr"
+    },
+    "ui": {
+      "en": {
+        "live": "LIVE",
+        "form_line": "FORM LINE",
+        "above": "ABOVE HIS LEVEL",
+        "below": "BELOW HIS LEVEL",
+        "in_line": "IN LINE WITH HIS OWN NORM",
+        "ordinary": "ORDINARY LEAGUE-WIDE",
+        "tonight": "TONIGHT",
+        "league": "LEAGUE",
+        "his_norm": "HIS NORM",
+        "beaten": "beaten \u00b7 norm",
+        "matches": "matches",
+        "moments": "Moments",
+        "follow": "Follow \u2014 lift over own norm",
+        "signal": "Personal claims allowed \u2014 ICC \u2265 0.08",
+        "personal": "personal",
+        "league_only": "league only",
+        "why": "Why",
+        "measured": "MEASURED",
+        "his_season": "HIS SEASON",
+        "gate": "GATE",
+        "play": "Play",
+        "pause": "Pause",
+        "wide": "Wide",
+        "sound": "Sound",
+        "analyst": "Analyst",
+        "fan": "Fan"
+      },
+      "es": {
+        "live": "EN VIVO",
+        "form_line": "L\u00cdNEA DE FORMA",
+        "above": "POR ENCIMA DE SU NIVEL",
+        "below": "POR DEBAJO DE SU NIVEL",
+        "in_line": "EN L\u00cdNEA CON SU PROPIA MEDIA",
+        "ordinary": "NORMAL EN LA LIGA",
+        "tonight": "ESTA NOCHE",
+        "league": "LIGA",
+        "his_norm": "SU MEDIA",
+        "beaten": "supera \u00b7 media",
+        "matches": "partidos",
+        "moments": "Momentos",
+        "follow": "Seguir \u2014 mejora sobre su media",
+        "signal": "Afirmaciones personales permitidas \u2014 ICC \u2265 0,08",
+        "personal": "personal",
+        "league_only": "solo liga",
+        "why": "Por qu\u00e9",
+        "measured": "MEDIDO",
+        "his_season": "SU TEMPORADA",
+        "gate": "FILTRO",
+        "play": "Reproducir",
+        "pause": "Pausa",
+        "wide": "Amplio",
+        "sound": "Sonido",
+        "analyst": "Analista",
+        "fan": "Aficionado"
+      },
+      "fr": {
+        "live": "EN DIRECT",
+        "form_line": "LIGNE DE FORME",
+        "above": "AU-DESSUS DE SON NIVEAU",
+        "below": "EN DESSOUS DE SON NIVEAU",
+        "in_line": "CONFORME \u00c0 SA PROPRE MOYENNE",
+        "ordinary": "ORDINAIRE DANS LE CHAMPIONNAT",
+        "tonight": "CE SOIR",
+        "league": "CHAMPIONNAT",
+        "his_norm": "SA MOYENNE",
+        "beaten": "d\u00e9passe \u00b7 moyenne",
+        "matches": "matchs",
+        "moments": "Moments",
+        "follow": "Suivre \u2014 \u00e9cart au-dessus de sa moyenne",
+        "signal": "Affirmations personnelles autoris\u00e9es \u2014 ICC \u2265 0,08",
+        "personal": "personnel",
+        "league_only": "championnat seulement",
+        "why": "Pourquoi",
+        "measured": "MESUR\u00c9",
+        "his_season": "SA SAISON",
+        "gate": "FILTRE",
+        "play": "Lecture",
+        "pause": "Pause",
+        "wide": "Large",
+        "sound": "Son",
+        "analyst": "Analyste",
+        "fan": "Supporter"
+      },
+      "ar": {
+        "live": "\u0645\u0628\u0627\u0634\u0631",
+        "form_line": "\u062e\u0637 \u0627\u0644\u0645\u0633\u062a\u0648\u0649",
+        "above": "\u0641\u0648\u0642 \u0645\u0633\u062a\u0648\u0627\u0647 \u0627\u0644\u0645\u0639\u062a\u0627\u062f",
+        "below": "\u062f\u0648\u0646 \u0645\u0633\u062a\u0648\u0627\u0647 \u0627\u0644\u0645\u0639\u062a\u0627\u062f",
+        "in_line": "\u0641\u064a \u062d\u062f\u0648\u062f \u0645\u0639\u062f\u0644\u0647 \u0627\u0644\u0645\u0639\u062a\u0627\u062f",
+        "ordinary": "\u0639\u0627\u062f\u064a \u0639\u0644\u0649 \u0645\u0633\u062a\u0648\u0649 \u0627\u0644\u062f\u0648\u0631\u064a",
+        "tonight": "\u0627\u0644\u0644\u064a\u0644\u0629",
+        "league": "\u0627\u0644\u062f\u0648\u0631\u064a",
+        "his_norm": "\u0645\u0639\u062f\u0644\u0647",
+        "beaten": "\u064a\u062a\u062c\u0627\u0648\u0632 \u00b7 \u0627\u0644\u0645\u0639\u062f\u0644",
+        "matches": "\u0645\u0628\u0627\u0631\u0627\u0629",
+        "moments": "\u0627\u0644\u0644\u0642\u0637\u0627\u062a",
+        "follow": "\u0627\u0644\u0645\u062a\u0627\u0628\u0639\u0629 \u2014 \u0627\u0644\u062a\u0641\u0648\u0642 \u0639\u0644\u0649 \u0645\u0639\u062f\u0644\u0647",
+        "signal": "\u0627\u0644\u0627\u062f\u0639\u0627\u0621\u0627\u062a \u0627\u0644\u0634\u062e\u0635\u064a\u0629 \u0627\u0644\u0645\u0633\u0645\u0648\u062d \u0628\u0647\u0627 \u2014 ICC \u2265 0.08",
+        "personal": "\u0634\u062e\u0635\u064a",
+        "league_only": "\u0627\u0644\u062f\u0648\u0631\u064a \u0641\u0642\u0637",
+        "why": "\u0644\u0645\u0627\u0630\u0627",
+        "measured": "\u0627\u0644\u0645\u0642\u0627\u0633",
+        "his_season": "\u0645\u0648\u0633\u0645\u0647",
+        "gate": "\u0627\u0644\u0628\u0648\u0627\u0628\u0629",
+        "play": "\u062a\u0634\u063a\u064a\u0644",
+        "pause": "\u0625\u064a\u0642\u0627\u0641",
+        "wide": "\u0639\u0631\u064a\u0636",
+        "sound": "\u0627\u0644\u0635\u0648\u062a",
+        "analyst": "\u0645\u062d\u0644\u0644",
+        "fan": "\u0645\u0634\u062c\u0639"
+      },
+      "en-simple": {
+        "live": "LIVE",
+        "form_line": "HOW HE'S DOING",
+        "above": "BETTER THAN USUAL FOR HIM",
+        "below": "WORSE THAN USUAL FOR HIM",
+        "in_line": "ABOUT NORMAL FOR HIM",
+        "ordinary": "AVERAGE FOR THE LEAGUE",
+        "tonight": "TONIGHT",
+        "league": "EVERYONE ELSE",
+        "his_norm": "USUALLY",
+        "beaten": "better than \u00b7 average",
+        "matches": "matches",
+        "moments": "Worth a look",
+        "follow": "Watch these \u2014 playing above their usual",
+        "signal": "Which stats can be about one player \u2014 ICC \u2265 0.08",
+        "personal": "about him",
+        "league_only": "league only",
+        "why": "Why",
+        "measured": "WE MEASURED",
+        "his_season": "HIS USUAL",
+        "gate": "CHECKED",
+        "play": "Play",
+        "pause": "Pause",
+        "wide": "Wide",
+        "sound": "Sound",
+        "analyst": "Analyst",
+        "fan": "New fan"
+      }
+    }
+  },
   "overlay": [
     {
       "cue_id": "cue-001",
@@ -184368,6 +184659,20 @@
       "above": true,
       "diverges": false,
       "claim": "Tobias Beaumont: ball speed 16.0, in line with his season norm.",
+      "metric_i18n": {
+        "en": "ball speed",
+        "es": "velocidad del bal\u00f3n",
+        "fr": "vitesse de balle",
+        "ar": "\u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how hard he strikes it"
+      },
+      "claim_i18n": {
+        "en": "Tobias Beaumont: ball speed 16.0, in line with his season norm.",
+        "es": "Tobias Beaumont: velocidad del bal\u00f3n 16.0, en l\u00ednea con su media de temporada.",
+        "fr": "Tobias Beaumont : vitesse de balle 16.0, conforme \u00e0 sa moyenne de saison.",
+        "ar": "Tobias Beaumont: \u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629 16.0\u060c \u0641\u064a \u062d\u062f\u0648\u062f \u0645\u0639\u062f\u0644\u0647 \u0627\u0644\u0645\u0648\u0633\u0645\u064a.",
+        "en-simple": "Tobias Beaumont \u2014 how hard he strikes it: 16.0 tonight, about normal for him."
+      },
       "events": [
         {
           "minute": 3,
@@ -184803,6 +185108,20 @@
       "above": false,
       "diverges": true,
       "claim": "Amadou Esposito: carry range down to 8.4 from a season norm of 12.0 (-1.8 SD over 13 matches).",
+      "metric_i18n": {
+        "en": "carry range",
+        "es": "distancia de conducci\u00f3n",
+        "fr": "distance de conduite",
+        "ar": "\u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how far he runs with it"
+      },
+      "claim_i18n": {
+        "en": "Amadou Esposito: carry range down to 8.4 from a season norm of 12.0 (-1.8 SD over 13 matches).",
+        "es": "Amadou Esposito: distancia de conducci\u00f3n baja a 8.4 desde una media de temporada de 12.0 (-1.8 DE en 13 partidos).",
+        "fr": "Amadou Esposito : distance de conduite en baisse \u00e0 8.4 depuis une moyenne de saison de 12.0 (-1.8 ET sur 13 matchs).",
+        "ar": "Amadou Esposito: \u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629 \u062a\u0631\u0627\u062c\u0639 \u0625\u0644\u0649 8.4 \u0645\u0646 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 12.0 (-1.8 \u0627\u0646\u062d\u0631\u0627\u0641 \u0645\u0639\u064a\u0627\u0631\u064a \u0639\u0628\u0631 13 \u0645\u0628\u0627\u0631\u0627\u0629).",
+        "en-simple": "Amadou Esposito \u2014 how far he runs with it: only 8.4 tonight, below the 12.0 he normally manages across 13 matches."
+      },
       "events": [
         {
           "minute": 18,
@@ -184896,6 +185215,20 @@
       "above": true,
       "diverges": false,
       "claim": "Nico Beaumont: ball speed 16.7, in line with his season norm.",
+      "metric_i18n": {
+        "en": "ball speed",
+        "es": "velocidad del bal\u00f3n",
+        "fr": "vitesse de balle",
+        "ar": "\u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how hard he strikes it"
+      },
+      "claim_i18n": {
+        "en": "Nico Beaumont: ball speed 16.7, in line with his season norm.",
+        "es": "Nico Beaumont: velocidad del bal\u00f3n 16.7, en l\u00ednea con su media de temporada.",
+        "fr": "Nico Beaumont : vitesse de balle 16.7, conforme \u00e0 sa moyenne de saison.",
+        "ar": "Nico Beaumont: \u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629 16.7\u060c \u0641\u064a \u062d\u062f\u0648\u062f \u0645\u0639\u062f\u0644\u0647 \u0627\u0644\u0645\u0648\u0633\u0645\u064a.",
+        "en-simple": "Nico Beaumont \u2014 how hard he strikes it: 16.7 tonight, about normal for him."
+      },
       "events": [
         {
           "minute": 5,
@@ -185340,6 +185673,20 @@
       "above": false,
       "diverges": false,
       "claim": "Bruno Thackeray: ball speed down to 13.7 from a season norm of 14.2 (-1.8 SD over 18 matches).",
+      "metric_i18n": {
+        "en": "ball speed",
+        "es": "velocidad del bal\u00f3n",
+        "fr": "vitesse de balle",
+        "ar": "\u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how hard he strikes it"
+      },
+      "claim_i18n": {
+        "en": "Bruno Thackeray: ball speed down to 13.7 from a season norm of 14.2 (-1.8 SD over 18 matches).",
+        "es": "Bruno Thackeray: velocidad del bal\u00f3n baja a 13.7 desde una media de temporada de 14.2 (-1.8 DE en 18 partidos).",
+        "fr": "Bruno Thackeray : vitesse de balle en baisse \u00e0 13.7 depuis une moyenne de saison de 14.2 (-1.8 ET sur 18 matchs).",
+        "ar": "Bruno Thackeray: \u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629 \u062a\u0631\u0627\u062c\u0639 \u0625\u0644\u0649 13.7 \u0645\u0646 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 14.2 (-1.8 \u0627\u0646\u062d\u0631\u0627\u0641 \u0645\u0639\u064a\u0627\u0631\u064a \u0639\u0628\u0631 18 \u0645\u0628\u0627\u0631\u0627\u0629).",
+        "en-simple": "Bruno Thackeray \u2014 how hard he strikes it: only 13.7 tonight, below the 14.2 he normally manages across 18 matches."
+      },
       "events": [
         {
           "minute": 2,
@@ -185676,6 +186023,20 @@
       "above": true,
       "diverges": false,
       "claim": "Oliver Marchetti: pass range 18.4 tonight against a season norm of 15.9 (+2.2 SD over 18 matches).",
+      "metric_i18n": {
+        "en": "pass range",
+        "es": "alcance de pase",
+        "fr": "port\u00e9e de passe",
+        "ar": "\u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631",
+        "en-simple": "how far he passes"
+      },
+      "claim_i18n": {
+        "en": "Oliver Marchetti: pass range 18.4 tonight against a season norm of 15.9 (+2.2 SD over 18 matches).",
+        "es": "Oliver Marchetti: alcance de pase 18.4 esta noche frente a una media de temporada de 15.9 (+2.2 DE en 18 partidos).",
+        "fr": "Oliver Marchetti : port\u00e9e de passe 18.4 ce soir contre une moyenne de saison de 15.9 (+2.2 ET sur 18 matchs).",
+        "ar": "Oliver Marchetti: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 18.4 \u0627\u0644\u0644\u064a\u0644\u0629 \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 15.9 (+2.2 \u0627\u0646\u062d\u0631\u0627\u0641 \u0645\u0639\u064a\u0627\u0631\u064a \u0639\u0628\u0631 18 \u0645\u0628\u0627\u0631\u0627\u0629).",
+        "en-simple": "Oliver Marchetti \u2014 how far he passes: 18.4 tonight, better than the 15.9 he normally manages across 18 matches."
+      },
       "events": [
         {
           "minute": 0,
@@ -186066,6 +186427,20 @@
       "above": true,
       "diverges": false,
       "claim": "Elias Lombardi: pass range 15.0, in line with his season norm.",
+      "metric_i18n": {
+        "en": "pass range",
+        "es": "alcance de pase",
+        "fr": "port\u00e9e de passe",
+        "ar": "\u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631",
+        "en-simple": "how far he passes"
+      },
+      "claim_i18n": {
+        "en": "Elias Lombardi: pass range 15.0, in line with his season norm.",
+        "es": "Elias Lombardi: alcance de pase 15.0, en l\u00ednea con su media de temporada.",
+        "fr": "Elias Lombardi : port\u00e9e de passe 15.0, conforme \u00e0 sa moyenne de saison.",
+        "ar": "Elias Lombardi: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 15.0\u060c \u0641\u064a \u062d\u062f\u0648\u062f \u0645\u0639\u062f\u0644\u0647 \u0627\u0644\u0645\u0648\u0633\u0645\u064a.",
+        "en-simple": "Elias Lombardi \u2014 how far he passes: 15.0 tonight, about normal for him."
+      },
       "events": [
         {
           "minute": 0,
@@ -186487,31 +186862,73 @@
   "signal": [
     {
       "metric": "top speed",
+      "metric_i18n": {
+        "en": "top speed",
+        "es": "velocidad m\u00e1xima",
+        "fr": "vitesse maximale",
+        "ar": "\u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0642\u0635\u0648\u0649",
+        "en-simple": "how fast he runs"
+      },
       "icc": 0.5772,
       "personal": true
     },
     {
       "metric": "ball speed",
+      "metric_i18n": {
+        "en": "ball speed",
+        "es": "velocidad del bal\u00f3n",
+        "fr": "vitesse de balle",
+        "ar": "\u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how hard he strikes it"
+      },
       "icc": 0.4515,
       "personal": true
     },
     {
       "metric": "pass range",
+      "metric_i18n": {
+        "en": "pass range",
+        "es": "alcance de pase",
+        "fr": "port\u00e9e de passe",
+        "ar": "\u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631",
+        "en-simple": "how far he passes"
+      },
       "icc": 0.1117,
       "personal": true
     },
     {
       "metric": "carry range",
+      "metric_i18n": {
+        "en": "carry range",
+        "es": "distancia de conducci\u00f3n",
+        "fr": "distance de conduite",
+        "ar": "\u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how far he runs with it"
+      },
       "icc": 0.0974,
       "personal": true
     },
     {
       "metric": "pass difficulty",
+      "metric_i18n": {
+        "en": "pass difficulty",
+        "es": "dificultad del pase",
+        "fr": "difficult\u00e9 de passe",
+        "ar": "\u0635\u0639\u0648\u0628\u0629 \u0627\u0644\u062a\u0645\u0631\u064a\u0631",
+        "en-simple": "how hard his passes are"
+      },
       "icc": 0.022,
       "personal": false
     },
     {
       "metric": "recovery time",
+      "metric_i18n": {
+        "en": "recovery time",
+        "es": "tiempo de recuperaci\u00f3n",
+        "fr": "temps de r\u00e9cup\u00e9ration",
+        "ar": "\u0632\u0645\u0646 \u0627\u0633\u062a\u062e\u0644\u0627\u0635 \u0627\u0644\u0643\u0631\u0629",
+        "en-simple": "how fast he wins the ball back"
+      },
       "icc": 0.0057,
       "personal": false
     }

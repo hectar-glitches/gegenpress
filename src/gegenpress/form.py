@@ -40,17 +40,12 @@ NOTABLE_Z = 1.5
 MIN_EFFECT_VS_LEAGUE_SD = 0.25
 
 # Readable names. Built by hand because chained str.replace on the metric
-# keys silently produced "ballpeed" from "ball_speed_ms".
-METRIC_LABELS: dict[str, str] = {
-    "recovery_time_s": "recovery time",
-    "pass_difficulty": "pass difficulty",
-    "pass_distance_m": "pass range",
-    "ball_speed_ms": "ball speed",
-    "top_speed_ms": "top speed",
-    "carry_distance_m": "carry range",
-    "shot_speed_ms": "shot speed",
-    "xg": "shot quality",
-}
+# keys silently produced "ballpeed" from "ball_speed_ms". The other
+# languages live beside these in i18n.py; this name stays so the English
+# call sites read the same as they always did.
+from .i18n import METRICS as _METRICS
+
+METRIC_LABELS: dict[str, str] = _METRICS["en"]
 
 
 @dataclass(slots=True)

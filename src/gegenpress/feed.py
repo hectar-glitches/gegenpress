@@ -14,8 +14,11 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .agents import Segment, run_desk
-from .form import METRIC_LABELS
+from .agents import Gate, Segment, run_desk
+from .form import METRIC_LABELS, NOTABLE_Z
+from .i18n import (DIRECTION, LANGUAGES, LANGUAGE_CODES, form_claim,
+                   metric_label, moment_text)
+from .i18n import ui as ui_strings
 from .models import Match
 from .season import League
 from .positions import (build_ball_track, build_frames, pack,
@@ -25,6 +28,11 @@ from .store import Store
 
 # How long a graphic stays on screen, by kind.
 OVERLAY_SECONDS = {"form": 6.0, "moment": 4.5}
+
+# One gate instance for the translation check. Stateless, so sharing it
+# costs nothing and makes the intent clear: translations are held to the
+# same control as the English the model wrote.
+_GATE = Gate()
 
 
 @dataclass(slots=True)
@@ -126,6 +134,37 @@ def event_stream(live: Match) -> list[dict[str, Any]]:
     return out
 
 
+def _unit(metric_key: str) -> str:
+    return "s" if metric_key.endswith("_s") else ""
+
+
+def _translate_moment(seg, gate: Gate) -> dict[str, str]:
+    """The same grounded claim in every language, each one gated.
+
+    The English string is whatever Desk actually produced -- a model, when
+    one is configured. The rest are rendered from the same brief. Every
+    one of them goes through the Gate before it ships, so a translation
+    cannot smuggle in a number the brief does not contain. That check is
+    free precisely because the Gate reads digits rather than prose.
+    """
+    b = seg.brief
+    key = seg.form_metric or ""
+    norm = f"{b.season_mean:g}" if b.season_mean is not None else None
+    out = {"en": seg.verdict.text}
+    for code in LANGUAGE_CODES:
+        if code == "en":
+            continue
+        out[code] = moment_text(
+            code, minute=b.minute, player=b.player_name,
+            metric_key=key, value=f"{b.value:g}", norm=norm,
+        )
+    for code, text in out.items():
+        bad = gate.unsupported(text, b)
+        if bad:  # pragma: no cover - a template cannot invent a number
+            raise ValueError(f"{code} translation failed the gate: {bad}")
+    return out
+
+
 def _follow_entry(league, live, pid, score, form_by_player):
     p = league.player(pid)
     best = form_by_player.get(pid)
@@ -145,6 +184,18 @@ def _follow_entry(league, live, pid, score, form_by_player):
             "above": best.z > 0,
             "diverges": best.diverges,
             "claim": best.claim(),
+            "metric_i18n": {c: metric_label(best.metric, c) for c in LANGUAGE_CODES},
+            "claim_i18n": {
+                c: form_claim(
+                    c, player=p.name, metric_key=best.metric,
+                    value=f"{best.match_mean:.1f}", norm=f"{best.season_mean:.1f}",
+                    z=f"{best.z:+.1f}", appearances=best.appearances,
+                    unit=_unit(best.metric),
+                    direction=("above" if best.z >= NOTABLE_Z
+                               else "below" if best.z <= -NOTABLE_Z else "level"),
+                )
+                for c in LANGUAGE_CODES
+            },
             "events": contributing_events(live, pid, best.metric, 90),
         })
     return row
@@ -181,6 +232,10 @@ def build_feed(
             "club": b.club_name,
             "metric": b.metric_label,
             "text": seg.verdict.text,
+            "text_i18n": _translate_moment(seg, _GATE),
+            "metric_i18n": {
+                c: metric_label(seg.form_metric or "", c) for c in LANGUAGE_CODES
+            } if seg.form_metric else None,
             "value": b.value,
             "expected": b.expected,
             "league_pct": round(b.beats_pct, 1),
@@ -234,6 +289,17 @@ def build_feed(
             "events": len(live.events),
         },
         "moments": moments,
+        # Everything the console needs to re-render in another language
+        # without another request. The claims themselves travel with each
+        # moment; this is the chrome around them.
+        "i18n": {
+            "default": "en",
+            "languages": [
+                {"code": c, "name": n, "dir": d} for c, n, d in LANGUAGES
+            ],
+            "dir": dict(DIRECTION),
+            "ui": {c: ui_strings(c) for c in LANGUAGE_CODES},
+        },
         "overlay": [asdict(_cue(i, s)) for i, s in enumerate(segments, 1)],
         "state": {
             league.club(team).short_name: values for team, values in state.items()
@@ -248,7 +314,9 @@ def build_feed(
             for pid, score in follow
         ],
         "signal": [
-            {"metric": METRIC_LABELS.get(m, m), "icc": s.icc,
+            {"metric": METRIC_LABELS.get(m, m),
+             "metric_i18n": {c: metric_label(m, c) for c in LANGUAGE_CODES},
+             "icc": s.icc,
              "personal": s.personal_claim_allowed}
             for m, s in sorted(signals.items(), key=lambda kv: -kv[1].icc)
         ],
