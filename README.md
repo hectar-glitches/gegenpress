@@ -2,7 +2,24 @@
 
 **Football's broadcast tells you a press was fast. Gegenpress tells you it was fast *for him*.**
 
-Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon. All clubs, players and matches are synthetic. No real match data is used.
+Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
+
+| | |
+| --- | --- |
+| **Live console** | **https://hectar-glitches.github.io/gegenpress/** — opens paused on a diverging Form Line. No install, no key, no sign-in. |
+| **Two-minute video** | _paste URL before submitting_ |
+| **Category** | _declare before submitting_ |
+| **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, the ICC gate computed again in Kusto, Python/KQL parity test green. |
+| **Agentic surface** | MCP server — 8 tools, 2 resources, 1 prompt contract. `verify_claim` checks a sentence *before* a model says it. |
+| **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League match data is used. |
+
+### The one thing nothing else here does
+
+Every entry in this field verifies that its numbers are **true**. This one decides whether a sentence is **sayable**.
+
+It measures between-player variance per metric and refuses a personal claim where there isn't any. Recovery time has an ICC of 0.006 — it measures how long a possession lasted, which is a property of the match rather than of whoever won the ball back — so *"fast for him"* is not a sentence this system will produce, about anyone, however it is asked. [Top speed is 0.577, so there it will.](#the-system-refuses-claims-it-cannot-support)
+
+Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** across 373 claims and three seeds. The gate is deterministic, so that is measured rather than scored by another model — and [the two things it cannot catch are published as a measured zero](#evidence).
 
 The name is deliberate: *gegenpressing* is the one piece of football tactics defined by a measurement — win the ball back within about five seconds. Recovery time is a first-class metric here, and the name states the thesis.
 

@@ -32,89 +32,88 @@ that looks like television.
 
 ## The script
 
-Total 115s, leaving margin. Times are cumulative.
+**Total 112s of runtime, of which about 100s is speech.** That is the real
+constraint and it is tighter than it looks: narration you can follow runs
+at 150 words per minute, so the whole video is **about 260 words**. The
+previous draft of this script was 429 words — 172 seconds — and would have
+needed 319 wpm in one section, which is faster than an auctioneer.
 
-### 0:00–0:12 — the claim, before anything else
+Each beat below carries its word budget. If you rewrite a line, recount it
+— `wc -w` on the quoted text, and seconds ≈ words ÷ 2.5.
 
-> *Open on the paused frame. Do not touch anything.*
+Times are cumulative. Director notes are in italics; the words in quotes
+are the only words you say.
 
-> *Verified against the current feed — but read the screen, not this page.*
+### 0:00–0:14 — the claim, and who it is for *(37 words)*
 
-"Broadcast tells you a pass was long. This tells you it was long **for
-him**. Noor Kowalski's range tonight is 13.8 — that's thirty-seventh
-percentile, utterly ordinary for the league. Against his own season it's
-nearly four standard deviations down. He's having a bad night and the
-league table can't see it."
+> *Open on the paused frame. Do not touch anything. Read the figures off
+> the screen, not off this page — the feed is regenerated per seed.*
 
-*Why this works: the differentiator is spoken and on screen before the
-viewer has been asked to understand anything. No architecture, no tour.*
+"A producer has seconds to decide what goes on screen. Broadcast says that
+pass was long. Gegenpress says it was long **for him**. Kowalski tonight:
+thirty-seventh percentile for the league, nearly four standard deviations
+below his own season."
 
-### 0:12–0:35 — it's a real match, not a mock-up
+*Why this works: the differentiator and the user are both delivered before
+the viewer has been asked to understand anything. No architecture, no tour.*
 
-> *Press Play. Leave it at 1×. Say nothing for three seconds — let a
+### 0:14–0:32 — it is a real match *(43 words)*
+
+> *Press Play. Leave it at 1×. Say nothing for three seconds — let one
 > pass travel and settle before you speak over it.*
 
-"Everything here is a simulated season — ten clubs, a persistent squad,
-ninety matches, a hundred and fifty thousand events. The camera is a main
-camera forty-two metres back and twenty-eight up, tracking the ball. Those
-are all twenty-two players, positioned by a model — the two nearest the
-ball leave their shape and go to it, which is why there are duels rather
+"This is a simulated season — ten clubs, ninety matches, a hundred and
+fifty thousand events. Twenty-two players positioned by a model: the two
+nearest the ball leave their shape and go to it, so you get duels rather
 than a formation sliding about."
 
-> *Hit `Wide` once, hold two seconds, hit it again.*
+> *Hit `Wide` once, hold two seconds, hit it again. Do not narrate this.*
 
-### 0:35–1:00 — the part that is actually hard
+### 0:32–0:54 — the part that is actually hard *(55 words)*
 
 > *Point at the* **Personal claims allowed — ICC ≥ 0.08** *card, bottom
 > right. Do not click a moment: every moment in the rail is a metric the
 > gate allows, because a refused metric has no personal norm to diverge
 > from. The refusal lives in this card, and the card is the shot.*
 
-"Here's the bit I care about. Not every number can carry a personal claim.
-Recovery time measures how long a possession lasted — that's a property of
-the match, not of whoever won the ball back. So the system measures
-between-player variance, and where there isn't any, it **refuses** to make
-the claim."
+"Not every number can carry a personal claim. Recovery time measures how
+long a possession lasted — that is the match, not the player who won the
+ball back. So we measure between-player variance. Top speed, 0.577:
+personal claims allowed. Recovery time, 0.006: league only. That threshold
+is Koo and Li's reliability boundary, not taste."
 
-> *Read down the column. The numbers are on screen — read them, don't
-> recite these.*
-
-"That's intraclass correlation, per metric, measured off the season. Top
-speed, 0.577 — a player's own history means something, so personal claims
-are allowed. Recovery time, 0.006 — that's league only, and the system will
-not say 'fast for him' about it no matter who asks. The threshold isn't
-taste: 0.08 is the value that puts a fifty-match mean on Koo and Li's
-reliability boundary. Every entry in this field verifies its numbers are
-true. This one checks whether the sentence is **sayable**."
-
-### 1:00–1:25 — the receipts
+### 0:54–1:10 — the receipts *(38 words)*
 
 > *Hit `Why`.*
 
-"Measured, league, his season, verdict, gate. Every number on screen
-recomputes from the events — and the gate is deterministic, so it's
-measured deterministically rather than scored by another model. Three
-hundred and seventy-three claims, three seeds: gate precision 100%, claim
-integrity 100%, refusal correctness 100%."
+"Every number recomputes from the events. The gate is deterministic, so it
+is measured, not scored by another model. Three seeds, 373 claims:
+precision, integrity, refusal correctness — all 100%. The two misses are
+published as a measured zero."
 
-"Two things it can't catch, both published as a measured zero: a number
-spelled out in words, and a real number attached to the wrong thing. Those
-are `xfail` tests, so fixing one gets noticed."
+### 1:10–1:32 — a model tries to lie, and gets caught *(47 words)*
 
-### 1:25–1:50 — where Azure actually is
 
-"Match state and grounding both run as KQL on Azure Data Explorer — eleven
-functions, including the ICC gate computed again in Kusto. Two
-implementations of one interface, and a parity test that holds them to the
-same answers. It caught two real bugs before it passed: a function that had
-never compiled, and the two backends ranking moments differently. It's
-green now. And the whole thing is callable over MCP — including a tool that
-checks a sentence before a model says it."
+> *Cut to a terminal running* `python3 scripts/mcp_demo.py`*, or to Claude
+> Desktop with the server connected. The terminal is the safe shot: no
+> network, no app, deterministic, three seconds. Let the rejection land on
+> screen for two beats before you speak over it.*
 
-### 1:50–1:55 — close
+"The gate is also an MCP server, so any model can call it. I tell one to
+say his range is 21.4, well up on his season. Invented — so it comes back
+**rejected**, with the grounded numbers. The model says the opposite: he
+is down, not up."
 
-"Football's broadcast tells you a press was fast. Gegenpress tells you it
-was fast for him."
+*This is the beat that answers "agentic design". Every other entry asks a
+model to narrate football. This one is the thing a model has to ask
+permission from.*
+
+### 1:32–1:52 — Azure, and close *(41 words)*
+
+"Match state and grounding run as KQL on Azure Data Explorer — eleven
+functions, the gate computed again in Kusto, parity-tested against the
+Python. It caught two real bugs. Broadcast tells you a press was fast.
+Gegenpress tells you it was fast **for him**."
 
 ## Rules for the recording
 
