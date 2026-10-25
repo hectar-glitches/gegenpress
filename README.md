@@ -8,7 +8,7 @@ Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
 | --- | --- |
 | **Live console** | **https://hectar-glitches.github.io/gegenpress/** — opens paused on a diverging Form Line. No install, no key, no sign-in. |
 | **Two-minute video** | _paste URL before submitting_ |
-| **Category** | _declare before submitting_ |
+| **Category** | **Best Enterprise Solution** |
 | **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, the ICC gate computed again in Kusto, Python/KQL parity test green. |
 | **Agentic surface** | MCP server — 8 tools, 2 resources, 1 prompt contract. `verify_claim` checks a sentence *before* a model says it. |
 | **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League match data is used. |
@@ -20,6 +20,12 @@ Every entry in this field verifies that its numbers are **true**. This one decid
 It measures between-player variance per metric and refuses a personal claim where there isn't any. Recovery time has an ICC of 0.006 — it measures how long a possession lasted, which is a property of the match rather than of whoever won the ball back — so *"fast for him"* is not a sentence this system will produce, about anyone, however it is asked. [Top speed is 0.577, so there it will.](#the-system-refuses-claims-it-cannot-support)
 
 Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** across 373 claims and three seeds. The gate is deterministic, so that is measured rather than scored by another model — and [the two things it cannot catch are published as a measured zero](#evidence).
+
+### Why this is an enterprise solution
+
+A broadcaster's risk is not that a number is wrong. It is that a claim goes to air which the data cannot support, in front of a rights-holder, a regulator and the player's club. Gegenpress is the control that sits in front of that.
+
+It is a **control, not a suggestion**: the gate is deterministic, so the same inputs give the same verdict every time and it can be audited rather than re-sampled. Every claim carries a receipt — measured value, league reference, personal reference, verdict — visible in the console and returned in the payload. It lives **in the data layer**, as KQL on Azure Data Explorer alongside the events it governs, not in a prompt that can be edited away. It is exposed **over MCP**, so studio graphics, auto-recaps and a commentary assistant inherit one gate instead of each re-implementing a different one. And its limits are **published as measured numbers** rather than described — the two corruption classes it cannot catch are `xfail` tests scoring a hard zero, which is the form an audit can actually read.
 
 The name is deliberate: *gegenpressing* is the one piece of football tactics defined by a measurement — win the ball back within about five seconds. Recovery time is a first-class metric here, and the name states the thesis.
 
