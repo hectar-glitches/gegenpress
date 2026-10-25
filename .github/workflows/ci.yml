@@ -1,0 +1,28 @@
+name: ci
+on: [push, pull_request]
+
+# The point of this file is that the README's claims are enforced rather
+# than asserted. `eval` exits non-zero if gate precision, claim integrity
+# or refusal correctness falls below 100%, so a regression in the thing
+# this project is about fails the build instead of quietly becoming true.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest mcp
+
+      - name: tests
+        run: python -m pytest tests/ -q
+
+      - name: the gate, measured — fails the build if it regresses
+        run: PYTHONPATH=src python -m gegenpress eval
+
+      - name: the MCP surface answers over stdio
+        run: PYTHONPATH=src python scripts/mcp_demo.py
+
+      - name: realism report
+        run: PYTHONPATH=src python -m gegenpress calibrate

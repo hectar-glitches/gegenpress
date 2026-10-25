@@ -2,6 +2,8 @@
 
 **Football's broadcast tells you a press was fast. Gegenpress tells you it was fast *for him*.**
 
+[![ci](https://github.com/hectar-glitches/gegenpress/actions/workflows/ci.yml/badge.svg)](https://github.com/hectar-glitches/gegenpress/actions/workflows/ci.yml)
+
 Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
 
 | | |
@@ -27,9 +29,11 @@ Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** 
 
 **The controls.** A broadcaster's risk is not that a number is wrong. It is that a claim goes to air which the data cannot support, in front of a rights-holder, a regulator and the player's club. The gate is deterministic, so the same inputs give the same verdict every time and it can be **audited** rather than re-sampled. Every claim carries a receipt — measured value, league reference, personal reference, verdict — rendered in the console and returned in the payload. It lives in the data layer, as KQL alongside the events it governs, not in a prompt that can be edited away. And its limits are published as measured numbers rather than described: the two corruption classes it cannot catch are `xfail` tests scoring a hard zero, which is the form an audit can actually read.
 
+**The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 66 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
+
 **The adoption path.** Match state sits behind one interface with two implementations — `LocalStore` in Python and `AdxStore` in KQL — held to the same answers by a parity test. That is what makes this deployable rather than demoable: the KQL is plain Kusto and runs unchanged on a Fabric Eventhouse, so adopting it is a connection string rather than a rewrite, and the parity test is the evidence that the move does not change a single verdict. The gate is exposed over MCP, so studio graphics, auto-recaps and a commentary assistant inherit one control instead of each re-implementing a different one. Being deterministic, it adds no per-call model cost and no nondeterminism to the audit trail.
 
-**What production would still need**, stated here rather than left for a judge to find: authentication and multi-tenancy, of which there is none — the console is public and read-only by design; container packaging and CI/CD, since it deploys today as a static site; and a paid ADX tier or an Eventhouse, because the free tier refuses `streamingingestion`, so events are queryable after a minute or two rather than instantly. The architecture is right for live play. The free tier is not.
+**What production would still need**, stated here rather than left for a judge to find: authentication and multi-tenancy, of which there is none — the console is public and read-only by design; container packaging, since it deploys today as a static site and there is no image to hand an ops team; and a paid ADX tier or an Eventhouse, because the free tier refuses `streamingingestion`, so events are queryable after a minute or two rather than instantly. The architecture is right for live play. The free tier is not.
 
 The name is deliberate: *gegenpressing* is the one piece of football tactics defined by a measurement — win the ball back within about five seconds. Recovery time is a first-class metric here, and the name states the thesis.
 
