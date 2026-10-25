@@ -179,6 +179,9 @@ def get_model(prefer_foundry: bool | None = None) -> LanguageModel:
         prefer_foundry = bool(os.environ.get("FOUNDRY_PROJECT_ENDPOINT"))
     if prefer_foundry:
         try:
+            from .resilience import FAULTS, InjectedFailure  # noqa: PLC0415
+            if FAULTS.foundry:
+                raise InjectedFailure("Foundry unreachable (injected)")
             return FoundryModel.from_env()
         except Exception as exc:  # pragma: no cover - depends on local env
             print(f"[agents] Foundry unavailable ({exc}); using templates")

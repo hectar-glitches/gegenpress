@@ -1,0 +1,12 @@
+# The image is the pipeline, not the repo. docs/feed.json alone is 2MB
+# of rendered broadcast that the container never reads.
+.git
+.github
+docs
+tests
+scripts
+.venv
+.pytest_cache
+__pycache__
+**/__pycache__
+*.pyc

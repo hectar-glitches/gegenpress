@@ -36,7 +36,21 @@ Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** 
 
 **The adoption path.** Match state sits behind one interface with two implementations — `LocalStore` in Python and `AdxStore` in KQL — held to the same answers by a parity test. That is what makes this deployable rather than demoable: the KQL is plain Kusto and runs unchanged on a Fabric Eventhouse, so adopting it is a connection string rather than a rewrite, and the parity test is the evidence that the move does not change a single verdict. The gate is exposed over MCP, so studio graphics, auto-recaps and a commentary assistant inherit one control instead of each re-implementing a different one. Being deterministic, it adds no per-call model cost and no nondeterminism to the audit trail.
 
-**What production would still need**, stated here rather than left for a judge to find: authentication and multi-tenancy, of which there is none — the console is public and read-only by design; container packaging, since it deploys today as a static site and there is no image to hand an ops team; and a paid ADX tier or an Eventhouse, because the free tier refuses `streamingingestion`, so events are queryable after a minute or two rather than instantly. The architecture is right for live play. The free tier is not.
+**It fails the way production needs it to, and you can watch it.** Three dependencies can die and all three have somewhere to go: Azure Data Explorer falls over to the local store *per call* rather than only at startup, so a cluster that answers at kickoff and times out at 60' no longer takes the broadcast with it; Foundry falls back to deterministic templates; and a sentence carrying a number nobody measured is rejected by the gate and replaced. `python -m gegenpress chaos` breaks each one in turn against a healthy baseline and prints what reached the viewer:
+
+```
+broken            degrades to                        claims  same numbers  failovers
+none (baseline)   —                                       6           yes          0
+adx               local store                             6           yes          2
+foundry           deterministic templates                 6           yes          0
+model             gate rejects, template replaces         6           yes          0
+```
+
+The wording degrades. **The numbers do not move.** That property is only available because every stage is deterministic — there is a correct answer to fall back *to* — and it is [pinned by 10 tests](tests/test_resilience.py), including one that checks the injected outage actually fired, so the suite cannot pass by breaking nothing.
+
+**It ships as a container.** [`Dockerfile`](Dockerfile) builds the pipeline, the gate and the MCP server on `python:3.12-slim` with no compiled dependencies and no native extensions, running as a non-root user, with the gate's own evaluation as the `HEALTHCHECK` — a container whose gate has stopped refusing unsupportable claims is not healthy, whatever its process table says. CI builds the image on a clean runner every push and runs the gate and the chaos matrix *inside it*, so this is something that happened rather than something claimed.
+
+**What production would still need**, stated here rather than left for a judge to find: authentication and multi-tenancy, of which there is none — the console is public and read-only by design; and a paid ADX tier or an Eventhouse, because the free tier refuses `streamingingestion`, so events are queryable after a minute or two rather than instantly. The architecture is right for live play. The free tier is not.
 
 The name is deliberate: *gegenpressing* is the one piece of football tactics defined by a measurement — win the ball back within about five seconds. Recovery time is a first-class metric here, and the name states the thesis.
 
@@ -61,7 +75,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 80 tests
+PYTHONPATH=src python -m pytest -q              # 90 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000

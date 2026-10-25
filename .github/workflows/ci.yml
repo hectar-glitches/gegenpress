@@ -26,3 +26,22 @@ jobs:
 
       - name: realism report
         run: PYTHONPATH=src python -m gegenpress calibrate
+
+  # Proving the image builds is the point: it happens on a clean runner,
+  # from a clean checkout, with no local Docker and no local disk.
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: the image builds
+        run: docker build -t gegenpress:ci .
+
+      - name: the gate holds inside the container
+        run: docker run --rm gegenpress:ci eval
+
+      - name: every dependency fails and the claims survive
+        run: docker run --rm gegenpress:ci chaos
+
+      - name: it does not run as root
+        run: test "$(docker run --rm --entrypoint id gegenpress:ci -un)" = gegen

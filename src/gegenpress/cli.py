@@ -318,6 +318,15 @@ def cmd_eval(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_chaos(args: argparse.Namespace) -> int:
+    """Break each dependency in turn and see what reaches the viewer."""
+    from .resilience import chaos_report, chaos_run
+    print("one dependency down at a time, against a healthy baseline\n")
+    r = chaos_run(seed=args.seed, limit=args.limit)
+    print(chaos_report(r))
+    return 0 if r.ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gegenpress")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -373,6 +382,11 @@ def main(argv: list[str] | None = None) -> int:
     doc = sub.add_parser("doctor", help="check the ADX cluster's data and functions")
     doc.add_argument("--seed", type=int, default=2026)
     doc.set_defaults(func=cmd_doctor)
+
+    ch = sub.add_parser("chaos", help="fail each dependency and check the claims survive")
+    ch.add_argument("--seed", type=int, default=2026)
+    ch.add_argument("--limit", type=int, default=6)
+    ch.set_defaults(func=cmd_chaos)
 
     ev = sub.add_parser("eval", help="gate, integrity and refusal evaluation")
     ev.add_argument("--seeds", default="2026,7,404")
