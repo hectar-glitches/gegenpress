@@ -57,15 +57,14 @@ below his own season."
 *Why this works: the differentiator and the user are both delivered before
 the viewer has been asked to understand anything. No architecture, no tour.*
 
-### 0:14–0:32 — it is a real match *(43 words)*
+### 0:14–0:32 — it is a real match *(37 words)*
 
 > *Press Play. Leave it at 1×. Say nothing for three seconds — let one
 > pass travel and settle before you speak over it.*
 
-"This is a simulated season — ten clubs, ninety matches, a hundred and
-fifty thousand events. Twenty-two players positioned by a model: the two
-nearest the ball leave their shape and go to it, so you get duels rather
-than a formation sliding about."
+"A simulated season — ten clubs, ninety matches, a hundred and fifty
+thousand events. All twenty-two players: the two nearest the ball leave
+their shape and go to it, so you get duels, not a formation sliding."
 
 > *Hit `Wide` once, hold two seconds, hit it again. Do not narrate this.*
 
@@ -91,29 +90,26 @@ is measured, not scored by another model. Three seeds, 373 claims:
 precision, integrity, refusal correctness — all 100%. The two misses are
 published as a measured zero."
 
-### 1:10–1:32 — a model tries to lie, and gets caught *(47 words)*
+### 1:10–1:32 — hand them the guardrail *(52 words)*
 
+> *Hit `Try it`. The box opens pre-filled with the lie. Press Check and
+> say nothing for a beat — let the strikethrough land before you speak.*
 
-> *Cut to a terminal running* `python3 scripts/mcp_demo.py`*, or to Claude
-> Desktop with the server connected. The terminal is the safe shot: no
-> network, no app, deterministic, three seconds. Let the rejection land on
-> screen for two beats before you speak over it.*
+"Here is the part I would do myself. Type a claim about him. I have said
+his range is 21.4 — his best of the season. Invented. The gate strikes it
+out, says nobody measured it, and prints what it will say instead. Same
+check an agent gets over MCP. Try it yourself."
 
-"The gate is also an MCP server, so any model can call it. I tell one to
-say his range is 21.4, well up on his season. Invented — so it comes back
-**rejected**, with the grounded numbers. The model says the opposite: he
-is down, not up."
+*This is the beat they will repeat to each other. Everyone else asks a
+judge to believe their guardrail works. This one lets them attack it and
+fail, in their own browser, after the video has ended.*
 
-*This is the beat that answers "agentic design". Every other entry asks a
-model to narrate football. This one is the thing a model has to ask
-permission from.*
+### 1:32–1:52 — Azure, and close *(38 words)*
 
-### 1:32–1:52 — Azure, and close *(41 words)*
-
-"Match state and grounding run as KQL on Azure Data Explorer — eleven
-functions, the gate computed again in Kusto, parity-tested against the
-Python. It caught two real bugs. Broadcast tells you a press was fast.
-Gegenpress tells you it was fast **for him**."
+"Match state and grounding run as KQL on Azure Data Explorer — the gate
+computed twice, parity-tested, which caught two real bugs. Broadcast
+tells you a press was fast. Gegenpress tells you it was fast **for
+him**."
 
 ## Rules for the recording
 

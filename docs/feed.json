@@ -182905,6 +182905,16 @@
         "ar": "30' Noor Kowalski: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 13.77 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 17.07.",
         "en-simple": "30' Noor Kowalski \u2014 how far he passes: 13.77 tonight. He normally manages about 17.07."
       },
+      "allowed": [
+        30.0,
+        13.77,
+        14.64,
+        37.42,
+        17.07,
+        -3.85,
+        18.0,
+        37
+      ],
       "metric_i18n": {
         "en": "pass range",
         "es": "alcance de pase",
@@ -182914,7 +182924,7 @@
       },
       "value": 13.77,
       "expected": 14.64,
-      "league_pct": 37.4,
+      "league_pct": 37.42,
       "season_mean": 17.07,
       "z": -3.85,
       "appearances": 18,
@@ -183048,6 +183058,16 @@
         "ar": "45' Tobias Beaumont: \u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629 16.16 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 15.64.",
         "en-simple": "45' Tobias Beaumont \u2014 how hard he strikes it: 16.16 tonight. He normally manages about 15.64."
       },
+      "allowed": [
+        45.0,
+        16.16,
+        16.69,
+        41.01,
+        15.64,
+        2.28,
+        18.0,
+        41
+      ],
       "metric_i18n": {
         "en": "ball speed",
         "es": "velocidad del bal\u00f3n",
@@ -183057,7 +183077,7 @@
       },
       "value": 16.16,
       "expected": 16.69,
-      "league_pct": 41.0,
+      "league_pct": 41.01,
       "season_mean": 15.64,
       "z": 2.28,
       "appearances": 18,
@@ -183344,6 +183364,16 @@
         "ar": "60' Tendai Varga: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 16.21 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 14.38.",
         "en-simple": "60' Tendai Varga \u2014 how far he passes: 16.21 tonight. He normally manages about 14.38."
       },
+      "allowed": [
+        60.0,
+        16.21,
+        14.64,
+        74.55,
+        14.38,
+        1.75,
+        18.0,
+        75
+      ],
       "metric_i18n": {
         "en": "pass range",
         "es": "alcance de pase",
@@ -183353,7 +183383,7 @@
       },
       "value": 16.21,
       "expected": 14.64,
-      "league_pct": 74.6,
+      "league_pct": 74.55,
       "season_mean": 14.38,
       "z": 1.75,
       "appearances": 18,
@@ -183622,6 +183652,16 @@
         "ar": "75' Jonah Esposito: \u0627\u0644\u0633\u0631\u0639\u0629 \u0627\u0644\u0642\u0635\u0648\u0649 7.69 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 8.17.",
         "en-simple": "75' Jonah Esposito \u2014 how fast he runs: 7.69 tonight. He normally manages about 8.17."
       },
+      "allowed": [
+        75.0,
+        7.69,
+        7.55,
+        58.79,
+        8.17,
+        -1.61,
+        13.0,
+        59
+      ],
       "metric_i18n": {
         "en": "top speed",
         "es": "velocidad m\u00e1xima",
@@ -183631,7 +183671,7 @@
       },
       "value": 7.69,
       "expected": 7.55,
-      "league_pct": 58.8,
+      "league_pct": 58.79,
       "season_mean": 8.17,
       "z": -1.61,
       "appearances": 13,
@@ -183711,6 +183751,16 @@
         "ar": "90' Sunil Mbeki: \u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629 7.1 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 10.52.",
         "en-simple": "90' Sunil Mbeki \u2014 how far he runs with it: 7.1 tonight. He normally manages about 10.52."
       },
+      "allowed": [
+        90.0,
+        7.1,
+        9.34,
+        16.04,
+        10.52,
+        -2.85,
+        13.0,
+        16
+      ],
       "metric_i18n": {
         "en": "carry range",
         "es": "distancia de conducci\u00f3n",
@@ -183720,7 +183770,7 @@
       },
       "value": 7.1,
       "expected": 9.34,
-      "league_pct": 16.0,
+      "league_pct": 16.04,
       "season_mean": 10.52,
       "z": -2.85,
       "appearances": 13,
@@ -183809,6 +183859,16 @@
         "ar": "30' Kwame Ferreira: \u0645\u062f\u0649 \u0627\u0644\u062a\u0645\u0631\u064a\u0631 14.01 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 18.65.",
         "en-simple": "30' Kwame Ferreira \u2014 how far he passes: 14.01 tonight. He normally manages about 18.65."
       },
+      "allowed": [
+        30.0,
+        14.01,
+        14.64,
+        41.67,
+        18.65,
+        -3.41,
+        18.0,
+        42
+      ],
       "metric_i18n": {
         "en": "pass range",
         "es": "alcance de pase",
@@ -183818,7 +183878,7 @@
       },
       "value": 14.01,
       "expected": 14.64,
-      "league_pct": 41.7,
+      "league_pct": 41.67,
       "season_mean": 18.65,
       "z": -3.41,
       "appearances": 18,
@@ -183997,6 +184057,16 @@
         "ar": "45' Marco Keller: \u0633\u0631\u0639\u0629 \u0627\u0644\u0643\u0631\u0629 18.14 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 17.58.",
         "en-simple": "45' Marco Keller \u2014 how hard he strikes it: 18.14 tonight. He normally manages about 17.58."
       },
+      "allowed": [
+        45.0,
+        18.14,
+        16.69,
+        78.89,
+        17.58,
+        2.24,
+        18.0,
+        79
+      ],
       "metric_i18n": {
         "en": "ball speed",
         "es": "velocidad del bal\u00f3n",
@@ -184006,7 +184076,7 @@
       },
       "value": 18.14,
       "expected": 16.69,
-      "league_pct": 78.9,
+      "league_pct": 78.89,
       "season_mean": 17.58,
       "z": 2.24,
       "appearances": 18,
@@ -184257,6 +184327,16 @@
         "ar": "60' Noor Kowalski: \u0645\u0633\u0627\u0641\u0629 \u062d\u0645\u0644 \u0627\u0644\u0643\u0631\u0629 4.78 \u0627\u0644\u0644\u064a\u0644\u0629\u060c \u0645\u0642\u0627\u0628\u0644 \u0645\u0639\u062f\u0644 \u0645\u0648\u0633\u0645\u064a \u0642\u062f\u0631\u0647 10.26.",
         "en-simple": "60' Noor Kowalski \u2014 how far he runs with it: 4.78 tonight. He normally manages about 10.26."
       },
+      "allowed": [
+        60.0,
+        4.78,
+        9.34,
+        2.11,
+        10.26,
+        -2.44,
+        18.0,
+        2
+      ],
       "metric_i18n": {
         "en": "carry range",
         "es": "distancia de conducci\u00f3n",
@@ -184266,7 +184346,7 @@
       },
       "value": 4.78,
       "expected": 9.34,
-      "league_pct": 2.1,
+      "league_pct": 2.11,
       "season_mean": 10.26,
       "z": -2.44,
       "appearances": 18,
@@ -184325,6 +184405,9 @@
       "fell_back": false
     }
   ],
+  "gate": {
+    "tolerance": 0.051
+  },
   "i18n": {
     "default": "en",
     "languages": [
@@ -184363,6 +184446,15 @@
     },
     "ui": {
       "en": {
+        "try_nonumbers": "NOTHING TO CHECK \u2014 the gate reads numbers, not sentences",
+        "try_btn": "Try it",
+        "try_title": "Try to make it lie",
+        "try_hint": "Write a sentence about this player. Every number in it is checked against what was measured.",
+        "try_check": "Check",
+        "try_rejected": "REJECTED",
+        "try_allowed": "ALLOWED \u2014 every number checks out",
+        "try_instead": "What it will say instead",
+        "try_unsupported": "not measured",
         "live": "LIVE",
         "form_line": "FORM LINE",
         "above": "ABOVE HIS LEVEL",
@@ -184391,6 +184483,15 @@
         "fan": "Fan"
       },
       "es": {
+        "try_nonumbers": "NADA QUE COMPROBAR \u2014 el filtro lee n\u00fameros, no frases",
+        "try_btn": "Pru\u00e9balo",
+        "try_title": "Intenta hacerle mentir",
+        "try_hint": "Escribe una frase sobre este jugador. Cada n\u00famero se comprueba contra lo medido.",
+        "try_check": "Comprobar",
+        "try_rejected": "RECHAZADO",
+        "try_allowed": "PERMITIDO \u2014 todos los n\u00fameros cuadran",
+        "try_instead": "Lo que dir\u00e1 en su lugar",
+        "try_unsupported": "no medido",
         "live": "EN VIVO",
         "form_line": "L\u00cdNEA DE FORMA",
         "above": "POR ENCIMA DE SU NIVEL",
@@ -184419,6 +184520,15 @@
         "fan": "Aficionado"
       },
       "fr": {
+        "try_nonumbers": "RIEN \u00c0 V\u00c9RIFIER \u2014 le filtre lit des chiffres, pas des phrases",
+        "try_btn": "Essayez",
+        "try_title": "Essayez de le faire mentir",
+        "try_hint": "\u00c9crivez une phrase sur ce joueur. Chaque chiffre est v\u00e9rifi\u00e9 contre ce qui a \u00e9t\u00e9 mesur\u00e9.",
+        "try_check": "V\u00e9rifier",
+        "try_rejected": "REJET\u00c9",
+        "try_allowed": "AUTORIS\u00c9 \u2014 tous les chiffres concordent",
+        "try_instead": "Ce qu'il dira \u00e0 la place",
+        "try_unsupported": "non mesur\u00e9",
         "live": "EN DIRECT",
         "form_line": "LIGNE DE FORME",
         "above": "AU-DESSUS DE SON NIVEAU",
@@ -184447,6 +184557,15 @@
         "fan": "Supporter"
       },
       "ar": {
+        "try_nonumbers": "\u0644\u0627 \u0634\u064a\u0621 \u0644\u0644\u062a\u062d\u0642\u0642 \u0645\u0646\u0647 \u2014 \u0627\u0644\u0628\u0648\u0627\u0628\u0629 \u062a\u0642\u0631\u0623 \u0627\u0644\u0623\u0631\u0642\u0627\u0645 \u0644\u0627 \u0627\u0644\u062c\u0645\u0644",
+        "try_btn": "\u062c\u0631\u0651\u0628",
+        "try_title": "\u062d\u0627\u0648\u0644 \u0623\u0646 \u062a\u062c\u0639\u0644\u0647 \u064a\u0643\u0630\u0628",
+        "try_hint": "\u0627\u0643\u062a\u0628 \u062c\u0645\u0644\u0629 \u0639\u0646 \u0647\u0630\u0627 \u0627\u0644\u0644\u0627\u0639\u0628. \u0643\u0644 \u0631\u0642\u0645 \u0641\u064a\u0647\u0627 \u064a\u064f\u0642\u0627\u0631\u0646 \u0628\u0645\u0627 \u062a\u0645 \u0642\u064a\u0627\u0633\u0647.",
+        "try_check": "\u062a\u062d\u0642\u0642",
+        "try_rejected": "\u0645\u0631\u0641\u0648\u0636",
+        "try_allowed": "\u0645\u0642\u0628\u0648\u0644 \u2014 \u0643\u0644 \u0627\u0644\u0623\u0631\u0642\u0627\u0645 \u0635\u062d\u064a\u062d\u0629",
+        "try_instead": "\u0645\u0627 \u0633\u064a\u0642\u0648\u0644\u0647 \u0628\u062f\u0644\u0627\u064b \u0645\u0646 \u0630\u0644\u0643",
+        "try_unsupported": "\u063a\u064a\u0631 \u0645\u0642\u0627\u0633",
         "live": "\u0645\u0628\u0627\u0634\u0631",
         "form_line": "\u062e\u0637 \u0627\u0644\u0645\u0633\u062a\u0648\u0649",
         "above": "\u0641\u0648\u0642 \u0645\u0633\u062a\u0648\u0627\u0647 \u0627\u0644\u0645\u0639\u062a\u0627\u062f",
@@ -184475,6 +184594,15 @@
         "fan": "\u0645\u0634\u062c\u0639"
       },
       "en-simple": {
+        "try_nonumbers": "NOTHING TO CHECK \u2014 it only checks numbers",
+        "try_btn": "Try it",
+        "try_title": "Try to make it lie",
+        "try_hint": "Write a sentence about this player. Every number gets checked against what was actually measured.",
+        "try_check": "Check",
+        "try_rejected": "NO \u2014 IT WON'T SAY THAT",
+        "try_allowed": "FINE \u2014 every number is real",
+        "try_instead": "What it will say instead",
+        "try_unsupported": "nobody measured this",
         "live": "LIVE",
         "form_line": "HOW HE'S DOING",
         "above": "BETTER THAN USUAL FOR HIM",

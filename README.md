@@ -13,8 +13,17 @@ Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
 | **Category** | **Best Enterprise Solution** |
 | **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, the ICC gate computed again in Kusto, Python/KQL parity test green. |
 | **Agentic surface** | Four roles — Scout, Why, Desk, Gate — passing one closed `Brief` as shared state, with Desk on Microsoft Agent Framework and Gate recovering to templates when verification fails. Also an MCP server: 8 tools, 2 resources, 1 prompt contract, and `verify_claim` checks a sentence *before* a model says it. |
+| **Try it yourself** | A box in the console: write a claim, watch the gate refuse it. The same gate, run in the page against the numbers the brief shipped. |
 | **Reach** | English, Spanish, French and Arabic — RTL and all — plus a plain-English register for someone who has never watched a match. Every claim in every language passes the same gate. |
 | **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League match data is used. |
+
+### Try to make it lie
+
+The console has a text box. Type a sentence about the player on screen — *"his pass range is 21.4 tonight, the best of his season"* — and press Check. The console strikes `21.4` through, marks it **not measured**, and prints the sentence it will say instead: *pass range 13.77 tonight, against a season norm of 17.07*.
+
+Every other system in this field asks you to believe its guardrail works. This one hands you the guardrail and invites you to beat it.
+
+It is the same gate, not a demo of one. The numbers a claim may contain ship with each moment straight from the `Brief` the Python gate reads, the tolerance ships with the feed, and the page only finds digits and compares — so there is no second rule to drift. [Two tests run the page's own `gateMarks()` in Node against `Gate.unsupported()` in Python](tests/test_browser_gate.py) across every moment and insist they reach the same verdict, the same way the KQL is held to the Python. A sentence with no numbers in it is told *nothing to check — the gate reads numbers, not sentences*, because claiming otherwise would be the one dishonest thing on the page.
 
 ### The one thing nothing else here does
 
@@ -75,7 +84,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 90 tests
+PYTHONPATH=src python -m pytest -q              # 95 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000

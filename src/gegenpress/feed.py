@@ -14,7 +14,7 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .agents import Gate, Segment, run_desk
+from .agents import TOLERANCE, Gate, Segment, run_desk
 from .form import METRIC_LABELS, NOTABLE_Z
 from .i18n import (DIRECTION, LANGUAGES, LANGUAGE_CODES, form_claim,
                    metric_label, moment_text)
@@ -233,12 +233,21 @@ def build_feed(
             "metric": b.metric_label,
             "text": seg.verdict.text,
             "text_i18n": _translate_moment(seg, _GATE),
+            # Every number this claim is allowed to contain, straight from
+            # the brief the Gate checks against. Shipped so the console can
+            # run the same check in front of a viewer without a server and
+            # without a second definition of the rule.
+            "allowed": [round(v, 4) for v in b.allowed_numbers()],
             "metric_i18n": {
                 c: metric_label(seg.form_metric or "", c) for c in LANGUAGE_CODES
             } if seg.form_metric else None,
             "value": b.value,
             "expected": b.expected,
-            "league_pct": round(b.beats_pct, 1),
+            # Full precision rather than one decimal: the console rounds
+            # for display anyway, and `allowed` below is derived from this
+            # number, so truncating here would make the published answer
+            # key disagree with the gate that produced it.
+            "league_pct": round(b.beats_pct, 4),
             "season_mean": b.season_mean,
             "z": b.z,
             "appearances": b.appearances,
@@ -292,6 +301,10 @@ def build_feed(
         # Everything the console needs to re-render in another language
         # without another request. The claims themselves travel with each
         # moment; this is the chrome around them.
+        # The Gate's one tuning constant, published rather than duplicated.
+        # The browser compares with this; so does Python. A test pins them
+        # together, because two copies of a threshold is one too many.
+        "gate": {"tolerance": TOLERANCE},
         "i18n": {
             "default": "en",
             "languages": [

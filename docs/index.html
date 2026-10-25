@@ -236,6 +236,23 @@
     border-right:1px solid var(--rule);padding:18px 22px;
     transform:translateY(101%);transition:transform .4s var(--ease)}
   .sheet.up{transform:none}
+  .sheet.try{z-index:5}
+  .sheet .hint{font-size:11.5px;color:var(--soft);margin:6px 0 12px;max-width:52ch}
+  .tryrow{display:flex;gap:8px}
+  #tryIn{flex:1;background:var(--ink2);border:1px solid var(--rule);color:var(--fg);
+    font:13.5px/1.4 var(--f);padding:9px 11px;border-radius:2px;outline:none}
+  #tryIn:focus{border-color:var(--data)}
+  #tryOut{margin-top:13px;font-size:13.5px;line-height:1.6;min-height:22px}
+  /* A struck-through number is the whole argument in one glyph. */
+  #tryOut .bad{color:var(--down);text-decoration:line-through;
+    font-variation-settings:'wght' 700;background:rgba(255,77,109,.13);padding:0 3px}
+  #tryOut .ok{color:var(--up);font-variation-settings:'wght' 700}
+  #tryOut .verdict{margin-top:11px;font:10px/1 var(--f);letter-spacing:.11em;
+    text-transform:uppercase;font-variation-settings:'wght' 700,'wdth' 78}
+  #tryOut .verdict{color:var(--dim)}
+  #tryOut .verdict.no{color:var(--down)} #tryOut .verdict.yes{color:var(--up)}
+  #tryOut .instead{margin-top:9px;font-size:12.5px;color:var(--soft)}
+  #tryOut .instead b{color:var(--fg);font-variation-settings:'wght' 600}
   .sheet h3{font:9.5px/1 var(--f);font-variation-settings:'wght' 700,'wdth' 74;
     text-transform:uppercase;letter-spacing:.11em;color:var(--dim);margin-bottom:13px}
   .step{display:flex;gap:12px;align-items:flex-start;font-size:13px;margin-bottom:8px}
@@ -294,6 +311,20 @@
 
     <div class="sheet" id="sheet"></div>
 
+    <!-- The showpiece. Every other entry asks you to believe its
+         guardrail works; this hands you the guardrail and invites you to
+         beat it. The check runs here, in the page, against the numbers
+         the brief shipped -- no server, no round trip, same rule. -->
+    <div class="sheet try" id="tryit">
+      <h3 id="tryTitle">Try to make it lie</h3>
+      <p class="hint" id="tryHint"></p>
+      <div class="tryrow">
+        <input id="tryIn" type="text" spellcheck="false" autocomplete="off">
+        <button class="btn p" id="tryGo">Check</button>
+      </div>
+      <div id="tryOut"></div>
+    </div>
+
     <div class="rail" id="rail">
       <section class="card grow"><h2 id="hMoments">Moments</h2><div id="timeline"></div></section>
       <section class="card"><h2 id="hFollow">Follow — lift over own norm</h2><div id="follow"></div></section>
@@ -304,6 +335,7 @@
   <div class="bar">
     <button class="btn p" id="play">▶ Play</button>
     <button class="btn" id="why">Why</button>
+    <button class="btn" id="try">Try it</button>
     <button class="btn" id="spd">1&times;</button>
     <button class="btn" id="wide" aria-pressed="false">Wide</button>
     <button class="btn" id="snd" aria-pressed="false">Sound</button>
@@ -1431,6 +1463,7 @@ function showMoment(i) {
   $('#sheet').innerHTML = `<h3>Why</h3>` +
     chain.map(([k, v]) => `<div class="step"><b>${k}</b><span>${v}</span></div>`).join('');
 
+  if ($('#tryit').classList.contains('up')) openTry(true);
   document.querySelectorAll('.row').forEach((r, j) => {
     r.setAttribute('aria-current', j === i);
     if (j === i) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -1562,6 +1595,7 @@ function setLang(code) {
   $('#hFollow').textContent = T('follow');
   $('#hSignal').textContent = T('signal');
   $('#why').textContent = T('why');
+  $('#try').textContent = T('try_btn');
   $('#wide').textContent = T('wide');
   $('#snd').textContent = T('sound');
   $('#mAnalyst').textContent = T('analyst');
@@ -1571,6 +1605,66 @@ function setLang(code) {
   renderRail();
   if (FOLLOW && FOLLOW.metric) showFollow();
   else if (idx >= 0) showMoment(idx);
+}
+
+/* The Gate, in the browser.
+
+   Deliberately not a reimplementation: the numbers a claim is allowed to
+   contain ship with the moment, straight from the same Brief the Python
+   Gate checks against, and the tolerance comes from the feed too. All
+   this does is find digits and compare -- which is all the Gate does,
+   and why one rule can cover a server, an MCP tool and a text box. */
+const escapeHtml = s => s.replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function gateMarks(text, allowed, tol) {
+  return (text.match(/-?\d+(?:\.\d+)?/g) || []).map(tok => ({
+    tok, ok: allowed.some(a => Math.abs(parseFloat(tok) - a) <= tol),
+  }));
+}
+
+function runTry() {
+  const m = FEED.moments[idx];
+  const out = $('#tryOut');
+  if (!m || !m.allowed) { out.textContent = ''; return; }
+  const raw = $('#tryIn').value;
+  const tol = (FEED.gate && FEED.gate.tolerance) || 0.051;
+  const marks = gateMarks(raw, m.allowed, tol);
+  let k = 0;
+  const shown = escapeHtml(raw).replace(/-?\d+(?:\.\d+)?/g, tok => {
+    const mk = marks[k++];
+    return `<span class="${mk && mk.ok ? 'ok' : 'bad'}">${tok}</span>`;
+  });
+  const bad = marks.filter(x => !x.ok).map(x => x.tok);
+  // Saying "every number checks out" about a sentence with no numbers in
+  // it would be the one dishonest thing on this page. It is also the
+  // documented hole, so the panel names it rather than hiding it.
+  if (!marks.length) {
+    out.innerHTML = `<div>${shown}</div>` +
+      `<div class="verdict">${T('try_nonumbers')}</div>`;
+    return;
+  }
+  out.innerHTML = `<div>${shown}</div>` + (bad.length
+    ? `<div class="verdict no">${T('try_rejected')} · ${bad.join(', ')} — ${T('try_unsupported')}</div>
+       <div class="instead">${T('try_instead')}: <b>${TX(m, 'text')}</b></div>`
+    : `<div class="verdict yes">${T('try_allowed')}</div>`);
+}
+
+function openTry(on) {
+  const m = FEED.moments[idx];
+  $('#tryit').classList.toggle('up', on && !!m);
+  $('#try').setAttribute('aria-pressed', !!on);
+  if (!on || !m) return;
+  $('#tryTitle').textContent = T('try_title');
+  $('#tryHint').textContent = T('try_hint');
+  $('#tryGo').textContent = T('try_check');
+  // Pre-loaded with the lie from the MCP demo, so the two
+  // demonstrations tell one story and a judge need only press a key.
+  $('#tryIn').value =
+    `${m.player}'s ${TX(m, 'metric')} is 21.4 tonight, the best of his season.`;
+  $('#tryOut').innerHTML = '';
+  $('#tryIn').focus();
+  $('#tryIn').select();
 }
 
 function setMode(next) {
@@ -1630,6 +1724,12 @@ fetch('feed.json').then(r => r.json()).then(d => {
   sel.innerHTML = (d.i18n?.languages ?? [{code: 'en', name: 'English'}])
     .map(l => `<option value="${l.code}">${l.name}</option>`).join('');
   sel.onchange = () => setLang(sel.value);
+  $('#try').onclick = () => openTry(!$('#tryit').classList.contains('up'));
+  $('#tryGo').onclick = runTry;
+  $('#tryIn').onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); runTry(); }
+    e.stopPropagation();   // Space must type, not toggle playback
+  };
   $('#mAnalyst').onclick = () => setMode('analyst');
   $('#mFan').onclick = () => setMode('fan');
   $('#track').onclick = e => {
