@@ -1445,19 +1445,31 @@ function showMoment(i) {
       <div class="s meta">${m.season_mean != null ? m.appearances + ' ' + T('matches') : '—'}</div></div>`;
   lo.classList.add('up');
 
-  const chain = [
-    ['Measured', `<code>${m.metric} = ${m.value}</code> as of ${m.minute}'`],
-    ['League', `norm <code>${m.expected}</code>, beats <code>${Math.round(m.league_pct)}%</code>`],
-  ];
+  /* Ordered by what is actually in dispute.
+
+     Nobody doubts that 13.77 is 13.77 -- in sport the figures are
+     expected to be right, and a receipt proving one equals itself
+     impresses nobody. What is in dispute is the sentence built on it:
+     whether "below his level" is a claim anyone is entitled to make
+     about this player, on this metric. So the reference class and the
+     gate's verdict lead, and the measurement is the footnote it is. */
+  const chain = [];
   if (m.season_mean != null) {
-    chain.push(['His season', `norm <code>${m.season_mean}</code> over <code>${m.appearances}</code> matches · <code>${m.z > 0 ? '+' : ''}${m.z} SD</code>`]);
-    chain.push(['Why', m.diverges
+    chain.push(['His own season', `norm <code>${m.season_mean}</code> over <code>${m.appearances}</code> matches · <code>${m.z > 0 ? '+' : ''}${m.z} SD</code>`]);
+    chain.push(['Verdict', m.diverges
       ? (m.above ? 'Ordinary against the league, clearly above his own level.'
                  : 'Ordinary against the league, well below his own level — only his history shows it.')
       : (m.above ? "Above his level and the league's." : 'Below his own level.')]);
   } else {
     chain.push(['Refused', 'No personal claim: this metric has no between-player signal.']);
   }
+  if (m.icc != null) {
+    chain.push(['Entitled to say it', m.personal
+      ? `ICC <code>${m.icc}</code> ≥ 0.08 — his own history means something for this metric`
+      : `ICC <code>${m.icc}</code> &lt; 0.08 — league claims only; his norm would be the league's wearing his name`]);
+  }
+  chain.push(['The league sees', `norm <code>${m.expected}</code>, beaten <code>${Math.round(m.league_pct)}%</code> — the view a broadcast already has`]);
+  chain.push(['Measured', `<code>${TX(m, 'metric')} = ${m.value}</code> as of ${m.minute}' · recomputed from the events`]);
   chain.push(['Gate', m.grounded
     ? `every number verified · <code>${m.model}</code>` : 'fell back to template']);
   $('#sheet').innerHTML = `<h3>Why</h3>` +

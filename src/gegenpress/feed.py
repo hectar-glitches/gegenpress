@@ -238,6 +238,14 @@ def build_feed(
             # run the same check in front of a viewer without a server and
             # without a second definition of the rule.
             "allowed": [round(v, 4) for v in b.allowed_numbers()],
+            # Why this metric may carry a personal claim at all. The
+            # measured value is table stakes -- nobody disputes that
+            # 13.77 is 13.77. Whether "below his level" is a sentence
+            # anyone is entitled to say is the part that needs showing.
+            "icc": (round(signals[seg.form_metric].icc, 4)
+                    if seg.form_metric in signals else None),
+            "personal": (signals[seg.form_metric].personal_claim_allowed
+                         if seg.form_metric in signals else None),
             "metric_i18n": {
                 c: metric_label(seg.form_metric or "", c) for c in LANGUAGE_CODES
             } if seg.form_metric else None,

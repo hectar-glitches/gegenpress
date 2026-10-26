@@ -182915,6 +182915,8 @@
         18.0,
         37
       ],
+      "icc": 0.1117,
+      "personal": true,
       "metric_i18n": {
         "en": "pass range",
         "es": "alcance de pase",
@@ -183068,6 +183070,8 @@
         18.0,
         41
       ],
+      "icc": 0.4515,
+      "personal": true,
       "metric_i18n": {
         "en": "ball speed",
         "es": "velocidad del bal\u00f3n",
@@ -183374,6 +183378,8 @@
         18.0,
         75
       ],
+      "icc": 0.1117,
+      "personal": true,
       "metric_i18n": {
         "en": "pass range",
         "es": "alcance de pase",
@@ -183662,6 +183668,8 @@
         13.0,
         59
       ],
+      "icc": 0.5772,
+      "personal": true,
       "metric_i18n": {
         "en": "top speed",
         "es": "velocidad m\u00e1xima",
@@ -183761,6 +183769,8 @@
         13.0,
         16
       ],
+      "icc": 0.0974,
+      "personal": true,
       "metric_i18n": {
         "en": "carry range",
         "es": "distancia de conducci\u00f3n",
@@ -183869,6 +183879,8 @@
         18.0,
         42
       ],
+      "icc": 0.1117,
+      "personal": true,
       "metric_i18n": {
         "en": "pass range",
         "es": "alcance de pase",
@@ -184067,6 +184079,8 @@
         18.0,
         79
       ],
+      "icc": 0.4515,
+      "personal": true,
       "metric_i18n": {
         "en": "ball speed",
         "es": "velocidad del bal\u00f3n",
@@ -184337,6 +184351,8 @@
         18.0,
         2
       ],
+      "icc": 0.0974,
+      "personal": true,
       "metric_i18n": {
         "en": "carry range",
         "es": "distancia de conducci\u00f3n",
