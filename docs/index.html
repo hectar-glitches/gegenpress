@@ -414,6 +414,59 @@ let FOLLOW_CP = null;
 // goal (the scorer is named). Fed from the clock each frame; a seek
 // clears them rather than replaying a half's worth in one frame.
 let CLOCK_PREV = -1, POPS = [], GOAL = null;
+
+/* ================== every player, live ==================
+   What each man has done by now, read from the same stream the scoreboard
+   reads, on the ball's own timeline. Built once at load. */
+let PIDX = {}, PEV = {}, PDIST = {}, FLASH = {};
+function buildPlayers() {
+  PIDX = {}; PEV = {}; PDIST = {};
+  for (const side of ['home', 'away'])
+    (FEED.lineups?.[side] || []).forEach((m, p) => {
+      PIDX[m.id] = { side, p };
+      PEV[`${side}${p}`] = [];
+    });
+  for (const e of FEED.stream || []) {
+    const w = PIDX[e.p];
+    if (w && (e.k === 'pa' || e.k === 're' || e.k === 'sh'))
+      PEV[`${w.side}${w.p}`].push({ k: e.k, t: e.tb ?? e.t });
+  }
+  // Distance covered: the path his figure actually runs, summed frame to
+  // frame. The same positions the viewer is watching -- so when he moves,
+  // the number moves, and by exactly as much as he did.
+  const F = FEED.frames;
+  for (const side of ['home', 'away']) {
+    const arr = side === 'home' ? F.h : F.a;
+    for (let p = 0; p < 11; p++) {
+      const c = new Float32Array(F.n);
+      for (let i = 1; i < F.n; i++)
+        c[i] = c[i - 1] + Math.hypot(arr[i * 22 + p * 2] - arr[(i - 1) * 22 + p * 2],
+                                     arr[i * 22 + p * 2 + 1] - arr[(i - 1) * 22 + p * 2 + 1]);
+      PDIST[`${side}${p}`] = c;
+    }
+  }
+}
+function metresRun(side, p, t) {
+  const c = PDIST[`${side}${p}`], F = FEED.frames;
+  if (!c) return 0;
+  const k = Math.max(0, Math.min(F.n - 1, (t - F.t0) / F.dt)), i = Math.floor(k);
+  return i >= F.n - 1 ? c[F.n - 1] : c[i] + (c[i + 1] - c[i]) * (k - i);
+}
+function statsAt(side, p, t) {
+  const o = { pa: 0, re: 0, sh: 0 };
+  for (const e of PEV[`${side}${p}`] || []) { if (e.t > t) break; o[e.k]++; }
+  return o;
+}
+// Does the picture have him on the ball for this touch? The positions are
+// a model that sends the named man to his touch ahead of time; nine in ten
+// he gets there. On the tenth, a figure rising off whoever is nearest
+// would credit the wrong man, so it does not rise at all -- the count
+// still ticks, because the count comes from the log, not the picture.
+function onTheBall(side, p, ex, ey, t) {
+  const away = side === 'away', arr = side === 'home' ? FEED.frames.h : FEED.frames.a;
+  const [x, y] = at(arr, 22, p * 2, t);
+  return Math.hypot(x - EX(ex, away), y - EY(ey, away)) <= 4.5 ? [x, y] : null;
+}
 function followCheckpoint() {
   const at = FEED.follow_at; if (!at) return null;
   const mn = minuteNow();
@@ -1176,14 +1229,18 @@ function drawFollow() {
     }
   }
   const lw = liveTxt ? g.measureText(liveTxt).width + 14 : 0;
+  // And how far he has run, off his own figure: the one number on the tag
+  // that moves whenever he does.
+  const kmTxt = `${(metresRun(who.side, who.p, clock) / 1000).toFixed(2)} ${T('st_km')}`;
+  const kw = g.measureText(kmTxt).width + 14;
   const vr0 = VW - (document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0);
-  const cxT = Math.max((nw + sw + lw) / 2 + 8, Math.min(vr0 - (nw + sw + lw) / 2 - 8, foot[0]));
-  const x0 = cxT - (nw + sw + lw) / 2;
+  const cxT = Math.max((nw + sw + lw + kw) / 2 + 8, Math.min(vr0 - (nw + sw + lw + kw) / 2 - 8, foot[0]));
+  const x0 = cxT - (nw + sw + lw + kw) / 2;
   // Name on the chrome's ink, the figure on the verdict colour: the same
   // two-tone the strap uses, so the tag and the strap read as one graphic.
   // Padded well past the tag itself: two tags that touch read as one
   // stacked label, which is no better than two that overlap.
-  SUBJ_TAG = { x: x0 - 14, y: ty - 26, w: nw + sw + lw + 28, h: 53 };
+  SUBJ_TAG = { x: x0 - 14, y: ty - 26, w: nw + sw + lw + kw + 28, h: 53 };
   g.restore();
   // The ring lives on the grass, under the players' feet. The tag is a
   // broadcast graphic and sits over everyone -- a name half-hidden by a
@@ -1205,6 +1262,8 @@ function drawFollow() {
       g.fillStyle = '#2A0733'; g.fillRect(x0 + nw + sw, ty - 10, lw, 21);
       g.fillStyle = '#fff'; g.fillText(liveTxt, x0 + nw + sw + lw / 2, ty + .5);
     }
+    g.fillStyle = '#140219'; g.fillRect(x0 + nw + sw + lw, ty - 10, kw, 21);
+    g.fillStyle = 'rgba(255,255,255,.78)'; g.fillText(kmTxt, x0 + nw + sw + lw + kw / 2, ty + .5);
     g.restore();
   });
 }
@@ -1212,32 +1271,72 @@ function drawFollow() {
 /* Pops: the figure of a touch that just landed, rising from where the
    ball was played. Drawn after the people, because a figure that rises
    from behind the passer is a figure the viewer never sees. */
-let OVERLAY = [];
+let OVERLAY = [], CARRIER_TAG = null;
+function drawGoal() {
+  if (!GOAL) return;
+  const g = ctx, age = clock - GOAL.t;
+  if (age < 0 || age > 4) return;
+  let x = GOAL.x, y = GOAL.y, man = null;
+  if (GOAL.p != null) {
+    [x, y] = at(GOAL.side === 'home' ? FEED.frames.h : FEED.frames.a, 22, GOAL.p * 2, clock);
+    man = FEED.lineups[GOAL.side][GOAL.p];
+  }
+  const k = Math.min(1, age / .6);
+  const foot = P(x, y, 0), h = foot[1] - P(x, y, 1.84)[1];
+  g.save();
+  g.strokeStyle = `rgba(0,255,133,${.9 * (1 - Math.min(1, age / 4))})`;
+  g.lineWidth = Math.max(2, .2 * mpp(y));
+  poly(g, ring(x, y, 1.4 + 2.2 * k, 0, Math.PI * 2, 32), true); g.stroke();
+  const lbl = man ? `${T('goal')}  ·  ${man.n} ${man.last.toUpperCase()}` : `${T('goal')}  ·  ${GOAL.club}`;
+  g.font = `800 ${Math.max(12, Math.min(16, h * .34))}px "Archivo Variable",system-ui,sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const tw2 = g.measureText(lbl).width + 20;
+  let ty2 = foot[1] - h - 36;
+  // Over every other tag on him, never under one.
+  for (const r of [SUBJ_TAG, CARRIER_TAG])
+    if (r && foot[0] + tw2 / 2 > r.x && foot[0] - tw2 / 2 < r.x + r.w && ty2 + 13 > r.y && ty2 - 13 < r.y + r.h)
+      ty2 = Math.min(ty2, r.y - 4);
+  // A goal is often scored at the edge of the frame. The tag slides
+  // inward rather than being cut: it may sit beside him, never off him.
+  const vr = VW - (document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0);
+  const tx2 = Math.max(tw2 / 2 + 8, Math.min(vr - tw2 / 2 - 8, foot[0]));
+  g.fillStyle = '#00FF85'; g.fillRect(tx2 - tw2 / 2, ty2 - 12, tw2, 25);
+  g.fillStyle = '#0B0010'; g.fillText(lbl, tx2, ty2 + .5);
+  g.restore();
+}
+
 function drawOverlay() {
   for (const fn of OVERLAY) fn();
   OVERLAY = [];
+  drawGoal();
   if (!POPS.length) return;
   const g = ctx, who = SUBJ;
   g.save();
   g.font = '800 14px "Archivo Variable",system-ui,sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const pp of POPS) {
-    const age = clock - pp.t, life = 1.8;
+    const life = pp.big ? 1.8 : 1.4, age = clock - pp.t;
     if (age < 0 || age > life) continue;
     const k = age / life, ease = 1 - Math.pow(1 - k, 2);
     // Starts above the head of whoever stood there, not at his feet --
-    // and above the subject's tag when it is his touch, so the figure
-    // rises from the tag instead of through it.
+    // and above any tag over him, so the figure rises from the tag
+    // instead of through it.
     const [px] = P(pp.x, pp.y, 0);
-    const headY = P(pp.x, pp.y, 1.84)[1];
-    let base = headY - 14;
-    if (SUBJ_TAG && px > SUBJ_TAG.x && px < SUBJ_TAG.x + SUBJ_TAG.w && base > SUBJ_TAG.y - 6 && base < SUBJ_TAG.y + SUBJ_TAG.h + 20)
-      base = SUBJ_TAG.y - 4;
-    g.globalAlpha = (1 - k) * (who && who.rgb === pp.rgb ? 1 : .6);
-    g.font = `800 ${14 + 6 * (1 - ease)}px "Archivo Variable",system-ui,sans-serif`;
-    const w = g.measureText(pp.text).width + 14;
-    const yy = base - 30 * ease;
-    g.fillStyle = `rgba(${pp.rgb},.95)`; g.fillRect(px - w / 2, yy - 11, w, 22);
+    let base = P(pp.x, pp.y, 1.84)[1] - 14;
+    for (const r of [SUBJ_TAG, CARRIER_TAG]) {
+      if (r && px > r.x && px < r.x + r.w && base > r.y - 6 && base < r.y + r.h + 20)
+        base = Math.min(base, r.y - 4);
+    }
+    // The subject's figures are the story and get the full graphic; every
+    // other man's are small and quick, so twenty-two players touching the
+    // ball reads as a match and not as a slot machine.
+    const fs = pp.big ? 14 + 6 * (1 - ease) : 11 + 2 * (1 - ease);
+    g.globalAlpha = (1 - k) * (pp.big ? 1 : .85);
+    g.font = `${pp.big ? 800 : 700} ${fs}px "Archivo Variable",system-ui,sans-serif`;
+    const w = g.measureText(pp.text).width + (pp.big ? 14 : 10);
+    const hh = pp.big ? 22 : 17;
+    const yy = base - (pp.big ? 30 : 20) * ease;
+    g.fillStyle = `rgba(${pp.rgb},.95)`; g.fillRect(px - w / 2, yy - hh / 2, w, hh);
     g.fillStyle = '#0B0010'; g.fillText(pp.text, px, yy + .5);
   }
   g.restore();
@@ -1368,6 +1467,7 @@ function figure(g, h, kit, ph, front, profile, num, lean, gait) {
 }
 
 function drawPeople() {
+  CARRIER_TAG = null;
   const F = FEED.frames;
   if (!F || !F.n) return;
   const g = ctx;
@@ -1509,44 +1609,53 @@ function drawPeople() {
     // broadcast would, only once he has it. A tag that follows the
     // nearest man to a ball in flight hops across everyone it overtakes.
     // A goal names its scorer, over everything else, for four seconds.
-    if (GOAL && r.man && r.side === GOAL.side && r.p === GOAL.p) {
-      const age = clock - GOAL.t, k = Math.min(1, age / .6);
-      g.save();
-      g.strokeStyle = `rgba(0,255,133,${.9 * (1 - Math.min(1, age / 4))})`;
-      g.lineWidth = Math.max(2, .2 * mpp(r.y));
-      poly(g, ring(r.x, r.y, 1.4 + 2.2 * k, 0, Math.PI * 2, 32), true); g.stroke();
-      const lbl = `${T('goal')}  ·  ${r.man.n} ${r.man.last.toUpperCase()}`;
-      g.font = `800 ${Math.max(12, Math.min(16, h * .34))}px "Archivo Variable",system-ui,sans-serif`;
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      const tw2 = g.measureText(lbl).width + 20, ty2 = foot[1] - h - 36;
-      // A goal is often scored at the edge of the frame. The tag slides
-      // inward rather than being cut: it may sit beside him, never off him.
-      const vr = VW - (document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0);
-      const tx2 = Math.max(tw2 / 2 + 8, Math.min(vr - tw2 / 2 - 8, foot[0]));
-      g.fillStyle = '#00FF85'; g.fillRect(tx2 - tw2 / 2, ty2 - 12, tw2, 25);
-      g.fillStyle = '#0B0010'; g.fillText(lbl, tx2, ty2 + .5);
-      g.restore();
-      continue;
-    }
     const subj = SUBJ && r.side === SUBJ.side && r.p === SUBJ.p;
     if (!subj && LABEL && r.side === LABEL.side && r.p === LABEL.p && r.man) {
+      // Name, then what he has done tonight. The middle chip is whichever
+      // count his last touch moved -- a pass ticks his passes, winning it
+      // back ticks that -- and it lights in his kit for the second it
+      // changes. The last chip is distance, off his own figure's path, so
+      // it is running while he is.
+      const key = `${r.side}${r.p}`, fl = FLASH[key];
+      const kind = fl ? fl.k : 'pa';
+      const n = statsAt(r.side, r.p, clock)[kind];
+      const word = { pa: T('st_passes'), re: T('st_won'), sh: T('st_shots') }[kind];
       const label = `${r.man.n}  ${r.man.last.toUpperCase()}`;
-      g.font = `700 ${Math.max(11, Math.min(14, h * .3))}px "Archivo Variable",system-ui,sans-serif`;
-      const tw = g.measureText(label).width + 16;
+      const stat = `${n} ${word}`;
+      const km = `${(metresRun(r.side, r.p, clock) / 1000).toFixed(2)} ${T('st_km')}`;
+      const fs = Math.max(11, Math.min(14, h * .3));
+      g.font = `700 ${fs}px "Archivo Variable",system-ui,sans-serif`;
+      const nw = g.measureText(label).width + 16;
+      g.font = `600 ${fs - 1}px "Archivo Variable",system-ui,sans-serif`;
+      const sw = g.measureText(stat).width + 12, kw = g.measureText(km).width + 12;
+      const tw = nw + sw + kw;
       const ty = foot[1] - h - 14;
+      const vr = VW - (document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0);
+      const x0 = Math.max(8, Math.min(vr - tw - 8, foot[0] - tw / 2));
       // Two tags on one patch of grass is one tag too many. The subject's
       // was placed first and matters more; this one yields, and his thin
       // team ring still says who has the ball.
-      if (SUBJ_TAG && foot[0] + tw / 2 > SUBJ_TAG.x && foot[0] - tw / 2 < SUBJ_TAG.x + SUBJ_TAG.w
+      if (SUBJ_TAG && x0 + tw > SUBJ_TAG.x && x0 < SUBJ_TAG.x + SUBJ_TAG.w
           && ty + 11 > SUBJ_TAG.y && ty - 10 < SUBJ_TAG.y + SUBJ_TAG.h) continue;
+      CARRIER_TAG = { x: x0 - 6, y: ty - 14, w: tw + 12, h: 30 };
+      const kit = r.side === 'home' ? '#5aa9ff' : '#ecA322';
+      const hot = fl && clock - fl.t >= 0 && clock - fl.t < .9;
       // Hard-edged, opaque, with a kit-coloured leading rule: the same
-      // language as the chrome, not a rounded tooltip.
-      g.fillStyle = '#1C0423';
-      g.fillRect(foot[0] - tw / 2, ty - 10, tw, 21);
-      g.fillStyle = r.side === 'home' ? '#5aa9ff' : '#ecA322';
-      g.fillRect(foot[0] - tw / 2, ty - 10, 3, 21);
-      g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(label, foot[0] + 1.5, ty + .5);
+      // language as the chrome, not a rounded tooltip. Painted in the
+      // overlay pass so nobody standing in front of him hides it.
+      OVERLAY.push(() => {
+        g.save(); g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillStyle = '#1C0423'; g.fillRect(x0, ty - 10, nw, 21);
+        g.fillStyle = kit; g.fillRect(x0, ty - 10, 3, 21);
+        g.font = `700 ${fs}px "Archivo Variable",system-ui,sans-serif`;
+        g.fillStyle = '#fff'; g.fillText(label, x0 + 1.5 + nw / 2, ty + .5);
+        g.font = `600 ${fs - 1}px "Archivo Variable",system-ui,sans-serif`;
+        g.fillStyle = hot ? kit : '#2A0733'; g.fillRect(x0 + nw, ty - 10, sw, 21);
+        g.fillStyle = hot ? '#0B0010' : '#fff'; g.fillText(stat, x0 + nw + sw / 2, ty + .5);
+        g.fillStyle = '#140219'; g.fillRect(x0 + nw + sw, ty - 10, kw, 21);
+        g.fillStyle = 'rgba(255,255,255,.78)'; g.fillText(km, x0 + nw + sw + kw / 2, ty + .5);
+        g.restore();
+      });
     }
   }
 }
@@ -1667,36 +1776,55 @@ function frame(now) {
   // Instants. On a seek, start fresh rather than replaying the gap.
   if (CLOCK_PREV < 0 || Math.abs(clock - CLOCK_PREV) > 5) { POPS = []; GOAL = null; }
   else if (clock > CLOCK_PREV) {
+    const subjTb = new Set();
     if (SUBJ && SUBJ.touches) {
       for (const e of SUBJ.touches) {
-        if (e.t > CLOCK_PREV && e.t <= clock) {
+        const tb = e.tb ?? e.t;
+        if (tb > CLOCK_PREV && tb <= clock) {
+          subjTb.add(tb);
           // From the passer: his tag is there, and the far end of a thirty
           // metre ball is as likely as not off the top of the frame.
-          POPS.push({ t: e.t, x: EX(e.x, SUBJ.away), y: EY(e.y, SUBJ.away),
-            text: `${e.value}${SUBJ.unit}`, rgb: SUBJ.rgb });
+          // Only where the picture has him on it -- see onTheBall().
+          const at0 = onTheBall(SUBJ.side, SUBJ.p, e.x, e.y, tb);
+          if (at0) POPS.push({ t: tb, x: at0[0], y: at0[1],
+            text: `${e.value}${SUBJ.unit}`, rgb: SUBJ.rgb, big: true });
         }
       }
     }
     if (FEED.stream) {
       for (const e of FEED.stream) {
-        if (e.t > clock) break;
-        if (e.t > CLOCK_PREV && e.k === 'sh' && e.g) {
-          // The log names whoever its possession chain called the
-          // carrier, and that can be a goalkeeper ninety metres away --
-          // the simulator moves the ball, not the men. The picture is
-          // the position model, and everywhere else on this console the
-          // ball belongs to the nearest man on it. So does the goal.
-          const side = e.m === FEED.match.home.id ? 'home' : 'away', away = side === 'away';
-          const gx = EX(e.x, away), gy = EY(e.y, away);
-          const arr = side === 'home' ? FEED.frames.h : FEED.frames.a;
-          let best = 0, bd = 1e9;
-          for (let q = 0; q < 11; q++) {
-            const [x, y] = at(arr, 22, q * 2, e.t);
-            const dd = Math.hypot(x - gx, y - gy);
-            if (dd < bd) { bd = dd; best = q; }
-          }
-          GOAL = { side, p: best, t: e.t, logged: e.p };
+        if (e.t > clock) break;               // tb is never earlier than t
+        const tb = e.tb ?? e.t;
+        if (!(tb > CLOCK_PREV && tb <= clock)) continue;
+        const who = PIDX[e.p];
+        if (!who) continue;
+        if (e.k === 'pa' || e.k === 're' || e.k === 'sh') FLASH[`${who.side}${who.p}`] = { k: e.k, t: tb };
+        if (e.k === 'sh' && e.g) {
+          // The log names the scorer and the picture puts him on the ball
+          // for it -- nine touches in ten. On the tenth they disagree (the
+          // engine can credit a keeper with a shot from the far box), and
+          // naming whoever happens to be nearest would credit a man the
+          // data never did. So the goal is named only when both agree;
+          // otherwise it is the club's.
+          const away = who.side === 'away';
+          const named = onTheBall(who.side, who.p, e.x, e.y, tb);
+          GOAL = { side: who.side, p: named ? who.p : null, t: tb, logged: e.p,
+                   x: EX(e.x, away), y: EY(e.y, away),
+                   club: (away ? FEED.match.away : FEED.match.home).short };
+          LIVE_SEC = -2;                     // the scoreboard ticks with the flash, not up to a second after it
+          continue;
         }
+        if (e.k !== 'pa' && e.k !== 're' && e.k !== 'sh') continue;
+        const isSubj = SUBJ && who.side === SUBJ.side && who.p === SUBJ.p;
+        if (isSubj && subjTb.has(tb)) continue;  // his claim's own figure already rose
+        const spot = onTheBall(who.side, who.p, e.x, e.y, tb);
+        if (!spot) continue;
+        const text = e.k === 'pa' ? (e.d != null ? `${Math.round(e.d)}m` : null)
+          : e.k === 're' ? T('pop_won') : T('pop_shot');
+        if (!text) continue;
+        POPS.push({ t: tb, x: spot[0], y: spot[1], text,
+          rgb: isSubj ? SUBJ.rgb : (who.side === 'home' ? '90,169,255' : '255,176,32'),
+          big: isSubj });
       }
     }
     POPS = POPS.filter(pp => clock - pp.t < 2);
@@ -2173,6 +2301,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
   makeGrain();
   buildTurf();
   buildShadow();
+  buildPlayers();
 
   // Score comes from the stream as the clock runs, never from the final
   // tally: a console that reads 0-3 at kickoff has already told the

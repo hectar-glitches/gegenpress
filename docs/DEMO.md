@@ -67,7 +67,9 @@ the viewer has been asked to understand anything. No architecture, no tour.*
 > Kowalski himself plays a thirty-metre ball into the box and his tag
 > comes up — the subject of the claim, in the match, on camera. His
 > average tonight is 13.8; this one is the exception, which is what an
-> average means. You can point at him or let it pass; do not explain it.
+> average means. You can point at him or let it pass; do not explain it. Every other man
+> who gets the ball carries his pass count and distance on his tag, and
+> the count lights as it ticks. Leave that for the viewer to notice.
 > The move reaches the edge of the box as this beat ends, and the ball is
 > on the goal line about four seconds into the next -- under the Wide hold
 > and the first words about the gate. Let it.*

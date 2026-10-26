@@ -87,6 +87,7 @@ def contributing_events(live: Match, player_id: str, metric: str,
     from .baselines import METRICS
 
     etype, key, _direction = METRICS[metric]
+    ball_t = _ball_times(live)
     out: list[dict[str, Any]] = []
     for e in live.events:
         if e.type != etype or e.player_id != player_id or e.minute > as_of_minute:
@@ -97,12 +98,21 @@ def contributing_events(live: Match, player_id: str, metric: str,
         out.append({
             "minute": e.minute,
             "t": round((e.period - 1) * 2700 + e.clock, 1),
+            "tb": ball_t.get(e.event_id),
             "x": e.x, "y": e.y,
             "end_x": e.end_x, "end_y": e.end_y,
             "value": round(float(value), 2),
             "outcome": e.outcome,
         })
     return out[:cap]
+
+
+def _ball_times(live: Match) -> dict[str, float]:
+    """event_id -> the second the ball is at that man's feet, on the
+    physical track the pitch draws (pressure events have no segment)."""
+    evs = [e for e in live.events if e.type != "pressure"]
+    return {e.event_id: round(s.t0, 2)
+            for e, s in zip(evs, build_ball_track(live))}
 
 
 def event_stream(live: Match) -> list[dict[str, Any]]:
@@ -116,6 +126,12 @@ def event_stream(live: Match) -> list[dict[str, Any]]:
     # and a silent collision here would mis-draw the whole match.
     CODE = {"pass": "pa", "carry": "ca", "shot": "sh", "tackle": "ta",
             "pressure": "pr", "recovery": "re", "duel": "du", "turnover": "to"}
+    # When the ball is actually at his feet, on the physical timeline the
+    # pitch draws. The log's stamp can run a second or three early where a
+    # flight was pushed, and a stat that ticks before the ball arrives is
+    # a stat about the wrong moment. Pressure has no segment -- a presser
+    # is near the ball, not on it -- so it keeps the stamp.
+    ball_t = _ball_times(live)
     out: list[dict[str, Any]] = []
     for e in live.events:
         row = {
@@ -125,6 +141,13 @@ def event_stream(live: Match) -> list[dict[str, Any]]:
             "p": e.player_id,
             "x": e.x, "y": e.y,
         }
+        if e.event_id in ball_t:
+            row["tb"] = ball_t[e.event_id]
+        if e.type == "pass" and e.detail.get("pass_distance_m") is not None:
+            # The log's own length, not one re-derived from rounded
+            # coordinates: the figure that rises off a passer is the
+            # figure his season norm was built from.
+            row["d"] = round(float(e.detail["pass_distance_m"]), 1)
         if e.end_x is not None:
             row["X"] = e.end_x
             row["Y"] = e.end_y

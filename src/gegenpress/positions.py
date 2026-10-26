@@ -43,7 +43,17 @@ SHIFT = {"GK": 0.25, "DF": 0.80, "MF": 0.70, "FW": 0.55}
 SPRINT = 8.6     # with the ball
 RUN = 7.4        # off the ball, top end
 ACCEL = 3.1      # m/s^2 -- a footballer, not a car
+ACCEL_RUN = 4.6  # m/s^2 -- a man who has seen the pass coming and goes
 DAMP = 0.86      # per second; bleeds speed so players settle
+
+# How far ahead a player sees his own next touch. The log knows the whole
+# match; a footballer reads a pass a few seconds before it is played. At
+# 3 s the named man could reach the ball 43% of the time; at 8 s, 91%.
+LOOKAHEAD = 8.0
+# The keeper's touches far from his goal are a simulator artefact -- the
+# engine hands the ball to any of the eleven -- and a keeper sprinting to
+# the opposition box to honour one is worse than leaving it unhonoured.
+GK_RANGE = 30.0
 
 
 # Ball flight speeds, m/s. A ball has two speeds -- it zips along a pass
@@ -216,6 +226,15 @@ class PositionModel:
         }
         # The one ball everything agrees on.
         self.track = build_ball_track(match)
+        self._gk_ids = {p.player_id for p in self.home_xi + self.away_xi
+                        if p.position == "GK"}
+
+    def _is_gk(self, player_id: str) -> bool:
+        return player_id in self._gk_ids
+
+    def _near_own_goal(self, team_id: str, abs_x: float) -> bool:
+        own = abs_x if team_id == self.home_id else L - abs_x
+        return own <= GK_RANGE
 
     def _to_absolute(self, x: float, y: float, team_id: str) -> tuple[float, float]:
         """Event coords are from the possessing team's frame."""
@@ -242,11 +261,25 @@ class PositionModel:
         # the closest defender presses the spot the ball is arriving at,
         # his partner covers behind, and the nearest attackers come short
         # to offer the pass. Everyone else keeps the block.
+        if player.position != "GK" and rank <= 1 and in_possession:
+            # His own side has it, and the man on it is whoever the log
+            # names. A teammate who also runs onto the ball is a second
+            # player on it, and the viewer cannot tell which one passed.
+            # So he shows for it instead: a short angle off the ball,
+            # toward his own position in the shape.
+            dx, dy = ax - bx, ay - by
+            d = math.hypot(dx, dy) or 1.0
+            off = 7.0 if rank == 0 else 11.0
+            return (min(L - 1, max(1.0, bx + dx / d * off)),
+                    min(W - 1, max(1.0, by + dy / d * off)))
         if player.position != "GK" and rank <= 1:
             # Press the intercept point, not where the ball already was.
             lx, ly = bx + lead[0], by + lead[1]
             if rank == 0:
-                return (min(L - 1, max(1.0, lx)), min(W - 1, max(1.0, ly)))
+                # Tight, but goal-side of the ball rather than on it: two
+                # men on one spot read as one man with two numbers.
+                gs = -1.8 if attacking_right else 1.8
+                return (min(L - 1, max(1.0, lx + gs)), min(W - 1, max(1.0, ly)))
             # Second man: support a stride off the ball, goal-side.
             side = -1.0 if attacking_right else 1.0
             return (min(L - 1, max(1.0, lx + side * 3.2)),
@@ -281,16 +314,27 @@ class PositionModel:
         timestep with the ball interpolated between events, and players
         moving at bounded speed toward their targets, does.
         """
-        # Carrier identity comes from the events; the ball's POSITION comes
-        # from the shared track, so players steer at the ball the console
-        # actually draws rather than at a second, private interpolation.
-        marks = [
-            ((e.period - 1) * 2700 + e.clock, e.player_id, e.team_id)
-            for e in self.match.events
-        ]
-        if not marks:
+        # Who is on the ball, and when, comes from the ball track -- the
+        # physical timeline the console draws -- not from the log's stamps,
+        # which run up to a few seconds early where a flight was pushed.
+        # Pressure events have no segment: a presser is near the ball, not
+        # on it.
+        evs = [e for e in self.match.events if e.type != "pressure"]
+        if not evs:
             return []
-        hi = marks[-1][0] if hi is None else hi
+        segs = self.track
+        hi = segs[-1].t1 if hi is None else hi
+
+        # Every player's touches, in ball time: the spot and the second the
+        # ball is at his feet. He goes there ahead of time, so the man the
+        # log names is the man the viewer sees on it -- which a stat that
+        # rises off the passer depends on entirely.
+        touches: dict[str, list[tuple[float, float, float]]] = {}
+        for s, e in zip(segs, evs):
+            if self._is_gk(e.player_id) and not self._near_own_goal(e.team_id, s.ax):
+                continue
+            touches.setdefault(e.player_id, []).append((s.t0, s.ax, s.ay))
+        nxt_i: dict[str, int] = {pid: 0 for pid in touches}
 
         # Warm the shape up before the window so it does not start as a
         # lattice snapping into place on the first visible frame.
@@ -299,11 +343,21 @@ class PositionModel:
         k = 0
         next_sample = lo
         while t <= hi:
-            while k + 1 < len(marks) and marks[k + 1][0] <= t:
+            while k + 1 < len(segs) and segs[k + 1].t0 <= t:
                 k += 1
-            _t0, carrier, team = marks[k]
+            seg, ev = segs[k], evs[k]
+            team = ev.team_id
+            # On the ball: the man whose event this is, until a pass or a
+            # shot leaves his foot. A carry is his for its whole length.
+            hold = seg.ft if seg.carry else seg.ft * 0.15
+            carrier = ev.player_id if t < seg.t0 + hold else None
             bx, by, _bz, _dwell = ball_at(self.track, t)
             ball = (bx, by)
+            for pid, lst in touches.items():
+                j = nxt_i[pid]
+                while j < len(lst) and lst[j][0] < t - 0.05:
+                    j += 1
+                nxt_i[pid] = j
 
             # Where the ball will be in half a second: chasers run at the
             # intercept, not at the spot it has already left.
@@ -327,31 +381,54 @@ class PositionModel:
                 nxt: list[tuple[float, float]] = []
                 nvel: list[tuple[float, float]] = []
                 for i, player in enumerate(xi):
-                    has_ball = (player.player_id == carrier)
+                    pid = player.player_id
+                    has_ball = (pid == carrier)
                     rank = rank_of.get(i, 99)
-                    tx, ty = self._target(player, i, right, ball, has_ball,
-                                          team_id, t, rank, mine, lead)
                     cx, cy = current[i]
                     vx, vy = vels[i]
+                    lst = touches.get(pid)
+                    j = nxt_i.get(pid, 0)
+                    going = None
+                    if not has_ball and lst and j < len(lst) and lst[j][0] - t <= LOOKAHEAD:
+                        going = lst[j]
+                    if going:
+                        # His next touch: be there when the ball is.
+                        tx, ty = going[1], going[2]
+                        left = max(0.15, going[0] - t)
+                        gap0 = math.hypot(tx - cx, ty - cy)
+                        need = gap0 / left
+                    else:
+                        tx, ty = self._target(player, i, right, ball, has_ball,
+                                              team_id, t, rank, mine, lead)
 
                     # Steer the VELOCITY toward the target and integrate.
                     # Snapping position each step gave motion with no
                     # inertia, which no amount of interpolation smooths.
                     gx, gy = tx - cx, ty - cy
                     gap = math.hypot(gx, gy)
-                    # A man going to the ball is sprinting; a man holding
-                    # shape is not. One top speed for everyone is most of
-                    # why the shape read as a lattice adrift.
-                    top = SPRINT if (has_ball or rank == 0) else (
-                        RUN if rank <= 2 else RUN * 0.82)
-                    want = min(top, gap * 0.9)
+                    if going:
+                        # Only as fast as arriving on time needs -- a man
+                        # with six seconds jogs, a man with one sprints --
+                        # and no easing off near the spot, or he arrives
+                        # late to every ball.
+                        top = min(SPRINT, max(2.5, need * 1.25))
+                        want = min(top, gap * 3.0)
+                        acc = ACCEL_RUN
+                    else:
+                        # A man going to the ball is sprinting; a man
+                        # holding shape is not. One top speed for everyone
+                        # is most of why the shape read as a lattice adrift.
+                        top = SPRINT if (has_ball or rank == 0) else (
+                            RUN if rank <= 2 else RUN * 0.82)
+                        want = min(top, gap * 0.9)
+                        acc = ACCEL
                     if gap > 1e-6:
                         wx, wy = gx / gap * want, gy / gap * want
                     else:
                         wx = wy = 0.0
                     ax, ay = wx - vx, wy - vy
                     amag = math.hypot(ax, ay)
-                    lim = ACCEL * sub
+                    lim = acc * sub
                     if amag > lim and amag > 0:
                         ax, ay = ax / amag * lim, ay / amag * lim
                     # Damping is per second, so scale it to the sub-step.
