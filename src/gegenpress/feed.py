@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from .agents import TOLERANCE, Gate, Segment, run_desk
-from .form import METRIC_LABELS, NOTABLE_Z
+from .form import CHECKPOINTS, METRIC_LABELS, NOTABLE_Z
 from .i18n import (DIRECTION, LANGUAGES, LANGUAGE_CODES, form_claim,
                    metric_label, moment_text)
 from .i18n import ui as ui_strings
@@ -165,7 +165,7 @@ def _translate_moment(seg, gate: Gate) -> dict[str, str]:
     return out
 
 
-def _follow_entry(league, live, pid, score, form_by_player):
+def _follow_entry(league, live, pid, score, form_by_player, as_of: int = 90):
     p = league.player(pid)
     best = form_by_player.get(pid)
     row = {"player_id": pid, "player": p.name,
@@ -196,7 +196,7 @@ def _follow_entry(league, live, pid, score, form_by_player):
                 )
                 for c in LANGUAGE_CODES
             },
-            "events": contributing_events(live, pid, best.metric, 90),
+            "events": contributing_events(live, pid, best.metric, as_of),
         })
     return row
 
@@ -214,13 +214,22 @@ def build_feed(
     segments = run_desk(store, league, live, model=model, limit=limit)
 
     signals = measure_signal(season)
-    follow = store.follow_target(live, as_of_minute=90)[:6]
-    # The strongest form line per player, to hang the follow view on.
-    form_by_player: dict[str, Any] = {}
-    for line in store.form_lines(live, notable_only=False):
-        cur = form_by_player.get(line.player_id)
-        if cur is None or abs(line.z) > abs(cur.z):
-            form_by_player[line.player_id] = line
+    # Who to follow is a question with a different answer at 30' than at
+    # 90'. One list computed at full time and shown from kickoff is the
+    # final table on the opening frame -- the scoreboard fault, again.
+    # So it is computed at every Form Line checkpoint, and the console
+    # switches lists as the clock passes each one.
+    def follow_as_of(minute: int) -> list[dict[str, Any]]:
+        ranked = store.follow_target(live, as_of_minute=minute)[:6]
+        best: dict[str, Any] = {}
+        for line in store.form_lines(live, notable_only=False, as_of_minute=minute):
+            cur = best.get(line.player_id)
+            if cur is None or abs(line.z) > abs(cur.z):
+                best[line.player_id] = line
+        return [_follow_entry(league, live, pid, score, best, minute)
+                for pid, score in ranked]
+
+    follow_at = {str(m): follow_as_of(m) for m in CHECKPOINTS}
     state = store.match_state(live, as_of_minute=90, window_minutes=90)
 
     moments = []
@@ -330,10 +339,8 @@ def build_feed(
         # watching a player measured against HIMSELF, so the payload has
         # to be the Form Line -- a name and a score would make this the
         # same dropdown every other entry has.
-        "follow": [
-            _follow_entry(league, live, pid, score, form_by_player)
-            for pid, score in follow
-        ],
+        "follow": follow_at[str(CHECKPOINTS[-1])],
+        "follow_at": follow_at,
         "signal": [
             {"metric": METRIC_LABELS.get(m, m),
              "metric_i18n": {c: metric_label(m, c) for c in LANGUAGE_CODES},

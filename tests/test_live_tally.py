@@ -92,3 +92,31 @@ def test_possession_sums_to_one_hundred(tmp_path):
     for t in (600.0, 1800.0, 5400.0):
         r = _tally(tmp_path, feed, t)
         assert r["home"]["possPct"] + r["away"]["possPct"] == 100
+
+
+# --------------------------------------------------------------------------
+# Who to follow is a question with a different answer at 30' than at 90'
+# --------------------------------------------------------------------------
+
+def test_follow_is_ranked_at_every_checkpoint():
+    from gegenpress.form import CHECKPOINTS
+    feed = _feed()
+    assert set(feed["follow_at"]) == {str(m) for m in CHECKPOINTS}
+    assert feed["follow"] == feed["follow_at"][str(CHECKPOINTS[-1])]
+
+
+def test_the_ranking_actually_changes_during_the_match():
+    """If every checkpoint produced the same six in the same order, the
+    per-checkpoint lists would be theatre."""
+    feed = _feed()
+    orders = {m: [f["player_id"] for f in lst] for m, lst in feed["follow_at"].items()}
+    assert len({tuple(o) for o in orders.values()}) > 1
+
+
+def test_no_checkpoint_sees_the_future():
+    """An entry ranked as of 30' may carry only touches up to 30'."""
+    feed = _feed()
+    for m, lst in feed["follow_at"].items():
+        for f in lst:
+            for e in f.get("events", []):
+                assert e["minute"] <= int(m), (m, f["player"], e["minute"])

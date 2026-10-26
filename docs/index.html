@@ -405,6 +405,22 @@ const RIG = {
 };
 let camX = L / 2, wide = false, STRAP_H = 0;
 let LABEL = null, LABEL_T = 0, SUBJ = null, SUBJ_TAG = null, SUBJ_KEY = '', SUBJ_SINCE = 0;
+// Who to follow is ranked at each Form Line checkpoint. The list on
+// screen is the latest checkpoint the clock has passed -- never the
+// full-time table at kickoff.
+let FOLLOW_CP = null;
+function followCheckpoint() {
+  const at = FEED.follow_at; if (!at) return null;
+  const mn = minuteNow();
+  const cps = Object.keys(at).map(Number).sort((a, b) => a - b);
+  let cp = cps[0];
+  for (const c of cps) if (c <= mn) cp = c;
+  return cp;
+}
+function followNow() {
+  const at = FEED.follow_at, cp = followCheckpoint();
+  return at && cp != null ? at[String(cp)] : (FEED.follow || []);
+}
 // Where the lens is tilted to, across the pitch. A broadcast camera does
 // not keep both touchlines in frame; it tilts to the play.
 let lookY = W / 2;
@@ -1706,7 +1722,8 @@ function showMoment(i) {
    reference class, his touches are lit on the grass, and the strap stops
    reporting the match and starts reporting him. */
 function setFollow(i) {
-  FOLLOW = (i == null) ? null : { i, ...FEED.follow[i] };
+  const fl = followNow();
+  FOLLOW = (i == null) ? null : { i, ...fl[i] };
   document.querySelectorAll('#follow button').forEach((b, j) =>
     b.setAttribute('aria-pressed', FOLLOW != null && j === i));
   $('#lower').classList.toggle('follow', !!FOLLOW);
@@ -1819,6 +1836,17 @@ function sync() {
   const mn = minuteNow();
   $('#clk').textContent = mn + "'";
   liveTick();
+  const cp = followCheckpoint();
+  if (cp !== FOLLOW_CP) {
+    FOLLOW_CP = cp;
+    if (FOLLOW) {
+      // The man, not his row: he may have moved, or dropped out of the
+      // six. Keep his entry as it was at the checkpoint he is still in.
+      const j = followNow().findIndex(f => f.player_id === FOLLOW.player_id);
+      if (j >= 0) FOLLOW = { i: j, ...followNow()[j] };
+    }
+    if (typeof renderRail === 'function') renderRail();
+  }
   $('#fill').style.width = (clock / FULL * 100) + '%';
   document.querySelectorAll('.row').forEach((r, i) =>
     r.classList.toggle('fired', FEED.moments[i].minute <= mn));
@@ -1866,12 +1894,16 @@ function renderRail() {
   document.querySelectorAll('.row').forEach((r, i) => r.onclick = () => {
     pause(); clock = d.moments[i].minute * 60 + 1; sync(); showMoment(i);
   });
-  $('#follow').innerHTML = d.follow.map((f, i) =>
+  const fl = followNow();
+  $('#hFollow').textContent = T('follow') + (followCheckpoint() != null ? ` · ${followCheckpoint()}'` : '');
+  $('#follow').innerHTML = fl.map((f, i) =>
     `<button class="item" aria-pressed="false"><span class="r">${i + 1}</span>
      <span>${f.player}</span>
      <span class="v">${f.score.toFixed(3)}</span></button>`).join('');
-  document.querySelectorAll('#follow button').forEach((btn, i) =>
-    btn.onclick = () => setFollow(FOLLOW && FOLLOW.i === i ? null : i));
+  document.querySelectorAll('#follow button').forEach((btn, i) => {
+    btn.setAttribute('aria-pressed', !!(FOLLOW && fl[i] && fl[i].player_id === FOLLOW.player_id));
+    btn.onclick = () => setFollow(FOLLOW && fl[i].player_id === FOLLOW.player_id ? null : i);
+  });
   $('#signal').innerHTML = d.signal.map(s =>
     `<div class="item"><span>${TX(s, 'metric')}</span>
      <span class="icc">${s.icc.toFixed(3)}</span>

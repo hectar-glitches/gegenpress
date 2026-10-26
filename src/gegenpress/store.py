@@ -127,7 +127,8 @@ class LocalStore:
         found.sort(key=lambda m: (-m.beats, m.event_id))
         return found[:limit]
 
-    def form_lines(self, live: Match, notable_only: bool = True) -> list[FormLine]:
+    def form_lines(self, live: Match, notable_only: bool = True,
+                   as_of_minute: int = 90) -> list[FormLine]:
         """How each player's match compares to his own season."""
         league, _baselines = self._require()
         if self._form is None:
@@ -136,7 +137,8 @@ class LocalStore:
         if notable_only:
             # Each claim at the checkpoint where it first becomes true.
             return form_timeline(self._form, live, self._signal, names)
-        return form_lines(self._form, live, self._signal, names)
+        return form_lines(self._form, live, self._signal, names,
+                          as_of_minute=as_of_minute)
 
     def match_state(self, live: Match, as_of_minute: int = 120, window_minutes: int = 15):
         lo = as_of_minute - window_minutes
