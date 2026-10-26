@@ -387,7 +387,7 @@ const RIG = {
   wide: 118,    // "Wide" pulls out to the whole pitch
 };
 let camX = L / 2, wide = false;
-let LABEL = null, LABEL_T = 0;
+let LABEL = null, LABEL_T = 0, SUBJ = null, SUBJ_TAG = null;
 // Where the lens is tilted to, across the pitch. A broadcast camera does
 // not keep both touchlines in frame; it tilts to the play.
 let lookY = W / 2;
@@ -970,15 +970,47 @@ function followIndex() {
   return p < 0 ? null : { side, p, away: side === 'away' };
 }
 
+/* Who the graphics are about, and in what colour.
+
+   A broadcast ties a statistic to a body with a ground marker under the
+   player in the colour of its meaning, a name tag that stays on him, and
+   nothing else -- Prime Vision's reviewers found that a second orb or a
+   tag over the action was worse than none. So there is one subject at a
+   time: the followed man if someone is being followed, otherwise the
+   player the strap's claim is about, in the strap's verdict colour. The
+   ball carrier keeps his thin team ring and tag unless he IS the subject,
+   in which case the subject's tag speaks for both. */
+const SUBJECT_RGB = { follow: '4,245,255', up: '0,255,133', down: '233,0,82' };
+function subjectIndex() {
+  if (!FEED.lineups) return null;
+  if (FOLLOW && FOLLOW.events) {
+    const who = followIndex();
+    return who && { ...who, rgb: SUBJECT_RGB.follow, hex: '#04F5FF', ink: '#0B0010',
+      shirt: FOLLOW.shirt, last: FOLLOW.player.split(' ').pop(),
+      stat: null, events: FOLLOW.events };
+  }
+  const m = FEED.moments[idx];
+  if (!m || m.season_mean == null) return null;
+  const side = m.club === FEED.match.home.name ? 'home' : 'away';
+  const p = FEED.lineups[side].findIndex(q => q.name === m.player);
+  if (p < 0) return null;
+  const up = m.z > 0;
+  return { side, p, away: side === 'away',
+    rgb: up ? SUBJECT_RGB.up : SUBJECT_RGB.down, hex: up ? '#00FF85' : '#E90052',
+    ink: '#0B0010', shirt: FEED.lineups[side][p].n, last: FEED.lineups[side][p].last,
+    stat: `${m.z > 0 ? '+' : ''}${m.z} SD`, events: m.events || [] };
+}
+
 function drawFollow() {
-  const who = followIndex();
-  if (!who || !FOLLOW.events) return;
+  SUBJ_TAG = null;
+  const who = subjectIndex();
+  if (!who) return;
   const g = ctx, mn = minuteNow();
   g.lineCap = 'round';
   // Only what has already happened, and faint: this is the evidence
   // under the claim, not a second match drawn over the first. The last
   // few are brighter, because recency is what a viewer is tracking.
-  const played = FOLLOW.events.filter(e => e.minute <= mn);
+  const played = who.events.filter(e => e.minute <= mn);
   played.forEach((e, i) => {
     const fresh = i >= played.length - 4;
     const a = fresh ? .5 : .16;
@@ -986,37 +1018,44 @@ function drawFollow() {
     const p1 = P(EX(e.x, who.away), EY(e.y, who.away), 0);
     if (e.end_x != null) {
       const p2 = P(EX(e.end_x, who.away), EY(e.end_y, who.away), 0);
-      g.strokeStyle = `rgba(4,245,255,${a * .42})`;
+      g.strokeStyle = `rgba(${who.rgb},${a * .42})`;
       g.lineWidth = Math.max(.7, .04 * k);
       poly(g, [p1, p2]); g.stroke();
     }
-    g.fillStyle = `rgba(4,245,255,${a})`;
+    g.fillStyle = `rgba(${who.rgb},${a})`;
     poly(g, ring(EX(e.x, who.away), EY(e.y, who.away), .28, 0, Math.PI * 2, 8), true);
     g.fill();
   });
   // A ring under the man himself, in the follow colour.
   const F = FEED.frames;
   const [fx, fy] = at(who.side === 'home' ? F.h : F.a, 22, who.p * 2, clock);
-  g.strokeStyle = 'rgba(4,245,255,.95)';
+  // A soft filled disc first: an orb on the ground survives perspective
+  // and a crowd of legs in a way a thin ring does not.
+  g.fillStyle = `rgba(${who.rgb},.16)`;
+  poly(g, ring(fx, fy, 1.9, 0, Math.PI * 2, 28), true); g.fill();
+  g.strokeStyle = `rgba(${who.rgb},.95)`;
   g.lineWidth = Math.max(2.2, .17 * mpp(fy));
   poly(g, ring(fx, fy, 1.6, 0, Math.PI * 2, 28), true); g.stroke();
-  g.strokeStyle = 'rgba(4,245,255,.3)';
+  g.strokeStyle = `rgba(${who.rgb},.3)`;
   g.lineWidth = Math.max(1, .07 * mpp(fy));
   poly(g, ring(fx, fy, 2.5, 0, Math.PI * 2, 28), true); g.stroke();
   const foot = P(fx, fy, 0), h = foot[1] - P(fx, fy, 1.84)[1];
-  const label = `${FOLLOW.shirt}  ${FOLLOW.player.split(' ').pop().toUpperCase()}`;
+  const label = `${who.shirt}  ${who.last.toUpperCase()}`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
 
   // Sometimes he simply cannot be in shot with the ball -- near corner,
   // ball at the far end, and no focal length holds both. Pretending
   // otherwise is how a follow-cam loses its man silently; point at him
   // from the edge instead, with how far away he is.
-  const m = 54;
-  if (foot[0] < m || foot[0] > VW - m) {
-    const right = foot[0] > VW - m;
-    const ex = right ? VW - m : m;
+  // The visible pitch ends where the rail begins. A chevron at the
+  // canvas edge sat under the rail, pointing at nobody.
+  const railW = document.body.classList.contains('analyst') ? $('#rail').offsetWidth : 0;
+  const m = 54, right_edge = VW - railW;
+  if (foot[0] < m || foot[0] > right_edge - m) {
+    const right = foot[0] > right_edge - m;
+    const ex = right ? right_edge - m : m;
     const ey = Math.max(m, Math.min(VH - 150, foot[1]));
-    g.fillStyle = 'rgba(4,245,255,.92)';
+    g.fillStyle = `rgba(${who.rgb},.92)`;
     g.beginPath();
     g.moveTo(ex + (right ? 16 : -16), ey);
     g.lineTo(ex + (right ? -8 : 8), ey - 11);
@@ -1026,19 +1065,32 @@ function drawFollow() {
     const away = `${label}  ${Math.round(Math.hypot(fx - bb2.x, fy - bb2.y))}m`;
     g.font = '700 12px "Archivo Variable",system-ui,sans-serif';
     const aw = g.measureText(away).width + 16;
-    g.fillStyle = '#04F5FF';
+    g.fillStyle = who.hex;
     g.fillRect(ex + (right ? -8 - aw : 8), ey - 32, aw, 20);
-    g.fillStyle = '#0B0010';
+    g.fillStyle = who.ink;
     g.fillText(away, ex + (right ? -8 - aw / 2 : 8 + aw / 2), ey - 22);
     return;
   }
 
-  g.font = `700 ${Math.max(11, Math.min(14, h * .3))}px "Archivo Variable",system-ui,sans-serif`;
-  const tw = g.measureText(label).width + 16, ty = foot[1] - h - 30;
-  g.fillStyle = '#04F5FF';
-  g.fillRect(foot[0] - tw / 2, ty - 10, tw, 21);
-  g.fillStyle = '#0B0010';
-  g.fillText(label, foot[0], ty + .5);
+  const fs = Math.max(11, Math.min(14, h * .3));
+  g.font = `700 ${fs}px "Archivo Variable",system-ui,sans-serif`;
+  const ty = foot[1] - h - 30;
+  const nw = g.measureText(label).width + 16;
+  const sw = who.stat ? g.measureText(who.stat).width + 14 : 0;
+  const x0 = foot[0] - (nw + sw) / 2;
+  // Name on the chrome's ink, the figure on the verdict colour: the same
+  // two-tone the strap uses, so the tag and the strap read as one graphic.
+  // Padded well past the tag itself: two tags that touch read as one
+  // stacked label, which is no better than two that overlap.
+  SUBJ_TAG = { x: x0 - 14, y: ty - 26, w: nw + sw + 28, h: 53 };
+  g.fillStyle = '#1C0423';
+  g.fillRect(x0, ty - 10, nw, 21);
+  g.fillStyle = who.hex;
+  g.fillRect(x0, ty - 10, 3, 21);
+  if (who.stat) g.fillRect(x0 + nw, ty - 10, sw, 21);
+  g.fillStyle = '#fff';
+  g.fillText(label, x0 + 1.5 + nw / 2, ty + .5);
+  if (who.stat) { g.fillStyle = who.ink; g.fillText(who.stat, x0 + nw + sw / 2, ty + .5); }
 }
 
 /* ================== people ==================
@@ -1230,7 +1282,10 @@ function drawPeople() {
   // next pass, released a second after the ball has left him.
   if (Math.abs(clock - LABEL_T) > 5) LABEL = null;
   if (b.dwell && carry && carryD < 3.5 && carry.man) {
-    LABEL = { side: carry.side, p: carry.p }; LABEL_T = clock;
+    const isSubj = SUBJ && carry.side === SUBJ.side && carry.p === SUBJ.p;
+    // The subject's own tag speaks for him; a second tag on the man who
+    // just passed to him would stack on top of it.
+    if (isSubj) LABEL = null; else { LABEL = { side: carry.side, p: carry.p }; LABEL_T = clock; }
   } else if (LABEL && clock - LABEL_T > 1.0) {
     LABEL = null;
   }
@@ -1239,7 +1294,8 @@ function drawPeople() {
   // far better than a ring round a dot, and survives the perspective.
   // Only while the ball is in someone's possession -- a ring that chases
   // a pass mid-flight flickers across whoever it overtakes.
-  if (b.dwell && carry && carryD < 3.5) {
+  const carrierIsSubject = SUBJ && carry && carry.side === SUBJ.side && carry.p === SUBJ.p;
+  if (b.dwell && carry && carryD < 3.5 && !carrierIsSubject) {
     g.strokeStyle = carry.side === 'home'
       ? 'rgba(90,169,255,.85)' : 'rgba(255,176,32,.85)';
     g.lineWidth = Math.max(1.4, .1 * mpp(carry.y));
@@ -1302,11 +1358,17 @@ function drawPeople() {
     // Name the man on the ball, as a broadcast would -- and as a
     // broadcast would, only once he has it. A tag that follows the
     // nearest man to a ball in flight hops across everyone it overtakes.
-    if (LABEL && r.side === LABEL.side && r.p === LABEL.p && r.man) {
+    const subj = SUBJ && r.side === SUBJ.side && r.p === SUBJ.p;
+    if (!subj && LABEL && r.side === LABEL.side && r.p === LABEL.p && r.man) {
       const label = `${r.man.n}  ${r.man.last.toUpperCase()}`;
       g.font = `700 ${Math.max(11, Math.min(14, h * .3))}px "Archivo Variable",system-ui,sans-serif`;
       const tw = g.measureText(label).width + 16;
       const ty = foot[1] - h - 14;
+      // Two tags on one patch of grass is one tag too many. The subject's
+      // was placed first and matters more; this one yields, and his thin
+      // team ring still says who has the ball.
+      if (SUBJ_TAG && foot[0] + tw / 2 > SUBJ_TAG.x && foot[0] - tw / 2 < SUBJ_TAG.x + SUBJ_TAG.w
+          && ty + 11 > SUBJ_TAG.y && ty - 10 < SUBJ_TAG.y + SUBJ_TAG.h) continue;
       // Hard-edged, opaque, with a kit-coloured leading rule: the same
       // language as the chrome, not a rounded tooltip.
       g.fillStyle = '#1C0423';
@@ -1479,6 +1541,7 @@ function frame(now) {
   crowdFrame(dtReal);
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  SUBJ = subjectIndex();
   drawPitch(); drawEvents(); drawFollow(); drawPeople();
   requestAnimationFrame(frame);
 }
