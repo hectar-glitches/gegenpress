@@ -211,6 +211,8 @@ def moment_text(
 
 UI: dict[str, dict[str, str]] = {
     "en": {
+        "live_now": "now",
+        "goal": "GOAL",
         "live_poss": "POSS",
         "live_passes": "PASSES",
         "live_shots": "SHOTS",
@@ -252,6 +254,8 @@ UI: dict[str, dict[str, str]] = {
         "fan": "Fan",
     },
     "es": {
+        "live_now": "ahora",
+        "goal": "GOL",
         "live_poss": "POS.",
         "live_passes": "PASES",
         "live_shots": "TIROS",
@@ -293,6 +297,8 @@ UI: dict[str, dict[str, str]] = {
         "fan": "Aficionado",
     },
     "fr": {
+        "live_now": "maintenant",
+        "goal": "BUT",
         "live_poss": "POSS.",
         "live_passes": "PASSES",
         "live_shots": "TIRS",
@@ -334,6 +340,8 @@ UI: dict[str, dict[str, str]] = {
         "fan": "Supporter",
     },
     "en-simple": {
+        "live_now": "right now",
+        "goal": "GOAL",
         "live_poss": "HAD THE BALL",
         "live_passes": "PASSES",
         "live_shots": "SHOTS",
@@ -375,6 +383,8 @@ UI: dict[str, dict[str, str]] = {
         "fan": "New fan",
     },
     "ar": {
+        "live_now": "الآن",
+        "goal": "هدف",
         "live_poss": "استحواذ",
         "live_passes": "تمريرات",
         "live_shots": "تسديدات",

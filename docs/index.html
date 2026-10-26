@@ -409,6 +409,11 @@ let LABEL = null, LABEL_T = 0, SUBJ = null, SUBJ_TAG = null, SUBJ_KEY = '', SUBJ
 // screen is the latest checkpoint the clock has passed -- never the
 // full-time table at kickoff.
 let FOLLOW_CP = null;
+// Things that happen at an instant and are shown for a moment after:
+// a pass of the subject's landing (its figure pops at the ball), and a
+// goal (the scorer is named). Fed from the clock each frame; a seek
+// clears them rather than replaying a half's worth in one frame.
+let CLOCK_PREV = -1, POPS = [], GOAL = null;
 function followCheckpoint() {
   const at = FEED.follow_at; if (!at) return null;
   const mn = minuteNow();
@@ -1043,7 +1048,16 @@ function subjectIndex() {
     rgb: up ? SUBJECT_RGB.up : SUBJECT_RGB.down, hex: up ? '#00FF85' : '#E90052',
     ink: '#0B0010', shirt: FEED.lineups[side][p].n, last: FEED.lineups[side][p].last,
     stat: `${m.z > 0 ? '+' : ''}${m.z} SD`, events: m.events || [],
-    metres: /range/.test(m.metric_key || m.metric || '') };
+    touches: m.touches || null, claimMinute: m.minute, claimN: (m.events || []).length,
+    unit: unitFor(m.metric), metres: /range/.test(m.metric_key || m.metric || '') };
+}
+// The unit a popped figure carries, from the metric's English label.
+function unitFor(label) {
+  label = (label || '').toLowerCase();
+  if (/range|distance/.test(label)) return 'm';
+  if (/speed/.test(label)) return ' m/s';
+  if (/time/.test(label)) return 's';
+  return '';
 }
 
 function drawFollow() {
@@ -1064,7 +1078,8 @@ function drawFollow() {
   // Only what has already happened, and faint: this is the evidence
   // under the claim, not a second match drawn over the first. The last
   // few are brighter, because recency is what a viewer is tracking.
-  const played = who.events.filter(e => e.minute <= mn);
+  const src = who.touches || who.events;
+  const played = src.filter(e => e.t != null ? e.t <= clock : e.minute <= mn);
   // The stat where it happened. Minute-level events cannot say whether
   // this minute's pass has been played yet, so the figure goes on the
   // latest pass from a minute that has fully elapsed -- never on a ball
@@ -1149,20 +1164,82 @@ function drawFollow() {
   const ty = foot[1] - h - 30;
   const nw = g.measureText(label).width + 16;
   const sw = who.stat ? g.measureText(who.stat).width + 14 : 0;
-  const x0 = foot[0] - (nw + sw) / 2;
+  // Live: his figure tonight including every touch that has landed by
+  // now. Appears only once a touch has landed AFTER the claim's minute,
+  // so at the opening frame the tag says exactly what the strap says.
+  let liveTxt = null;
+  if (who.touches && who.claimN != null) {
+    const landed = who.touches.filter(e => e.t != null && e.t <= clock);
+    if (landed.length > who.claimN) {
+      const mean = landed.reduce((s, e) => s + e.value, 0) / landed.length;
+      liveTxt = `${T('live_now')} ${mean.toFixed(1)}${who.unit}`;
+    }
+  }
+  const lw = liveTxt ? g.measureText(liveTxt).width + 14 : 0;
+  const vr0 = VW - (document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0);
+  const cxT = Math.max((nw + sw + lw) / 2 + 8, Math.min(vr0 - (nw + sw + lw) / 2 - 8, foot[0]));
+  const x0 = cxT - (nw + sw + lw) / 2;
   // Name on the chrome's ink, the figure on the verdict colour: the same
   // two-tone the strap uses, so the tag and the strap read as one graphic.
   // Padded well past the tag itself: two tags that touch read as one
   // stacked label, which is no better than two that overlap.
-  SUBJ_TAG = { x: x0 - 14, y: ty - 26, w: nw + sw + 28, h: 53 };
-  g.fillStyle = '#1C0423';
-  g.fillRect(x0, ty - 10, nw, 21);
-  g.fillStyle = who.hex;
-  g.fillRect(x0, ty - 10, 3, 21);
-  if (who.stat) g.fillRect(x0 + nw, ty - 10, sw, 21);
-  g.fillStyle = '#fff';
-  g.fillText(label, x0 + 1.5 + nw / 2, ty + .5);
-  if (who.stat) { g.fillStyle = who.ink; g.fillText(who.stat, x0 + nw + sw / 2, ty + .5); }
+  SUBJ_TAG = { x: x0 - 14, y: ty - 26, w: nw + sw + lw + 28, h: 53 };
+  g.restore();
+  // The ring lives on the grass, under the players' feet. The tag is a
+  // broadcast graphic and sits over everyone -- a name half-hidden by a
+  // defender's shoulder is a name nobody reads -- so it paints after
+  // the people, in the overlay pass.
+  const font = g.font;
+  OVERLAY.push(() => {
+    g.save(); g.globalAlpha = ease; g.font = font;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#1C0423';
+    g.fillRect(x0, ty - 10, nw, 21);
+    g.fillStyle = who.hex;
+    g.fillRect(x0, ty - 10, 3, 21);
+    if (who.stat) g.fillRect(x0 + nw, ty - 10, sw, 21);
+    g.fillStyle = '#fff';
+    g.fillText(label, x0 + 1.5 + nw / 2, ty + .5);
+    if (who.stat) { g.fillStyle = who.ink; g.fillText(who.stat, x0 + nw + sw / 2, ty + .5); }
+    if (liveTxt) {
+      g.fillStyle = '#2A0733'; g.fillRect(x0 + nw + sw, ty - 10, lw, 21);
+      g.fillStyle = '#fff'; g.fillText(liveTxt, x0 + nw + sw + lw / 2, ty + .5);
+    }
+    g.restore();
+  });
+}
+
+/* Pops: the figure of a touch that just landed, rising from where the
+   ball was played. Drawn after the people, because a figure that rises
+   from behind the passer is a figure the viewer never sees. */
+let OVERLAY = [];
+function drawOverlay() {
+  for (const fn of OVERLAY) fn();
+  OVERLAY = [];
+  if (!POPS.length) return;
+  const g = ctx, who = SUBJ;
+  g.save();
+  g.font = '800 14px "Archivo Variable",system-ui,sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const pp of POPS) {
+    const age = clock - pp.t, life = 1.8;
+    if (age < 0 || age > life) continue;
+    const k = age / life, ease = 1 - Math.pow(1 - k, 2);
+    // Starts above the head of whoever stood there, not at his feet --
+    // and above the subject's tag when it is his touch, so the figure
+    // rises from the tag instead of through it.
+    const [px] = P(pp.x, pp.y, 0);
+    const headY = P(pp.x, pp.y, 1.84)[1];
+    let base = headY - 14;
+    if (SUBJ_TAG && px > SUBJ_TAG.x && px < SUBJ_TAG.x + SUBJ_TAG.w && base > SUBJ_TAG.y - 6 && base < SUBJ_TAG.y + SUBJ_TAG.h + 20)
+      base = SUBJ_TAG.y - 4;
+    g.globalAlpha = (1 - k) * (who && who.rgb === pp.rgb ? 1 : .6);
+    g.font = `800 ${14 + 6 * (1 - ease)}px "Archivo Variable",system-ui,sans-serif`;
+    const w = g.measureText(pp.text).width + 14;
+    const yy = base - 30 * ease;
+    g.fillStyle = `rgba(${pp.rgb},.95)`; g.fillRect(px - w / 2, yy - 11, w, 22);
+    g.fillStyle = '#0B0010'; g.fillText(pp.text, px, yy + .5);
+  }
   g.restore();
 }
 
@@ -1431,6 +1508,26 @@ function drawPeople() {
     // Name the man on the ball, as a broadcast would -- and as a
     // broadcast would, only once he has it. A tag that follows the
     // nearest man to a ball in flight hops across everyone it overtakes.
+    // A goal names its scorer, over everything else, for four seconds.
+    if (GOAL && r.man && r.side === GOAL.side && r.p === GOAL.p) {
+      const age = clock - GOAL.t, k = Math.min(1, age / .6);
+      g.save();
+      g.strokeStyle = `rgba(0,255,133,${.9 * (1 - Math.min(1, age / 4))})`;
+      g.lineWidth = Math.max(2, .2 * mpp(r.y));
+      poly(g, ring(r.x, r.y, 1.4 + 2.2 * k, 0, Math.PI * 2, 32), true); g.stroke();
+      const lbl = `${T('goal')}  ·  ${r.man.n} ${r.man.last.toUpperCase()}`;
+      g.font = `800 ${Math.max(12, Math.min(16, h * .34))}px "Archivo Variable",system-ui,sans-serif`;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const tw2 = g.measureText(lbl).width + 20, ty2 = foot[1] - h - 36;
+      // A goal is often scored at the edge of the frame. The tag slides
+      // inward rather than being cut: it may sit beside him, never off him.
+      const vr = VW - (document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0);
+      const tx2 = Math.max(tw2 / 2 + 8, Math.min(vr - tw2 / 2 - 8, foot[0]));
+      g.fillStyle = '#00FF85'; g.fillRect(tx2 - tw2 / 2, ty2 - 12, tw2, 25);
+      g.fillStyle = '#0B0010'; g.fillText(lbl, tx2, ty2 + .5);
+      g.restore();
+      continue;
+    }
     const subj = SUBJ && r.side === SUBJ.side && r.p === SUBJ.p;
     if (!subj && LABEL && r.side === LABEL.side && r.p === LABEL.p && r.man) {
       const label = `${r.man.n}  ${r.man.last.toUpperCase()}`;
@@ -1567,6 +1664,46 @@ function frame(now) {
 
   // Camera dolly: hold for small movements, then ease across. A camera
   // that tracks every touch makes the world move instead of the lens.
+  // Instants. On a seek, start fresh rather than replaying the gap.
+  if (CLOCK_PREV < 0 || Math.abs(clock - CLOCK_PREV) > 5) { POPS = []; GOAL = null; }
+  else if (clock > CLOCK_PREV) {
+    if (SUBJ && SUBJ.touches) {
+      for (const e of SUBJ.touches) {
+        if (e.t > CLOCK_PREV && e.t <= clock) {
+          // From the passer: his tag is there, and the far end of a thirty
+          // metre ball is as likely as not off the top of the frame.
+          POPS.push({ t: e.t, x: EX(e.x, SUBJ.away), y: EY(e.y, SUBJ.away),
+            text: `${e.value}${SUBJ.unit}`, rgb: SUBJ.rgb });
+        }
+      }
+    }
+    if (FEED.stream) {
+      for (const e of FEED.stream) {
+        if (e.t > clock) break;
+        if (e.t > CLOCK_PREV && e.k === 'sh' && e.g) {
+          // The log names whoever its possession chain called the
+          // carrier, and that can be a goalkeeper ninety metres away --
+          // the simulator moves the ball, not the men. The picture is
+          // the position model, and everywhere else on this console the
+          // ball belongs to the nearest man on it. So does the goal.
+          const side = e.m === FEED.match.home.id ? 'home' : 'away', away = side === 'away';
+          const gx = EX(e.x, away), gy = EY(e.y, away);
+          const arr = side === 'home' ? FEED.frames.h : FEED.frames.a;
+          let best = 0, bd = 1e9;
+          for (let q = 0; q < 11; q++) {
+            const [x, y] = at(arr, 22, q * 2, e.t);
+            const dd = Math.hypot(x - gx, y - gy);
+            if (dd < bd) { bd = dd; best = q; }
+          }
+          GOAL = { side, p: best, t: e.t, logged: e.p };
+        }
+      }
+    }
+    POPS = POPS.filter(pp => clock - pp.t < 2);
+    if (GOAL && clock - GOAL.t > 4) GOAL = null;
+  }
+  CLOCK_PREV = clock;
+
   if (BALL) {
     const bl = ballAt(clock);
     const bX = bl.x;
@@ -1634,7 +1771,7 @@ function frame(now) {
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   SUBJ = subjectIndex();
-  drawPitch(); drawEvents(); drawFollow(); drawPeople();
+  drawPitch(); drawEvents(); drawFollow(); drawPeople(); drawOverlay();
   requestAnimationFrame(frame);
 }
 

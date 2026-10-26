@@ -96,6 +96,7 @@ def contributing_events(live: Match, player_id: str, metric: str,
             continue
         out.append({
             "minute": e.minute,
+            "t": round((e.period - 1) * 2700 + e.clock, 1),
             "x": e.x, "y": e.y,
             "end_x": e.end_x, "end_y": e.end_y,
             "value": round(float(value), 2),
@@ -121,6 +122,7 @@ def event_stream(live: Match) -> list[dict[str, Any]]:
             "t": round((e.period - 1) * 2700 + e.clock, 1),
             "k": CODE[e.type],
             "m": e.team_id,
+            "p": e.player_id,
             "x": e.x, "y": e.y,
         }
         if e.end_x is not None:
@@ -273,6 +275,14 @@ def build_feed(
             "events": contributing_events(
                 live, seg.form_player_id, seg.form_metric, b.minute)
             if seg.form_player_id else [],
+            # Every touch of his on this metric, whole match, with the
+            # second it happened. The claim is a mean "as of 30'" and the
+            # gate verified those digits; this is what lets a live figure
+            # beside it tick the instant his next pass lands, without the
+            # claim itself ever moving.
+            "touches": contributing_events(
+                live, seg.form_player_id, seg.form_metric, 120)
+            if seg.form_player_id else [],
             "grounded": seg.verdict.passed,
             "model": seg.verdict.model,
             "attempts": seg.verdict.attempts,
@@ -293,7 +303,7 @@ def build_feed(
         # frames. A numbered shirt is what makes a dot read as a player.
         "lineups": {
             side: [
-                {"n": p.shirt, "name": p.name, "pos": p.position,
+                {"n": p.shirt, "id": p.player_id, "name": p.name, "pos": p.position,
                  "last": p.name.split()[-1]}
                 for p in sorted(
                     (q for q in league.squad(club) if q.shirt <= 11),
