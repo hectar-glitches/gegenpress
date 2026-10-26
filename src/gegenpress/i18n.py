@@ -211,6 +211,10 @@ def moment_text(
 
 UI: dict[str, dict[str, str]] = {
     "en": {
+        "live_poss": "POSS",
+        "live_passes": "PASSES",
+        "live_shots": "SHOTS",
+        "live_recov": "RECOV",
         "try_nonumbers": "NOTHING TO CHECK — the gate reads numbers, not sentences",
         "try_btn": "Try to break it",
         "try_title": "Try to make it lie",
@@ -248,6 +252,10 @@ UI: dict[str, dict[str, str]] = {
         "fan": "Fan",
     },
     "es": {
+        "live_poss": "POS.",
+        "live_passes": "PASES",
+        "live_shots": "TIROS",
+        "live_recov": "RECUP.",
         "try_nonumbers": "NADA QUE COMPROBAR — el filtro lee números, no frases",
         "try_btn": "Intenta romperlo",
         "try_title": "Intenta hacerle mentir",
@@ -285,6 +293,10 @@ UI: dict[str, dict[str, str]] = {
         "fan": "Aficionado",
     },
     "fr": {
+        "live_poss": "POSS.",
+        "live_passes": "PASSES",
+        "live_shots": "TIRS",
+        "live_recov": "RÉCUP.",
         "try_nonumbers": "RIEN À VÉRIFIER — le filtre lit des chiffres, pas des phrases",
         "try_btn": "Essayez de le casser",
         "try_title": "Essayez de le faire mentir",
@@ -322,6 +334,10 @@ UI: dict[str, dict[str, str]] = {
         "fan": "Supporter",
     },
     "en-simple": {
+        "live_poss": "HAD THE BALL",
+        "live_passes": "PASSES",
+        "live_shots": "SHOTS",
+        "live_recov": "WON IT BACK",
         "try_nonumbers": "NOTHING TO CHECK — it only checks numbers",
         "try_btn": "Try to break it",
         "try_title": "Try to make it lie",
@@ -359,6 +375,10 @@ UI: dict[str, dict[str, str]] = {
         "fan": "New fan",
     },
     "ar": {
+        "live_poss": "استحواذ",
+        "live_passes": "تمريرات",
+        "live_shots": "تسديدات",
+        "live_recov": "استخلاص",
         "try_nonumbers": "لا شيء للتحقق منه — البوابة تقرأ الأرقام لا الجمل",
         "try_btn": "حاول كسره",
         "try_title": "حاول أن تجعله يكذب",

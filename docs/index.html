@@ -97,6 +97,19 @@
     color:var(--down);opacity:.3;transition:opacity .3s}
   .bug .live.on{opacity:1}
   .bug .live i{width:6px;height:6px;background:var(--down)}
+  .bug .tick{display:flex;align-items:center;gap:22px;padding:0 18px;
+    border-left:1px solid var(--rule);font:10px/1 var(--f);letter-spacing:.08em;
+    font-variation-settings:'wght' 650,'wdth' 80;color:var(--soft);white-space:nowrap}
+  .bug .tick b{display:block;font-size:8.5px;letter-spacing:.14em;color:var(--dim);
+    margin-bottom:5px;font-variation-settings:'wght' 700,'wdth' 74}
+  .bug .tick .h{color:var(--home)} .bug .tick .a{color:var(--away)}
+  .bug .tick .v{font-size:13px;font-variation-settings:'wght' 800,'wdth' 92;
+    font-feature-settings:'tnum' 1}
+  .bug .tick .v .sep{color:var(--dim);padding:0 5px;font-weight:400}
+  /* A goal changes the number with a flash, not a blink. */
+  .bug .g.hit{animation:gflash .9s var(--ease)}
+  @keyframes gflash{0%{color:var(--up);transform:scale(1.25)}100%{color:inherit;transform:none}}
+  @media (max-width:1180px){.bug .tick{display:none}}
   .bug .live.on i{animation:beat 1.5s infinite}
   @keyframes beat{0%,100%{opacity:1}50%{opacity:.2}}
 
@@ -295,6 +308,10 @@
       <div class="side a"><span class="g" id="aG">0</span><span class="tag" id="aTag">—</span></div>
       <div class="clk" id="clk">0'</div>
       <div class="live" id="live"><i></i>LIVE</div>
+      <!-- Tallied in the page from the event stream as the clock runs,
+           so the console is visibly a live match and not a still with a
+           clock on it. Held to the Python state block by a parity test. -->
+      <div class="tick" id="tick"></div>
     </div>
 
     <div class="lower" id="lower">
@@ -1752,9 +1769,56 @@ function bestOpening(minute) {
   return best;
 }
 
+/* Everything live on the scoreboard comes from one pure function over
+   the event stream, so the page cannot drift from the Python that
+   computed the 90' state block: a test runs this same function in Node
+   over the shipped stream and holds it to that block. Possession is time
+   between events, credited to the team of the last touch. */
+function tallyStream(stream, homeId, t) {
+  const mk = () => ({ passes: 0, shots: 0, goals: 0, recoveries: 0, poss: 0 });
+  const H = mk(), A = mk();
+  let last = null, tPrev = 0;
+  for (const e of stream) {
+    if (e.t > t) break;
+    const s = e.m === homeId ? H : A;
+    if (last) last.poss += e.t - tPrev;
+    last = s; tPrev = e.t;
+    if (e.k === 'pa') s.passes++;
+    else if (e.k === 'sh') { s.shots++; if (e.g) s.goals++; }
+    else if (e.k === 're') s.recoveries++;
+  }
+  if (last) last.poss += Math.max(0, t - tPrev);
+  const tot = H.poss + A.poss || 1;
+  H.possPct = Math.round(100 * H.poss / tot); A.possPct = 100 - H.possPct;
+  return { home: H, away: A };
+}
+
+let LIVE_SEC = -1, LAST_GOALS = [0, 0];
+function liveTick() {
+  const sec = Math.floor(clock);
+  if (sec === LIVE_SEC || !FEED.stream) return;
+  if (sec < LIVE_SEC) LAST_GOALS = [-1, -1];   // seek back: force both to repaint
+  LIVE_SEC = sec;
+  const L2 = tallyStream(FEED.stream, FEED.match.home.id, clock);
+  for (const [side, el, i] of [[L2.home, $('#hG'), 0], [L2.away, $('#aG'), 1]]) {
+    if (side.goals !== LAST_GOALS[i]) {
+      el.textContent = side.goals;
+      if (side.goals > LAST_GOALS[i]) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+      LAST_GOALS[i] = side.goals;
+    }
+  }
+  const cell = (k, h, a) => `<div><b>${T(k)}</b><span class="v"><span class="h">${h}</span><span class="sep">·</span><span class="a">${a}</span></span></div>`;
+  $('#tick').innerHTML =
+    cell('live_poss', L2.home.possPct + '%', L2.away.possPct + '%') +
+    cell('live_passes', L2.home.passes, L2.away.passes) +
+    cell('live_shots', L2.home.shots, L2.away.shots) +
+    cell('live_recov', L2.home.recoveries, L2.away.recoveries);
+}
+
 function sync() {
   const mn = minuteNow();
   $('#clk').textContent = mn + "'";
+  liveTick();
   $('#fill').style.width = (clock / FULL * 100) + '%';
   document.querySelectorAll('.row').forEach((r, i) =>
     r.classList.toggle('fired', FEED.moments[i].minute <= mn));
@@ -1845,6 +1909,7 @@ function setLang(code) {
   $('#mFan').textContent = T('fan');
   $('#play').textContent = playing ? '❚❚ ' + T('pause') : '▶ ' + T('play');
   $('#live').innerHTML = `<i></i>${T('live')}`;
+  LIVE_SEC = -1; liveTick();
   renderRail();
   if (FOLLOW && FOLLOW.metric) showFollow();
   else if (idx >= 0) showMoment(idx);
@@ -1940,8 +2005,11 @@ fetch('feed.json').then(r => r.json()).then(d => {
   buildTurf();
   buildShadow();
 
-  $('#hTag').textContent = d.match.home.short; $('#hG').textContent = d.match.home.goals;
-  $('#aTag').textContent = d.match.away.short; $('#aG').textContent = d.match.away.goals;
+  // Score comes from the stream as the clock runs, never from the final
+  // tally: a console that reads 0-3 at kickoff has already told the
+  // viewer how the match ends.
+  $('#hTag').textContent = d.match.home.short; $('#hG').textContent = '0';
+  $('#aTag').textContent = d.match.away.short; $('#aG').textContent = '0';
 
   renderRail();
   $('#track').innerHTML = `<div class="fill" id="fill"></div>` +
