@@ -184463,7 +184463,7 @@
     "ui": {
       "en": {
         "try_nonumbers": "NOTHING TO CHECK \u2014 the gate reads numbers, not sentences",
-        "try_btn": "Try it",
+        "try_btn": "Try to break it",
         "try_title": "Try to make it lie",
         "try_hint": "Write a sentence about this player. Every number in it is checked against what was measured.",
         "try_check": "Check",
@@ -184500,7 +184500,7 @@
       },
       "es": {
         "try_nonumbers": "NADA QUE COMPROBAR \u2014 el filtro lee n\u00fameros, no frases",
-        "try_btn": "Pru\u00e9balo",
+        "try_btn": "Intenta romperlo",
         "try_title": "Intenta hacerle mentir",
         "try_hint": "Escribe una frase sobre este jugador. Cada n\u00famero se comprueba contra lo medido.",
         "try_check": "Comprobar",
@@ -184537,7 +184537,7 @@
       },
       "fr": {
         "try_nonumbers": "RIEN \u00c0 V\u00c9RIFIER \u2014 le filtre lit des chiffres, pas des phrases",
-        "try_btn": "Essayez",
+        "try_btn": "Essayez de le casser",
         "try_title": "Essayez de le faire mentir",
         "try_hint": "\u00c9crivez une phrase sur ce joueur. Chaque chiffre est v\u00e9rifi\u00e9 contre ce qui a \u00e9t\u00e9 mesur\u00e9.",
         "try_check": "V\u00e9rifier",
@@ -184574,7 +184574,7 @@
       },
       "ar": {
         "try_nonumbers": "\u0644\u0627 \u0634\u064a\u0621 \u0644\u0644\u062a\u062d\u0642\u0642 \u0645\u0646\u0647 \u2014 \u0627\u0644\u0628\u0648\u0627\u0628\u0629 \u062a\u0642\u0631\u0623 \u0627\u0644\u0623\u0631\u0642\u0627\u0645 \u0644\u0627 \u0627\u0644\u062c\u0645\u0644",
-        "try_btn": "\u062c\u0631\u0651\u0628",
+        "try_btn": "\u062d\u0627\u0648\u0644 \u0643\u0633\u0631\u0647",
         "try_title": "\u062d\u0627\u0648\u0644 \u0623\u0646 \u062a\u062c\u0639\u0644\u0647 \u064a\u0643\u0630\u0628",
         "try_hint": "\u0627\u0643\u062a\u0628 \u062c\u0645\u0644\u0629 \u0639\u0646 \u0647\u0630\u0627 \u0627\u0644\u0644\u0627\u0639\u0628. \u0643\u0644 \u0631\u0642\u0645 \u0641\u064a\u0647\u0627 \u064a\u064f\u0642\u0627\u0631\u0646 \u0628\u0645\u0627 \u062a\u0645 \u0642\u064a\u0627\u0633\u0647.",
         "try_check": "\u062a\u062d\u0642\u0642",
@@ -184611,7 +184611,7 @@
       },
       "en-simple": {
         "try_nonumbers": "NOTHING TO CHECK \u2014 it only checks numbers",
-        "try_btn": "Try it",
+        "try_btn": "Try to break it",
         "try_title": "Try to make it lie",
         "try_hint": "Write a sentence about this player. Every number gets checked against what was actually measured.",
         "try_check": "Check",

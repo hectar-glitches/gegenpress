@@ -209,7 +209,7 @@
       linear-gradient(135deg,var(--soft) 50%,transparent 50%);
     background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;
     background-size:5px 5px,5px 5px;background-repeat:no-repeat;cursor:pointer}
-  .btn.sel option{background:var(--ink1);color:var(--fg)}
+  .btn.sel option{background:var(--ink1);color:var(--white)}
   /* Right-to-left applies to the prose columns only. The figures stay
      left-aligned in their tiles because a number is not text. */
   [dir=rtl] .item,[dir=rtl] .row{direction:rtl;text-align:right}
@@ -237,9 +237,14 @@
     transform:translateY(101%);transition:transform .4s var(--ease)}
   .sheet.up{transform:none}
   .sheet.try{z-index:5}
+  /* One primary action among nine controls. Play is green because it
+     starts the match; this is accented because it is the only thing on
+     screen a visitor can lose to. */
+  .btn.key{color:var(--up);box-shadow:inset 0 2px 0 var(--up)}
+  .btn.key[aria-pressed=true]{background:var(--up);color:var(--ink1)}
   .sheet .hint{font-size:11.5px;color:var(--soft);margin:6px 0 12px;max-width:52ch}
   .tryrow{display:flex;gap:8px}
-  #tryIn{flex:1;background:var(--ink2);border:1px solid var(--rule);color:var(--fg);
+  #tryIn{flex:1;background:var(--ink2);border:1px solid var(--rule);color:var(--white);
     font:13.5px/1.4 var(--f);padding:9px 11px;border-radius:2px;outline:none}
   #tryIn:focus{border-color:var(--data)}
   #tryOut{margin-top:13px;font-size:13.5px;line-height:1.6;min-height:22px}
@@ -252,7 +257,7 @@
   #tryOut .verdict{color:var(--dim)}
   #tryOut .verdict.no{color:var(--down)} #tryOut .verdict.yes{color:var(--up)}
   #tryOut .instead{margin-top:9px;font-size:12.5px;color:var(--soft)}
-  #tryOut .instead b{color:var(--fg);font-variation-settings:'wght' 600}
+  #tryOut .instead b{color:var(--white);font-variation-settings:'wght' 600}
   .sheet h3{font:9.5px/1 var(--f);font-variation-settings:'wght' 700,'wdth' 74;
     text-transform:uppercase;letter-spacing:.11em;color:var(--dim);margin-bottom:13px}
   .step{display:flex;gap:12px;align-items:flex-start;font-size:13px;margin-bottom:8px}
@@ -335,7 +340,7 @@
   <div class="bar">
     <button class="btn p" id="play">▶ Play</button>
     <button class="btn" id="why">Why</button>
-    <button class="btn" id="try">Try it</button>
+    <button class="btn key" id="try" aria-pressed="false">Try to break it</button>
     <button class="btn" id="spd">1&times;</button>
     <button class="btn" id="wide" aria-pressed="false">Wide</button>
     <button class="btn" id="snd" aria-pressed="false">Sound</button>
@@ -1566,7 +1571,7 @@ function renderRail() {
   $('#timeline').innerHTML = d.moments.map((m, i) => `
     <button class="row"><div class="t"><span class="mn">${m.minute}'</span>
       <span class="nm">${m.player}</span>
-      ${m.diverges ? `<span class="dt" style="background:${m.above ? 'var(--accent)' : 'var(--down)'}"></span>` : ''}
+      ${m.diverges ? `<span class="dt" style="background:${m.above ? 'var(--up)' : 'var(--down)'}"></span>` : ''}
     </div><div class="mt">${TX(m, 'metric')} · <span class="num">${m.value} vs ${m.season_mean ?? m.expected}</span></div></button>`).join('');
   document.querySelectorAll('.row').forEach((r, i) => r.onclick = () => {
     pause(); clock = d.moments[i].minute * 60 + 1; sync(); showMoment(i);
@@ -1664,6 +1669,10 @@ function runTry() {
 
 function openTry(on) {
   const m = FEED.moments[idx];
+  // Why and Try it share the bottom-left corner. Opening both stacked
+  // them, so the second buried the first and closing it uncovered a
+  // panel the viewer had forgotten opening.
+  if (on) { showWhy = false; $('#sheet').classList.remove('up'); }
   $('#tryit').classList.toggle('up', on && !!m);
   $('#try').setAttribute('aria-pressed', !!on);
   if (!on || !m) return;
@@ -1675,8 +1684,16 @@ function openTry(on) {
   $('#tryIn').value =
     `${m.player}'s ${TX(m, 'metric')} is 21.4 tonight, the best of his season.`;
   $('#tryOut').innerHTML = '';
-  $('#tryIn').focus();
-  $('#tryIn').select();
+  // The sheet starts below the fold at translateY(101%). Focusing an
+  // input inside it immediately makes the browser scroll the page down
+  // to reach it, which drags the pitch off screen and uncovers panels
+  // that are supposed to be hidden. Wait for the transition, and ask the
+  // browser not to scroll even then.
+  setTimeout(() => {
+    try { $('#tryIn').focus({ preventScroll: true }); } catch (e) { $('#tryIn').focus(); }
+    $('#tryIn').select();
+    scrollTo(0, 0);
+  }, 420);
 }
 
 function setMode(next) {
@@ -1706,6 +1723,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
 
   $('#play').onclick = () => playing ? pause() : play();
   $('#why').onclick = () => {
+    openTry(false);
     showWhy = !showWhy;
     $('#sheet').classList.toggle('up', showWhy && idx >= 0);
     $('#lower').classList.toggle('hide', showWhy);

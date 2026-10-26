@@ -212,7 +212,7 @@ def moment_text(
 UI: dict[str, dict[str, str]] = {
     "en": {
         "try_nonumbers": "NOTHING TO CHECK — the gate reads numbers, not sentences",
-        "try_btn": "Try it",
+        "try_btn": "Try to break it",
         "try_title": "Try to make it lie",
         "try_hint": "Write a sentence about this player. Every number in it is checked against what was measured.",
         "try_check": "Check",
@@ -249,7 +249,7 @@ UI: dict[str, dict[str, str]] = {
     },
     "es": {
         "try_nonumbers": "NADA QUE COMPROBAR — el filtro lee números, no frases",
-        "try_btn": "Pruébalo",
+        "try_btn": "Intenta romperlo",
         "try_title": "Intenta hacerle mentir",
         "try_hint": "Escribe una frase sobre este jugador. Cada número se comprueba contra lo medido.",
         "try_check": "Comprobar",
@@ -286,7 +286,7 @@ UI: dict[str, dict[str, str]] = {
     },
     "fr": {
         "try_nonumbers": "RIEN À VÉRIFIER — le filtre lit des chiffres, pas des phrases",
-        "try_btn": "Essayez",
+        "try_btn": "Essayez de le casser",
         "try_title": "Essayez de le faire mentir",
         "try_hint": "Écrivez une phrase sur ce joueur. Chaque chiffre est vérifié contre ce qui a été mesuré.",
         "try_check": "Vérifier",
@@ -323,7 +323,7 @@ UI: dict[str, dict[str, str]] = {
     },
     "en-simple": {
         "try_nonumbers": "NOTHING TO CHECK — it only checks numbers",
-        "try_btn": "Try it",
+        "try_btn": "Try to break it",
         "try_title": "Try to make it lie",
         "try_hint": "Write a sentence about this player. Every number gets checked against what was actually measured.",
         "try_check": "Check",
@@ -360,7 +360,7 @@ UI: dict[str, dict[str, str]] = {
     },
     "ar": {
         "try_nonumbers": "لا شيء للتحقق منه — البوابة تقرأ الأرقام لا الجمل",
-        "try_btn": "جرّب",
+        "try_btn": "حاول كسره",
         "try_title": "حاول أن تجعله يكذب",
         "try_hint": "اكتب جملة عن هذا اللاعب. كل رقم فيها يُقارن بما تم قياسه.",
         "try_check": "تحقق",
