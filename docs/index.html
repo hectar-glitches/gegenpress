@@ -386,8 +386,8 @@ const RIG = {
   span: 50,     // metres of pitch LENGTH across the viewport; 62 read as dots
   wide: 118,    // "Wide" pulls out to the whole pitch
 };
-let camX = L / 2, wide = false;
-let LABEL = null, LABEL_T = 0, SUBJ = null, SUBJ_TAG = null;
+let camX = L / 2, wide = false, STRAP_H = 0;
+let LABEL = null, LABEL_T = 0, SUBJ = null, SUBJ_TAG = null, SUBJ_KEY = '', SUBJ_SINCE = 0;
 // Where the lens is tilted to, across the pitch. A broadcast camera does
 // not keep both touchlines in frame; it tilts to the play.
 let lookY = W / 2;
@@ -427,7 +427,13 @@ function buildCam() {
   // so the frame never shows past either touchline -- when the pitch is
   // taller than the frame, the near touchline simply leaves the bottom,
   // which is what a camera operator does with play on the far side.
-  const yTop = VH * 0.50 - room / 2, yBot = VH * 0.50 + room / 2;
+  // The strap covers the bottom of the canvas when a claim is up, so the
+  // floor the near touchline may rise to is the top of the strap, not the
+  // bottom of the frame. Otherwise a subject on the near touchline is
+  // framed perfectly -- underneath the graphic about him.
+  const lower = $('#lower');
+  STRAP_H = lower && lower.classList.contains('up') ? lower.offsetHeight : 0;
+  const yTop = VH * 0.50 - room / 2, yBot = VH * 0.50 + room / 2 - STRAP_H;
   // The far touchline may come down to a third of the frame -- the
   // stand is drawn above it, as on television -- but the near touchline
   // never rises above the bottom edge, because nothing exists below it.
@@ -435,7 +441,11 @@ function buildCam() {
   const cyMin = yBot + fl * bAt(0) / cAt(0);
   let cy = VH * 0.50 + fl * bAt(lookY) / cAt(lookY);
   cy = cyMin <= cyMax ? Math.max(cyMin, Math.min(cyMax, cy)) : (cyMin + cyMax) / 2;
-  CAM = { fy, fz, fl, cx: VW / 2, cy };
+  // The rail covers the right of the canvas. Centre on what is visible,
+  // or the ball lives right of centre and everything to its right is
+  // cropped first.
+  const railW = document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0;
+  CAM = { fy, fz, fl, cx: (VW - railW) / 2, cy };
 }
 
 /* World (x, y, z) -> [screenX, screenY, depth]. z is height above turf. */
@@ -987,7 +997,8 @@ function subjectIndex() {
     const who = followIndex();
     return who && { ...who, rgb: SUBJECT_RGB.follow, hex: '#04F5FF', ink: '#0B0010',
       shirt: FOLLOW.shirt, last: FOLLOW.player.split(' ').pop(),
-      stat: null, events: FOLLOW.events };
+      stat: null, events: FOLLOW.events,
+      metres: /range/.test(FOLLOW.metric_key || FOLLOW.metric || '') };
   }
   const m = FEED.moments[idx];
   if (!m || m.season_mean == null) return null;
@@ -998,7 +1009,8 @@ function subjectIndex() {
   return { side, p, away: side === 'away',
     rgb: up ? SUBJECT_RGB.up : SUBJECT_RGB.down, hex: up ? '#00FF85' : '#E90052',
     ink: '#0B0010', shirt: FEED.lineups[side][p].n, last: FEED.lineups[side][p].last,
-    stat: `${m.z > 0 ? '+' : ''}${m.z} SD`, events: m.events || [] };
+    stat: `${m.z > 0 ? '+' : ''}${m.z} SD`, events: m.events || [],
+    metres: /range/.test(m.metric_key || m.metric || '') };
 }
 
 function drawFollow() {
@@ -1006,11 +1018,26 @@ function drawFollow() {
   const who = subjectIndex();
   if (!who) return;
   const g = ctx, mn = minuteNow();
+  // A marker that pops is a bug; one that is cued is a graphic. On a new
+  // subject the ring closes in from wide and the tag fades up, over half
+  // a second of real time -- a director's call, not a match event, so it
+  // does not scale with playback speed.
+  const key = `${who.side}${who.p}${who.hex}`;
+  if (key !== SUBJ_KEY) { SUBJ_KEY = key; SUBJ_SINCE = performance.now(); }
+  const ease = 1 - Math.pow(1 - Math.min(1, (performance.now() - SUBJ_SINCE) / 550), 3);
+  const grow = 1 + 1.4 * (1 - ease);
+  g.save(); g.globalAlpha = ease;
   g.lineCap = 'round';
   // Only what has already happened, and faint: this is the evidence
   // under the claim, not a second match drawn over the first. The last
   // few are brighter, because recency is what a viewer is tracking.
   const played = who.events.filter(e => e.minute <= mn);
+  // The stat where it happened. Minute-level events cannot say whether
+  // this minute's pass has been played yet, so the figure goes on the
+  // latest pass from a minute that has fully elapsed -- never on a ball
+  // the viewer has not seen kicked.
+  const done = who.metres ? played.filter(e => e.minute < mn && e.end_x != null) : [];
+  const latest = done[done.length - 1] || null;
   played.forEach((e, i) => {
     const fresh = i >= played.length - 4;
     const a = fresh ? .5 : .16;
@@ -1025,6 +1052,17 @@ function drawFollow() {
     g.fillStyle = `rgba(${who.rgb},${a})`;
     poly(g, ring(EX(e.x, who.away), EY(e.y, who.away), .28, 0, Math.PI * 2, 8), true);
     g.fill();
+    if (e === latest && e.value != null) {
+      const mx = (EX(e.x, who.away) + EX(e.end_x, who.away)) / 2;
+      const my = (EY(e.y, who.away) + EY(e.end_y, who.away)) / 2;
+      const [sx, sy] = P(mx, my, 0);
+      const txt = `${e.value}m`;
+      g.font = '700 11px "Archivo Variable",system-ui,sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const w = g.measureText(txt).width + 10;
+      g.fillStyle = `rgba(${who.rgb},.9)`; g.fillRect(sx - w / 2, sy - 8, w, 16);
+      g.fillStyle = who.ink; g.fillText(txt, sx, sy + .5);
+    }
   });
   // A ring under the man himself, in the follow colour.
   const F = FEED.frames;
@@ -1032,13 +1070,13 @@ function drawFollow() {
   // A soft filled disc first: an orb on the ground survives perspective
   // and a crowd of legs in a way a thin ring does not.
   g.fillStyle = `rgba(${who.rgb},.16)`;
-  poly(g, ring(fx, fy, 1.9, 0, Math.PI * 2, 28), true); g.fill();
+  poly(g, ring(fx, fy, 1.9 * grow, 0, Math.PI * 2, 28), true); g.fill();
   g.strokeStyle = `rgba(${who.rgb},.95)`;
   g.lineWidth = Math.max(2.2, .17 * mpp(fy));
-  poly(g, ring(fx, fy, 1.6, 0, Math.PI * 2, 28), true); g.stroke();
+  poly(g, ring(fx, fy, 1.6 * grow, 0, Math.PI * 2, 28), true); g.stroke();
   g.strokeStyle = `rgba(${who.rgb},.3)`;
   g.lineWidth = Math.max(1, .07 * mpp(fy));
-  poly(g, ring(fx, fy, 2.5, 0, Math.PI * 2, 28), true); g.stroke();
+  poly(g, ring(fx, fy, 2.5 * grow, 0, Math.PI * 2, 28), true); g.stroke();
   const foot = P(fx, fy, 0), h = foot[1] - P(fx, fy, 1.84)[1];
   const label = `${who.shirt}  ${who.last.toUpperCase()}`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -1069,6 +1107,7 @@ function drawFollow() {
     g.fillRect(ex + (right ? -8 - aw : 8), ey - 32, aw, 20);
     g.fillStyle = who.ink;
     g.fillText(away, ex + (right ? -8 - aw / 2 : 8 + aw / 2), ey - 22);
+    g.restore();
     return;
   }
 
@@ -1091,6 +1130,7 @@ function drawFollow() {
   g.fillStyle = '#fff';
   g.fillText(label, x0 + 1.5 + nw / 2, ty + .5);
   if (who.stat) { g.fillStyle = who.ink; g.fillText(who.stat, x0 + nw + sw / 2, ty + .5); }
+  g.restore();
 }
 
 /* ================== people ==================
@@ -1500,8 +1540,27 @@ function frame(now) {
     let aim = bX, wantSpan = RIG.span;
     // Tilt toward the play, slowly: a lens that nods at every pass makes
     // the world move instead of the ball.
+    // The ball leads the tilt; the subject of the claim pulls it a
+    // little, so a man on the near touchline is not cut off at the
+    // bottom while the lens looks at play on the far one. Not enough to
+    // lose the ball -- Prime's reviewers hated a shot widened to fit
+    // everyone -- just enough to keep him in it.
     const wantY = Math.max(16, Math.min(W - 16, bl.y));
     lookY += (wantY - lookY) * (1 - Math.exp(-dtReal * 0.9));
+    // ...then only as much as it takes to keep the subject in shot. This
+    // cannot be solved in metres -- the same offset is worth far more
+    // pixels near the lens than at the far touchline -- so it is done in
+    // screen space: if his feet fall under the strap or above the stand
+    // line, tilt toward him until they do not, and no further.
+    if (SUBJ && !wide) {
+      const Fr = FEED.frames;
+      const [sx, sy] = at(SUBJ.side === 'home' ? Fr.h : Fr.a, 22, SUBJ.p * 2, clock);
+      const [, py] = P(sx, sy, 0);
+      const lo = VH * 0.50 + (VH - 86) / 2 - STRAP_H - 28, hi = 96;
+      if (py > lo) lookY -= Math.min(2.5, (py - lo) * .02) * dtReal * 12;
+      else if (py < hi) lookY += Math.min(2.5, (hi - py) * .02) * dtReal * 12;
+      lookY = Math.max(16, Math.min(W - 16, lookY));
+    }
     const who = followIndex();
     if (who) {
       const F = FEED.frames;

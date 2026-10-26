@@ -6,3 +6,6 @@ data/
 docs/audio/src-*.mp3
 docs/audio/synth-*.mp3
 Claude outputs/
+
+# Scratch the session could not delete; safe to remove by hand
+_to_delete/
