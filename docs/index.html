@@ -383,10 +383,14 @@ const RIG = {
   back: 42,     // metres behind the near touchline
   up: 28,       // metres above pitch level
   look: 32,     // aim point, metres across from the near touchline
-  span: 62,     // metres of pitch LENGTH across the viewport
+  span: 50,     // metres of pitch LENGTH across the viewport; 62 read as dots
   wide: 118,    // "Wide" pulls out to the whole pitch
 };
 let camX = L / 2, wide = false;
+let LABEL = null, LABEL_T = 0;
+// Where the lens is tilted to, across the pitch. A broadcast camera does
+// not keep both touchlines in frame; it tilts to the play.
+let lookY = W / 2;
 let spanNow = 0;   // metres across frame; widens to hold a followed man
 // Cached per-layout projection constants.
 let CAM = null;
@@ -412,10 +416,25 @@ function buildCam() {
   // rather than shrinking it, which is what a camera operator would do.
   const dUnit = Math.abs(bAt(W) / cAt(W) - bAt(0) / cAt(0));
   const room = VH - 86;
-  const fl = Math.max(room * .88 / dUnit,
-    Math.min(room / dUnit, VW * cAt(W / 2) / span));
+  // `span` metres fill the width at the depth the lens is tilted to.
+  // The old upper clamp -- never longer than "the full pitch width fits"
+  // -- is gone: that clamp is why tightening the span never actually
+  // zoomed in. The lower one stays: never so short that the pitch floats
+  // in a band of black.
+  const fl = Math.max(room * .88 / dUnit, VW * cAt(lookY) / span);
 
-  const cy = VH * 0.50 + fl * (bAt(0) / cAt(0) + bAt(W) / cAt(W)) / 2;
+  // Tilt. Put the look point at the frame's vertical centre, then clamp
+  // so the frame never shows past either touchline -- when the pitch is
+  // taller than the frame, the near touchline simply leaves the bottom,
+  // which is what a camera operator does with play on the far side.
+  const yTop = VH * 0.50 - room / 2, yBot = VH * 0.50 + room / 2;
+  // The far touchline may come down to a third of the frame -- the
+  // stand is drawn above it, as on television -- but the near touchline
+  // never rises above the bottom edge, because nothing exists below it.
+  const cyMax = yTop + room * .26 + fl * bAt(W) / cAt(W);
+  const cyMin = yBot + fl * bAt(0) / cAt(0);
+  let cy = VH * 0.50 + fl * bAt(lookY) / cAt(lookY);
+  cy = cyMin <= cyMax ? Math.max(cyMin, Math.min(cyMax, cy)) : (cyMin + cyMax) / 2;
   CAM = { fy, fz, fl, cx: VW / 2, cy };
 }
 
@@ -648,6 +667,40 @@ function drawTurf() {
   }
 }
 
+let STAND = null;
+function buildStand() {
+  const c = document.createElement('canvas');
+  c.width = 2048; c.height = 320;
+  const s = c.getContext('2d');
+  const sky = s.createLinearGradient(0, 0, 0, c.height);
+  sky.addColorStop(0, '#0B0010'); sky.addColorStop(1, '#1C0423');
+  s.fillStyle = sky; s.fillRect(0, 0, c.width, c.height);
+  // Tiers from the touchline upward, each thinner than the last.
+  const rnd = mulberry(7);
+  const palette = ['#2A0733', '#3A0F46', '#471A54', '#5A2A6A', '#8A6E97', '#C9B4D3'];
+  let y = c.height, i = 0;
+  while (y > 0) {
+    const h = Math.max(9, 34 / (1 + i * .22));
+    y -= h;
+    // the tier's seating, slightly lighter than the void behind it
+    s.fillStyle = i % 2 ? '#1A0522' : '#1F0729';
+    s.fillRect(0, y, c.width, h);
+    // the crowd: a row of heads per tier, denser lower down
+    const heads = Math.round(c.width / (3.2 + i * .25));
+    for (let k = 0; k < heads; k++) {
+      const r = rnd();
+      s.fillStyle = palette[r < .55 ? 1 : r < .8 ? 2 : r < .93 ? 3 : r < .985 ? 4 : 5];
+      const hx = rnd() * c.width, hy = y + h * (.25 + rnd() * .6);
+      const hr = Math.max(1, h * .11);
+      s.fillRect(hx, hy, hr, hr);
+    }
+    // the riser: a dark line at the front of each tier
+    s.fillStyle = 'rgba(0,0,0,.45)'; s.fillRect(0, y + h - 1, c.width, 1);
+    i++;
+  }
+  return c;
+}
+
 function drawPitch() {
   const g = ctx;
   g.fillStyle = '#05080b'; g.fillRect(0, 0, VW, VH);
@@ -657,17 +710,19 @@ function drawPitch() {
   // the grass reads as a crop; a tinted stand reads as a stadium, and
   // ties the frame to the graphics package around it.
   const horizon = P(camX, W, 0)[1];
-  const sky = g.createLinearGradient(0, 0, 0, horizon + 6);
-  sky.addColorStop(0, '#0B0010');
-  sky.addColorStop(.55, '#140420');
-  sky.addColorStop(1, '#220C2B');
-  g.fillStyle = sky; g.fillRect(0, 0, VW, horizon + 6);
-  // Faint tiers, so the shadow has structure in it.
-  g.fillStyle = 'rgba(255,255,255,.012)';
-  for (let i = 1; i <= 7; i++) {
-    const y = horizon - i * (horizon / 7.6);
-    g.fillRect(0, y, VW, Math.max(1, horizon / 26));
-  }
+  // Now that the camera tilts to the play, the stand can be a quarter of
+  // the frame, and a flat gradient at that size reads as a wall. So it is
+  // a stand: tiers that thin with distance, a crowd stippled into them,
+  // pre-rendered once and drawn with half-speed parallax so it slides
+  // behind the pitch as the camera dollies, the way the far stand does
+  // on television.
+  if (!STAND) STAND = buildStand();
+  const ox = -((camX * 5.5) % STAND.width);
+  const sh = horizon + 6;
+  g.drawImage(STAND, ox, 0, STAND.width, sh);
+  g.drawImage(STAND, ox + STAND.width, 0, STAND.width, sh);
+  // Let it sit in shadow relative to the floodlit grass.
+  g.fillStyle = 'rgba(11,0,16,.28)'; g.fillRect(0, 0, VW, sh);
 
   drawTurf();
 
@@ -1171,6 +1226,15 @@ function drawPeople() {
   }
   bx = VISB.x; by = VISB.y;
 
+  // Whose name is on screen. Assigned on possession, kept through the
+  // next pass, released a second after the ball has left him.
+  if (Math.abs(clock - LABEL_T) > 5) LABEL = null;
+  if (b.dwell && carry && carryD < 3.5 && carry.man) {
+    LABEL = { side: carry.side, p: carry.p }; LABEL_T = clock;
+  } else if (LABEL && clock - LABEL_T > 1.0) {
+    LABEL = null;
+  }
+
   // Ground marker under the man on the ball: a broadcast spotlight reads
   // far better than a ring round a dot, and survives the perspective.
   // Only while the ball is in someone's possession -- a ring that chases
@@ -1191,7 +1255,7 @@ function drawPeople() {
     const k = mpp(r.y);
 
     if (r.ball) {
-      const rad = Math.max(1.6, .16 * k);
+      const rad = Math.max(2.4, .2 * k);
       // Shadow on the turf whatever the height; a lofted ball reads as
       // lofted because the shadow stays down while the ball does not.
       g.fillStyle = 'rgba(0,0,0,.4)';
@@ -1202,6 +1266,9 @@ function drawPeople() {
       g.beginPath(); g.arc(pos[0], pos[1], rad, 0, 7);
       g.fillStyle = '#fff'; g.shadowColor = 'rgba(255,255,255,.8)';
       g.shadowBlur = 9; g.fill(); g.shadowBlur = 0;
+      // A dark rim so it stays a ball when it crosses a white line.
+      g.lineWidth = Math.max(.8, rad * .28); g.strokeStyle = 'rgba(10,8,14,.75)';
+      g.stroke();
       continue;
     }
 
@@ -1232,8 +1299,10 @@ function drawPeople() {
       Math.min(1, r.sp / 3.4));          // stride grows with pace, so a
     g.restore();                         // standing player stands still
 
-    // Name the man on the ball, as a broadcast would.
-    if (r === carry && carryD < 3.5 && r.man) {
+    // Name the man on the ball, as a broadcast would -- and as a
+    // broadcast would, only once he has it. A tag that follows the
+    // nearest man to a ball in flight hops across everyone it overtakes.
+    if (LABEL && r.side === LABEL.side && r.p === LABEL.p && r.man) {
       const label = `${r.man.n}  ${r.man.last.toUpperCase()}`;
       g.font = `700 ${Math.max(11, Math.min(14, h * .3))}px "Archivo Variable",system-ui,sans-serif`;
       const tw = g.measureText(label).width + 16;
@@ -1364,8 +1433,13 @@ function frame(now) {
   // Camera dolly: hold for small movements, then ease across. A camera
   // that tracks every touch makes the world move instead of the lens.
   if (BALL) {
-    const bX = ballAt(clock).x;
+    const bl = ballAt(clock);
+    const bX = bl.x;
     let aim = bX, wantSpan = RIG.span;
+    // Tilt toward the play, slowly: a lens that nods at every pass makes
+    // the world move instead of the ball.
+    const wantY = Math.max(16, Math.min(W - 16, bl.y));
+    lookY += (wantY - lookY) * (1 - Math.exp(-dtReal * 0.9));
     const who = followIndex();
     if (who) {
       const F = FEED.frames;
@@ -1379,7 +1453,7 @@ function frame(now) {
     if (!spanNow) spanNow = wantSpan;
     spanNow += (wantSpan - spanNow) * (1 - Math.exp(-dtReal * 1.2));
     if (!wide) buildCam();
-    const edge = Math.max(14, spanNow * .28);
+    const edge = Math.max(11, spanNow * .22);
     const target = Math.max(edge, Math.min(L - edge, aim));
     const err = target - camX, dz = 7;
     const want = Math.abs(err) <= dz ? camX : target - Math.sign(err) * dz;
@@ -1535,6 +1609,27 @@ function showFollow() {
   $('#sheet').classList.remove('up');
 }
 
+/* Open on the claim, and on the most watchable twenty seconds of its
+   minute. The claim is "as of 30'", so anywhere in the 30th minute is
+   honest; but the first second of it is usually midfield circulation,
+   and the viewer is about to be asked to watch the pitch for a while.
+   So pick the start, inside the minute, whose next twenty seconds carry
+   the ball nearest a goal line -- the stretch with a box entry in it,
+   when the minute has one. Data-driven, so it holds for any seed. */
+function bestOpening(minute) {
+  const base = minute * 60, LOOK = 20;
+  let best = base + 1, bestNear = 1e9;
+  for (let t = base + 1; t <= base + 59 - LOOK; t += 1) {
+    let near = 1e9;
+    for (const s of BALL) {
+      if (s.t1 < t || s.t0 > t + LOOK) continue;
+      near = Math.min(near, s.ax, s.bx, L - s.ax, L - s.bx);
+    }
+    if (near < bestNear - 0.5) { bestNear = near; best = t; }
+  }
+  return best;
+}
+
 function sync() {
   const mn = minuteNow();
   $('#clk').textContent = mn + "'";
@@ -1549,7 +1644,16 @@ function sync() {
   if (FOLLOW && FOLLOW.metric) { showFollow(); return; }
   const due = FEED.moments.map((m, i) => [m.minute, i]).filter(([k]) => k <= mn);
   if (!due.length) { $('#lower').classList.remove('up'); $('#sheet').classList.remove('up'); idx = -1; return; }
-  const want = due[due.length - 1][1];
+  // Two moments can share a minute. The opener picks the stronger one;
+  // pressing Play must not swap it for its sibling under the viewer, who
+  // has just been read its numbers. Hold whatever is on screen while its
+  // minute is still the latest due, and only on a new minute pick the
+  // most divergent of the moments that minute brings.
+  const latest = Math.max(...due.map(([k]) => k));
+  const cur = FEED.moments[idx];
+  if (idx >= 0 && cur && cur.minute === latest) return;
+  const want = due.filter(([k]) => k === latest).map(([, i]) => i)
+    .reduce((a, b) => Math.abs(FEED.moments[b].z ?? 0) > Math.abs(FEED.moments[a].z ?? 0) ? b : a);
   if (want !== idx) showMoment(want);
 }
 
@@ -1784,8 +1888,10 @@ fetch('feed.json').then(r => r.json()).then(d => {
     if (gap < bestGap) { bestGap = gap; open = i; }
   });
   BALL = buildBallTrack();
-  clock = d.moments[open].minute * 60 + 1;
-  camX = Math.max(28, Math.min(L - 28, ballAt(clock).x));
+  clock = bestOpening(d.moments[open].minute);
+  { const edge = Math.max(11, RIG.span * .22), b0 = ballAt(clock);
+    camX = Math.max(edge, Math.min(L - edge, b0.x));
+    lookY = Math.max(16, Math.min(W - 16, b0.y)); }
   sync(); showMoment(open);
   last = performance.now();
   requestAnimationFrame(frame);

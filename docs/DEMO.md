@@ -22,7 +22,10 @@ that looks like television.
       Do not eyeball this: Archivo at `wdth 125` measures *narrower* than
       some system fallbacks, so "the figures look wide" is not a test
 - [ ] Confirm it opens **paused on a diverging Form Line** with the strap
-      already up. That is the opening frame; it should need no clicks
+      already up, at **30:29** — not 30:01. The opener picks the twenty
+      seconds of the claim's minute that carry the ball nearest a goal, so
+      the play beat builds to the left box instead of circulating in
+      midfield. That is the opening frame; it should need no clicks
 - [ ] Click **Sound** and leave it on — the bed leans toward the box in
       play and a goal gets the full roar, which is worth ten seconds of
       narration. Set system output to the mic mix or record system audio
@@ -60,7 +63,13 @@ the viewer has been asked to understand anything. No architecture, no tour.*
 ### 0:14–0:32 — it is a real match *(37 words)*
 
 > *Press Play. Leave it at 1×. Say nothing for three seconds — let one
-> pass travel and settle before you speak over it.*
+> pass travel and settle before you speak over it. Eleven seconds in,
+> Kowalski himself plays a thirty-metre ball into the box and his tag
+> comes up — the subject of the claim, in the match, on camera. His
+> average tonight is 13.8; this one is the exception, which is what an
+> average means. You can point at him or let it pass; do not explain it.
+> The move ends with the ball in the goalmouth and the keeper on his line,
+> right as this beat ends.*
 
 "A simulated season — ten clubs, ninety matches, a hundred and fifty
 thousand events. All twenty-two players: the two nearest the ball leave
