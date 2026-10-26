@@ -49,7 +49,7 @@ DAMP = 0.86      # per second; bleeds speed so players settle
 # Ball flight speeds, m/s. A ball has two speeds -- it zips along a pass
 # and dwells at someone's feet -- and that rhythm is what makes a match
 # read as football rather than as drifting markers.
-BALL_V = {"pass": 17.0, "shot": 24.0}
+BALL_V = {"pass": 17.0, "shot": 24.0, "carry": 5.5}   # m/s; carry is a dribble, not a sprint
 
 
 @dataclass(slots=True)
@@ -87,15 +87,24 @@ def build_ball_track(match: Match) -> list[BallSeg]:
     home_id = match.home_club_id
     evs = [e for e in match.events if e.type != "pressure"]
     segs: list[BallSeg] = []
+    # The event log stamps a pass and its receipt a twentieth of a second
+    # apart, so a flight squeezed into that gap crosses 26 metres at 500
+    # m/s -- which the console, correctly, refuses to draw and cuts
+    # instead. The ball vanished at one foot and appeared at another.
+    #
+    # The ball's time is physical and the log's is not, so the ball wins:
+    # no event may start before the previous ball has landed and settled.
+    # A flight that needs longer than the log allows pushes the next event
+    # later, and the timeline catches up at the next real gap.
+    t_floor = 0.0
     for i, e in enumerate(evs):
-        t0 = (e.period - 1) * 2700 + e.clock
+        t0 = max((e.period - 1) * 2700 + e.clock, t_floor)
         ax, ay = absolute(e.x, e.y, e.team_id, home_id)
         if e.end_x is not None:
             bx, by = absolute(e.end_x, e.end_y, e.team_id, home_id)
         else:
             bx, by = ax, ay
         nxt = evs[i + 1] if i + 1 < len(evs) else None
-        t1 = max((nxt.period - 1) * 2700 + nxt.clock, t0 + 0.05) if nxt else t0 + 4.0
         if nxt:
             cx, cy = absolute(nxt.x, nxt.y, nxt.team_id, home_id)
         else:
@@ -104,13 +113,21 @@ def build_ball_track(match: Match) -> list[BallSeg]:
         dist = math.hypot(bx - ax, by - ay)
         carry = e.type == "carry"
         if carry:
-            ft = t1 - t0
+            v = BALL_V.get("carry", 5.0)
+            ft = max(0.3, dist / v)
+            need = ft / 0.9
         else:
             v = BALL_V.get(e.type)
             ft = max(0.25, min(2.2, dist / v)) if v else 0.0
-        # The flight never fills the window: the settle keeps a share of
-        # it, so the glide to the next event is a movement, not a jump.
-        ft = max(0.01, min(ft, (t1 - t0) * (0.9 if carry else 0.74)))
+            # The flight never fills the window: the settle keeps a share
+            # of it, so the glide to the next event is a movement.
+            need = ft / 0.74 if ft else 0.05
+        stamped_next = (nxt.period - 1) * 2700 + nxt.clock if nxt else t0 + 4.0
+        t1 = max(stamped_next, t0 + need, t0 + 0.05)
+        if carry:
+            ft = t1 - t0
+        ft = max(0.01, ft)   # a dead ball still needs a non-zero flight to divide by
+        t_floor = t1
         loft = min(7.0, dist * 0.18) if (e.type == "pass" and dist > 20) else (
             0.9 if e.type == "shot" else 0.0)
         # A long gap to the next event is a RESTART -- a goal, then a

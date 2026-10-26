@@ -68,8 +68,9 @@ the viewer has been asked to understand anything. No architecture, no tour.*
 > comes up — the subject of the claim, in the match, on camera. His
 > average tonight is 13.8; this one is the exception, which is what an
 > average means. You can point at him or let it pass; do not explain it.
-> The move ends with the ball in the goalmouth and the keeper on his line,
-> right as this beat ends.*
+> The move reaches the edge of the box as this beat ends, and the ball is
+> on the goal line about four seconds into the next -- under the Wide hold
+> and the first words about the gate. Let it.*
 
 "A simulated season — ten clubs, ninety matches, a hundred and fifty
 thousand events. All twenty-two players: the two nearest the ball leave
