@@ -19,7 +19,7 @@ import pytest
 
 from gegenpress.agents import Brief, Gate, TemplateModel, get_model
 from gegenpress.resilience import (FAULTS, Faults, GroundedModel,
-                                   InjectedFailure, ResilientStore,
+                                   ResilientStore,
                                    UngroundedModel, chaos_run)
 from gegenpress.store import LocalStore
 

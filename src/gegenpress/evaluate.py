@@ -27,7 +27,6 @@ import re
 from dataclasses import dataclass, field
 
 from .agents import Brief, Gate, Why
-from .baselines import METRICS
 from .season import build_league
 from .signal import measure_signal
 from .simulate import simulate_live, simulate_season

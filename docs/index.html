@@ -10,6 +10,14 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Gegenpress — Studio</title>
+<meta name="description" content="Football's broadcast tells you a press was fast. Gegenpress tells you it was fast for him: every claim measured against the player's own season, and refused where the data cannot support it.">
+<meta property="og:title" content="Gegenpress: was it good for him?">
+<meta property="og:description" content="A broadcast console that compares each player with his own season, refuses claims the data cannot support, and lets you try to make it lie.">
+<meta property="og:image" content="https://hectar-glitches.github.io/gegenpress/og.jpg">
+<meta property="og:url" content="https://hectar-glitches.github.io/gegenpress/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#1C0423">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2300FF85'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-weight='900' font-size='15' text-anchor='middle' fill='%231C0423'%3EGP%3C/text%3E%3C/svg%3E">
 <style>
   /* Archivo: one grotesque with a WIDTH axis as well as weight, so the
      whole package is a single typeface differentiated by width -- wide
@@ -247,7 +255,7 @@
   [dir=rtl] .item .v,[dir=rtl] .item .icc{margin-left:0;margin-right:auto}
   [dir=rtl] .row .mt{padding-left:0;padding-right:35px}
   [dir=rtl] .lsaid,[dir=rtl] .tag,[dir=rtl] #lMeta{direction:rtl;text-align:right}
-  [dir=rtl] .ln .v.fig,[dir=rtl] .hero .v,[dir=rtl] .num{direction:ltr;unicode-bidi:isolate}
+  [dir=rtl] .ln .v.fig,[dir=rtl] .hero .v,[dir=rtl] .num,[dir=rtl] .step code{direction:ltr;unicode-bidi:isolate}
   .hero .who{font-size:9px;color:var(--data);margin-bottom:7px}
   .item .r{font-size:10px;color:var(--dim);min-width:12px;
     font-variation-settings:'wght' 700,'wdth' 90}
@@ -2031,9 +2039,9 @@ function showMoment(i) {
     hero.textContent = `${m.z > 0 ? '+' : ''}${m.z} SD`;
     hero.style.fontSize = '';
   } else {
-    hero.textContent = 'refused';
+    hero.textContent = T('refused');
     hero.style.fontSize = '22px';
-    $('#lTag').textContent = 'no between-player signal · league claim only';
+    $('#lTag').textContent = T('refused_tag');
   }
   $('#lNums').innerHTML = `
     <div class="ln"><div class="k micro">${T('tonight')}</div><div class="v fig">${m.value}</div>
@@ -2054,26 +2062,24 @@ function showMoment(i) {
      whether "below his level" is a claim anyone is entitled to make
      about this player, on this metric. So the reference class and the
      gate's verdict lead, and the measurement is the footnote it is. */
+  const ui = uiNow(), c = v => `<code>${v}</code>`;
   const chain = [];
   if (m.season_mean != null) {
-    chain.push(['His own season', `norm <code>${m.season_mean}</code> over <code>${m.appearances}</code> matches · <code>${m.z > 0 ? '+' : ''}${m.z} SD</code>`]);
-    chain.push(['Verdict', m.diverges
-      ? (m.above ? 'Ordinary against the league, clearly above his own level.'
-                 : 'Ordinary against the league, well below his own level — only his history shows it.')
-      : (m.above ? "Above his level and the league's." : 'Below his own level.')]);
+    chain.push([ui.why_own, fill(ui.why_own_v, { norm: c(m.season_mean), n: c(m.appearances),
+      z: c(`${m.z > 0 ? '+' : ''}${m.z}`) })]);
+    chain.push([ui.why_verdict, m.diverges
+      ? (m.above ? ui.why_v_up_div : ui.why_v_dn_div)
+      : (m.above ? ui.why_v_up : ui.why_v_dn)]);
   } else {
-    chain.push(['Refused', 'No personal claim: this metric has no between-player signal.']);
+    chain.push([ui.why_refused, ui.why_refused_v]);
   }
   if (m.icc != null) {
-    chain.push(['Entitled to say it', m.personal
-      ? `ICC <code>${m.icc}</code> ≥ 0.08 — his own history means something for this metric`
-      : `ICC <code>${m.icc}</code> &lt; 0.08 — league claims only; his norm would be the league's wearing his name`]);
+    chain.push([ui.why_entitled, fill(escapeHtml((m.personal ? ui.why_ent_yes : ui.why_ent_no) || ''), { icc: c((+m.icc).toFixed(3)) })]);
   }
-  chain.push(['The league sees', `norm <code>${m.expected}</code>, beaten <code>${Math.round(m.league_pct)}%</code> — the view a broadcast already has`]);
-  chain.push(['Measured', `<code>${TX(m, 'metric')} = ${m.value}</code> as of ${m.minute}' · recomputed from the events`]);
-  chain.push(['Gate', m.grounded
-    ? `every number verified · <code>${m.model}</code>` : 'fell back to template']);
-  $('#sheet').innerHTML = `<h3>Why</h3>` +
+  chain.push([ui.why_league, fill(ui.why_league_v, { exp: c(m.expected), pct: c(Math.round(m.league_pct) + '%') })]);
+  chain.push([ui.why_measured, fill(ui.why_measured_v, { metric: c(TX(m, 'metric')), value: c(m.value), min: m.minute })]);
+  chain.push([ui.why_gate, m.grounded ? fill(ui.why_gate_ok, { model: c(m.model) }) : ui.why_gate_fb]);
+  $('#sheet').innerHTML = `<h3>${ui.why_title}</h3>` +
     chain.map(([k, v]) => `<div class="step"><b>${k}</b><span>${v}</span></div>`).join('');
 
   const asking = needsCall(i);
@@ -2808,7 +2814,8 @@ fetch('feed.json').then(r => r.json()).then(d => {
   }).catch(() => {});
   last = performance.now();
   requestAnimationFrame(frame);
-}).catch(() => {
+}).catch(err => {
+  console.error(err);   // a startup bug must not masquerade as a missing feed
   document.body.innerHTML =
     '<div style="padding:40px;font:15px system-ui;color:#eef4fa">No feed. Run ' +
     '<code>python -m gegenpress feed</code>, then <code>python -m http.server -d docs 8000</code></div>';

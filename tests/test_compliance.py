@@ -49,7 +49,13 @@ ALLOWED_REQUESTS = {"feed.json", "api/speech", "api/tts", "audio/crowd.mp3",
 def test_no_third_party_hosts(page):
     """No analytics, no CDN, no font service: a viewer's IP address goes
     to whoever serves the page and to nobody else."""
-    hosts = re.findall(r"""["'(]\s*(?:https?:)?//([a-z0-9.-]+)""", page, re.I)
+    # Two kinds of URL in the page are not requests and are excluded:
+    # link-preview tags (read by a chat app or social site when someone
+    # shares the link, never fetched by the page) and an SVG namespace
+    # identifier inside the favicon, which is a name, not an address.
+    scanned = re.sub(r'<meta property="og:[^>]*>', "", page)
+    scanned = scanned.replace("xmlns='http://www.w3.org/2000/svg'", "")
+    hosts = re.findall(r"""["'(]\s*(?:https?:)?//([a-z0-9.-]+)""", scanned, re.I)
     assert not hosts, f"the console references external hosts: {sorted(set(hosts))}"
 
 
@@ -59,6 +65,11 @@ def test_every_request_is_on_the_list(page):
     literal |= set(re.findall(r"url\(([^)$]+)\)", page))
     assert literal <= ALLOWED_REQUESTS, literal - ALLOWED_REQUESTS
     assert {"feed.json", "api/speech", "api/tts"} <= literal
+
+
+def test_link_previews_point_only_at_this_site(page):
+    for url in re.findall(r'<meta property="og:(?:image|url)" content="([^"]+)"', page):
+        assert url.startswith("https://hectar-glitches.github.io/gegenpress/"), url
 
 
 def test_no_cookies(page):
