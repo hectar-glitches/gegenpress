@@ -89,7 +89,7 @@ def test_browser_storage_holds_settings_and_nothing_else(page):
     fields = set(re.findall(r"(\w+):", m.group(1)))
     assert fields == {"ad", "voice", "rate", "captions", "large", "motion", "callit"}, fields
     m = re.search(r"let CALL = (\{.*?\}), OPENER", page)
-    assert set(re.findall(r"(\w+):", m.group(1))) == {"ans", "hits", "total", "streak"}
+    assert set(re.findall(r"(\w+):", m.group(1))) == {"ans", "missed", "hits", "total", "streak"}
 
 
 def test_the_speech_key_never_reaches_the_page(page):

@@ -2097,8 +2097,9 @@ function showMoment(i) {
     say(asking ? callQuestion(m) : TX(m, 'text'), 3);
   }
 
+  renderRail();   // the rail's "your call" follows the moment on screen
   if ($('#tryit').classList.contains('up')) openTry(true);
-  document.querySelectorAll('.row').forEach((r, j) => {
+  document.querySelectorAll('.row').forEach(r => { const j = +r.dataset.i;
     r.setAttribute('aria-current', j === i);
     // Scroll the rail itself, never the page: scrollIntoView on a row of a
     // rail that is off-canvas (Fan mode, phones) dragged the whole pitch
@@ -2243,8 +2244,8 @@ function sync() {
     if (typeof renderRail === 'function') renderRail();
   }
   $('#fill').style.width = (clock / FULL * 100) + '%';
-  document.querySelectorAll('.row').forEach((r, i) =>
-    r.classList.toggle('fired', FEED.moments[i].minute <= mn));
+  document.querySelectorAll('.row').forEach(r =>
+    r.classList.toggle('fired', FEED.moments[+r.dataset.i].minute <= mn));
   document.querySelectorAll('.pip').forEach((p, i) =>
     p.classList.toggle('hit', FEED.moments[i].minute <= mn));
 
@@ -2263,6 +2264,9 @@ function sync() {
   if (idx >= 0 && cur && cur.minute === latest) return;
   const want = due.filter(([k]) => k === latest).map(([, i]) => i)
     .reduce((a, b) => Math.abs(FEED.moments[b].z ?? 0) > Math.abs(FEED.moments[a].z ?? 0) ? b : a);
+  // Moving forward in play closes every earlier question still open.
+  // A seek or a click on the rail does not: that is the fan choosing.
+  if (playing && BOOTED) markMissed(want);
   if (want !== idx) showMoment(want);
 }
 
@@ -2281,27 +2285,31 @@ function pause() {
 // way to ship a rail that looks right and does nothing.
 function renderRail() {
   const d = FEED;
-  $('#timeline').innerHTML = d.moments.map((m, i) => `
-    <button class="row"><div class="t"><span class="mn">${m.minute}'</span>
+  // In match order. Rows carry their moment's index, because the feed
+  // lists moments in the order the desk wrote them, not by minute.
+  const order = d.moments.map((m, i) => i).sort((a, b) => d.moments[a].minute - d.moments[b].minute || a - b);
+  $('#timeline').innerHTML = order.map(i => [d.moments[i], i]).map(([m, i]) => `
+    <button class="row" data-i="${i}"><div class="t"><span class="mn">${m.minute}'</span>
       <span class="nm">${m.player}</span>
       ${m.diverges ? `<span class="dt" style="background:${m.above ? 'var(--up)' : 'var(--down)'}"></span>` : ''}
     </div><div class="mt">${TX(m, 'metric')} · <span class="num">${m.value} vs ${m.season_mean ?? m.expected}</span></div></button>`).join('');
-  // A moment the fan has not called yet must not be answered by the rail:
-  // no verdict dot, no norm -- just the man and the metric.
+  // A moment the fan can still call must not be answered by the rail: no
+  // verdict dot, no norm -- the man and the metric, and on the one being
+  // asked right now, "your call".
   d.moments.forEach((m, i) => {
     if (!needsCall(i)) return;
-    const r = $('#timeline').children[i];
+    const r = $('#timeline').querySelector(`.row[data-i="${i}"]`);
     r.querySelector('.dt')?.remove();
-    r.querySelector('.mt').textContent = `${TX(m, 'metric')} · ?`;
+    r.querySelector('.mt').textContent = i === idx ? `${TX(m, 'metric')} · ${T('call_wait')}` : TX(m, 'metric');
   });
   { const mn = minuteNow();
-    [...$('#timeline').children].forEach((r, i) => {
+    [...$('#timeline').children].forEach(r => { const i = +r.dataset.i;
       r.classList.toggle('fired', d.moments[i].minute <= mn);
       r.setAttribute('aria-current', i === idx);
     }); }
-  document.querySelectorAll('.row').forEach((r, i) => r.onclick = () => {
+  document.querySelectorAll('.row').forEach(r => { const i = +r.dataset.i; r.onclick = () => {
     pause(); clock = d.moments[i].minute * 60 + 1; sync(); showMoment(i);
-  });
+  }; });
   const fl = followNow();
   $('#hFollow').textContent = T('follow') + (followCheckpoint() != null ? ` · ${followCheckpoint()}'` : '');
   $('#follow').innerHTML = fl.map((f, i) =>
@@ -2317,11 +2325,11 @@ function renderRail() {
      <span class="icc">${s.icc.toFixed(3)}</span>
      <span class="v ${s.personal ? 'yes' : 'no'}">${s.personal ? T('personal') : T('league_only')}</span></div>`).join('');
   if (idx >= 0) {
-    const cur = document.querySelectorAll('.row')[idx];
+    const cur = document.querySelector(`.row[data-i="${idx}"]`);
     if (cur) cur.setAttribute('aria-current', 'true');
   }
-  document.querySelectorAll('.row').forEach((r, i) => {
-    if (FEED.moments[i].minute * 60 <= clock) r.classList.add('fired');
+  document.querySelectorAll('.row').forEach(r => {
+    if (FEED.moments[+r.dataset.i].minute * 60 <= clock) r.classList.add('fired');
   });
 }
 
@@ -2567,7 +2575,7 @@ function adMinute(min) {
    question only his own season can answer. Then the answer, the Gate's
    sentence, and a streak. The opening claim is the worked example and is
    never asked. */
-let CALL = { ans: {}, hits: 0, total: 0, streak: 0 }, OPENER = -1, BOOTED = false, ANNOUNCED = -1, JUST = -1;
+let CALL = { ans: {}, missed: {}, hits: 0, total: 0, streak: 0 }, OPENER = -1, BOOTED = false, ANNOUNCED = -1, JUST = -1;
 const callKey = () => `gp.call.${FEED.match.home.id}-${FEED.match.away.id}`;
 function loadCall() { try { Object.assign(CALL, JSON.parse(sessionStorage.getItem(callKey()) || '{}')); } catch (e) {} }
 function saveCall() { try { sessionStorage.setItem(callKey(), JSON.stringify(CALL)); } catch (e) {} }   // one sitting: a fresh visit gets fresh questions
@@ -2583,7 +2591,22 @@ function writerLabel(m) {
 }
 function needsCall(i) {
   const m = FEED.moments[i];
-  return ACC.callit && m && m.season_mean != null && i !== OPENER && !(i in CALL.ans);
+  return ACC.callit && m && m.season_mean != null && i !== OPENER && !(i in CALL.ans)
+    && !(i in (CALL.missed || {}));
+}
+// A question is open only while the match is on it. Once play has moved
+// on to a later moment, an unanswered one is gone -- like a live poll -- and
+// is revealed rather than left as a hole in the rail. Moments sharing the
+// opener's minute go with it: the opener is the worked example.
+function markMissed(except) {
+  CALL.missed = CALL.missed || {};
+  const mn = minuteNow();
+  let changed = false;
+  FEED.moments.forEach((m, i) => {
+    if (i === except || i === OPENER || i in CALL.ans || i in CALL.missed) return;
+    if (m.minute <= mn) { CALL.missed[i] = true; changed = true; }
+  });
+  if (changed) { saveCall(); renderRail(); }
 }
 function callQuestion(m) {
   const ui = uiNow();
@@ -2803,6 +2826,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
   OPENER = open;
   loadCall(); applyAcc(); renderRail();
   sync(); showMoment(open);
+  markMissed(open);
   BOOTED = true; ANNOUNCED = open;
   // Azure voices exist only behind the local server, which holds the key.
   // On the static site this 404s and the browser voice is used.
