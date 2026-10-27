@@ -4,19 +4,20 @@
 
 [![ci](https://github.com/hectar-glitches/gegenpress/actions/workflows/ci.yml/badge.svg)](https://github.com/hectar-glitches/gegenpress/actions/workflows/ci.yml)
 
-Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
+Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon. **Category: Best Enterprise Solution.**
+
+One deterministic gate decides what is allowed on screen, what gets spoken aloud, what an agent may say and what a Call it question may reveal. It refuses any number the data does not support, and any personal claim on a metric that measures the match rather than the man.
 
 | | |
 | --- | --- |
-| **Live console** | **https://hectar-glitches.github.io/gegenpress/** — opens paused on a diverging Form Line. No install, no key, no sign-in. |
+| **Live console** | **https://hectar-glitches.github.io/gegenpress/**. Opens paused on a diverging Form Line. No install, no key, no sign-in. |
 | **Two-minute video** | _paste URL before submitting_ |
-| **Category** | **Best Enterprise Solution** |
-| **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, the ICC gate computed again in Kusto, Python/KQL parity test green. |
-| **Agentic surface** | Four roles — Scout, Why, Desk, Gate — passing one closed `Brief` as shared state, with Desk on Microsoft Agent Framework and Gate recovering to templates when verification fails. Also an MCP server: 8 tools, 2 resources, 1 prompt contract, and `verify_claim` checks a sentence *before* a model says it. |
-| **Try it yourself** | A box in the console: write a claim, watch the gate refuse it. The same gate, run in the page against the numbers the brief shipped. |
-| **Live** | Every player's numbers move as the match does. The man on the ball carries a tag with his pass count, won-back count or shots, whichever his last touch moved, lit in his kit as it ticks, and his distance run, read off his own figure's path. A pass length rises off whoever played it. The claim's subject gains a *now* figure once a touch lands after his claim. All of this depends on the picture agreeing with the event log about who had the ball, and at first it didn't: the named passer was the nearest man only 13% of the time, a median 20 m away. Players now see their own next touch a few seconds out, and the named man is nearest on 90% of touches and within 3 m on 83% of passes, [tested off the shipped feed](tests/test_alignment.py) with no player above 9 m/s and the keeper kept at home. A figure only rises off a man the picture actually has on the ball; on the other 10% the count still ticks and nothing is credited to the wrong player. A goal is named only when the log and the picture agree on the scorer; otherwise it goes to the club. [The page's own scoreboard tally is held to the Python state block in Node](tests/test_live_tally.py). |
-| **Reach** | English, Spanish, French and Arabic — RTL and all — plus a plain-English register for someone who has never watched a match. Every claim in every language passes the same gate. |
-| **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League match data is used. |
+| **Try to make it lie** | Write a claim in the console's box and watch the gate strike out the number nobody measured. [More below.](#try-to-make-it-lie) |
+| **For fans** | Every player's stats move as the match plays. *Call it*: guess above or below his own level before the reveal. Audio description of the whole match, in five languages. [More below.](#for-fans) |
+| **Rules and regulations** | EU AI Act transparency with producer sign-off on any AI-written sentence. GDPR accuracy, fairness, access, portability, objection and retention. ePrivacy. The European Accessibility Act. WCAG 2.2 AA (axe-core: 0 violations in six states, run in CI). [Each one mapped to the control and the test that enforces it](docs/COMPLIANCE.md), with a [record of processing](docs/privacy/ROPA.md) and a [DPIA draft](docs/privacy/DPIA.md). |
+| **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, with the ICC gate computed again in Kusto and held to the Python by a parity test. |
+| **Agents** | Scout, Why, Desk and Gate share one closed `Brief`, with Desk on Microsoft Agent Framework. An MCP server exposes 9 tools, and `verify_claim` checks a sentence *before* a model says it. |
+| **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League data. |
 
 ### Try to make it lie
 
@@ -25,6 +26,16 @@ The console has a text box. Type a sentence about the player on screen — *"his
 Every other system in this field asks you to believe its guardrail works. This one hands you the guardrail and invites you to beat it.
 
 It is the same gate, not a demo of one. The numbers a claim may contain ship with each moment straight from the `Brief` the Python gate reads, the tolerance ships with the feed, and the page only finds digits and compares — so there is no second rule to drift. [Two tests run the page's own `gateMarks()` in Node against `Gate.unsupported()` in Python](tests/test_browser_gate.py) across every moment and insist they reach the same verdict, the same way the KQL is held to the Python. A sentence with no numbers in it is told *nothing to check — the gate reads numbers, not sentences*, because claiming otherwise would be the one dishonest thing on the page.
+
+### For fans
+
+**The match is live, and so are the players.** Every player's numbers move as the match does. The man on the ball carries a tag with his pass count, won-back count or shots, whichever his last touch moved, lit in his kit as it ticks, and his distance run, read off his own figure's path. A pass length rises off whoever played it. The claim's subject gains a *now* figure once a touch lands after his claim. All of this depends on the picture agreeing with the event log about who had the ball, and at first it didn't: the named passer was the nearest man only 13% of the time, a median 20 m away. Players now see their own next touch a few seconds out, and the named man is nearest on 90% of touches and within 3 m on 83% of passes, [tested off the shipped feed](tests/test_alignment.py) with no player above 9 m/s and the keeper kept at home. A figure only rises off a man the picture actually has on the ball; on the other 10% the count still ticks and nothing is credited to the wrong player. A goal is named only when the log and the picture agree on the scorer; otherwise it goes to the club. [The page's own scoreboard tally is held to the Python state block in Node](tests/test_live_tally.py).
+
+**Call it.** Before each Form Line is revealed, the fan calls it: *Beaumont, ball speed tonight 16.16. Above or below his own level? The league sees nothing unusual.* Tap, or press ↑ / ↓. Then the answer, the gate's sentence and a running score. It turns the one question only his own season can answer into a game. The question shows the number tonight and nothing that gives the answer away, and [a test checks every question in every language against the gate](tests/test_audio_description.py).
+
+**Accessibility.** An **Access** panel with audio description (off, key moments, or full radio-style commentary: the man on the ball, the long pass and its length, the ball won back, the shot, the goal and the score, the claim), in all five languages. Three ways to hear it: an **Azure AI Speech** neural voice, the browser's own voice, or the fan's own screen reader through a live region. Also captions synced to the speech, larger text, reduce motion, and the Call it switch, all usable from the keyboard. Sky launched live audio description for the Premier League on 19 Oct 2026, covering about 109 matches a season. Here it covers every match, from the same data. [Every number the describer could ever say is checked in Node](tests/test_audio_description.py) against the event row, the score and the clock, across the whole match in every language. Claims are spoken exactly as the gate passed them.
+
+**Reach.** English, Spanish, French and Arabic (right-to-left), plus a plain-English register for someone who has never watched a match. Every claim in every language passes the same gate.
 
 ### The one thing nothing else here does
 
@@ -40,7 +51,7 @@ Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** 
 
 **The controls.** In sport the figures are expected to be right, and a receipt proving 13.77 equals 13.77 impresses nobody. A broadcaster's risk is not that a number is wrong. It is that a claim goes to air which the data cannot support, in front of a rights-holder, a regulator and the player's club. The gate is deterministic, so the same inputs give the same verdict every time and it can be **audited** rather than re-sampled. So the receipt is not about the number; it is about the sentence built on it. The console's **Why** panel is ordered by what is actually in dispute: his own reference class first, then the verdict, then whether this metric is entitled to carry a personal claim at all — ICC 0.112 for pass range, 0.006 for recovery time — then the league's view, and only then the measurement, which nobody was questioning. It lives in the data layer, as KQL alongside the events it governs, not in a prompt that can be edited away. And its limits are published as measured numbers rather than described: the two corruption classes it cannot catch are `xfail` tests scoring a hard zero, which is the form an audit can actually read.
 
-**The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 117 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
+**The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 159 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
 
 **Language is a residency property, not a feature.** The console ships in four languages and a plain-English register, and switching is a re-render rather than a request: every translated claim is already in the feed, already checked by the same gate. Nothing is sent to a translation service, so a claim never leaves the region that computed it. And because the gate reads digits rather than prose, one control covers every locale — a model-based fact-checker needs retraining, re-thresholding and re-evaluating per language, which is why most ship one. [Pinned by 14 tests](tests/test_i18n.py), including that the figures on screen are identical in all five.
 
@@ -59,6 +70,16 @@ model             gate rejects, template replaces         6           yes       
 The wording degrades. **The numbers do not move.** That property is only available because every stage is deterministic — there is a correct answer to fall back *to* — and it is [pinned by 10 tests](tests/test_resilience.py), including one that checks the injected outage actually fired, so the suite cannot pass by breaking nothing.
 
 **It ships as a container.** [`Dockerfile`](Dockerfile) builds the pipeline, the gate and the MCP server on `python:3.12-slim` with no compiled dependencies and no native extensions, running as a non-root user, with the gate's own evaluation as the `HEALTHCHECK` — a container whose gate has stopped refusing unsupportable claims is not healthy, whatever its process table says. CI builds the image on a clean runner every push and runs the gate and the chaos matrix *inside it*, so this is something that happened rather than something claimed.
+
+**It knows which rules it is under.** A broadcaster deploying this answers to the EU AI Act's transparency duties (in force since 2 Aug 2026), GDPR (player performance data is personal data), ePrivacy and the European Accessibility Act. [`COMPLIANCE.md`](docs/COMPLIANCE.md) maps each one to the control in the code and the test that fails the build if it stops working. What that looks like in practice:
+
+- **A model never puts words on air by itself.** A model-written sentence is a draft until a named producer approves it; the template airs in the meantime. Every claim on screen says who wrote it and who approved it.
+- **Edits after the gate are detectable.** Every claim carries machine-readable provenance: who wrote it, its review status, and fingerprints of the brief and the text. `verify-feed` catches any change.
+- **A player can get, and take, his data.** `export --player` gives everything held about him and everything said about him on air. One line in an objection list keeps him out of personal claims altogether.
+- **No data about viewers.** The browser itself blocks any third-party request, through a Content-Security-Policy. No cookies; the only browser storage is the viewer's own settings.
+- **Accessible, and audited.** 0 WCAG AA violations across six screen states, in a CI job that fails on any. The first run found 41.
+
+It also lists what is *not* done, because those steps need a person, a contract or a subscription rather than code: the lawful-basis decision and DPIA sign-off, a data licence, deploying the Entra ID sign-in config and the retention policy, sessions with blind fans (the plan is written), and a signing key.
 
 **What production would still need**, stated here rather than left for a judge to find: multi-tenancy, which does not exist — one deployment serves one league today. Authentication is narrower than it sounds: the data path already authenticates to Azure AD ([`adx.py`](src/gegenpress/adx.py) uses `az` CLI or device-code auth, and the Foundry adapter uses `DefaultAzureCredential`, so managed identity in Container Apps works unchanged), and the console is public and read-only on purpose — it is a demo, not a tenant. What is missing is per-user auth in front of a hosted console, which only exists once there is a console to host. And a paid ADX tier or an Eventhouse, because the free tier refuses `streamingingestion`, so events are queryable after a minute or two rather than instantly. The architecture is right for live play. The free tier is not.
 
@@ -85,7 +106,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 117 tests
+PYTHONPATH=src python -m pytest -q              # 159 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000
@@ -153,6 +174,7 @@ Match state sits behind one interface with two implementations — `LocalStore` 
 | Service | Role | Status |
 | --- | --- | --- |
 | **Azure Data Explorer** | Event store; all match-state and grounding queries | **Verified on a live free cluster** — 153,041 events, every function green, **Python/KQL parity passing** |
+| Azure AI Speech | Neural voices for audio description (en-GB, es-ES, fr-FR, ar-SA) | Called from the local server ([`speech.py`](src/gegenpress/speech.py), [`serve.py`](scripts/serve.py)), so **the key never reaches the browser**. SSML is escaped and lines are cached on disk, so a replayed match costs nothing against the 0.5M-character free tier. [Tested](tests/test_audio_description.py) against a mocked REST endpoint: URL, headers, voice per language and the cache. The live call needs a Speech key (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`) and **has not been made**: no Azure subscription was available to this project. Without a key the page uses the browser voice, and in Microsoft Edge that is Microsoft's own neural voice ("Microsoft Ryan Online (Natural)"), which the console prefers when the browser offers it ([tested](tests/test_audio_description.py)). The panel names the voice that will speak |
 | Microsoft Foundry | Model for the Desk agent, via the Agent Framework | Adapter written ([`agents.py`](src/gegenpress/agents.py)) and **tested against `agent-framework` 1.23.0** ([8 tests](tests/test_foundry_adapter.py)): imports resolve, both constructor call sites bind, selection and fallback behave, and the response stringifies to the sentence rather than a repr. The live call needs a provisioned resource; everything before it is pinned. Falls back to deterministic templates when unconfigured |
 
 The KQL is plain Kusto and runs unchanged on a Fabric Eventhouse; only the connection string differs.

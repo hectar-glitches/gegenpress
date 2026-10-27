@@ -412,13 +412,20 @@ def run_desk(
     live: Match,
     model: LanguageModel | None = None,
     limit: int = 6,
+    exclude: set[str] | None = None,
 ) -> list[Segment]:
-    """Scout -> Why -> Desk -> Gate over one match."""
+    """Scout -> Why -> Desk -> Gate over one match.
+
+    `exclude` is the objection list (GDPR Art. 21): players who have
+    objected are never the subject of a personal claim. They are skipped
+    before a brief is written, so no model ever sees them.
+    """
     model = model or get_model()
     scout, why, desk = Scout(store), Why(league), Desk(model)
+    exclude = exclude or set()
 
     segments: list[Segment] = []
-    for form in scout.form(live)[:limit]:
+    for form in [f for f in scout.form(live) if f.player_id not in exclude][:limit]:
         brief = why.brief_from_form(form, live)
         segments.append(Segment(brief, desk.write(brief),
                                 form_player_id=form.player_id,

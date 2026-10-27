@@ -10,11 +10,13 @@ drop them onto a live feed without re-deriving anything.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from typing import Any
 
 from .agents import TOLERANCE, Gate, Segment, run_desk
+from .editorial import ReviewLog, apply as editorial_apply
 from .form import CHECKPOINTS, METRIC_LABELS, NOTABLE_Z
 from .i18n import (DIRECTION, LANGUAGES, LANGUAGE_CODES, form_claim,
                    metric_label, moment_text)
@@ -226,6 +228,67 @@ def _follow_entry(league, live, pid, score, form_by_player, as_of: int = 90):
     return row
 
 
+PROVENANCE_SCHEMA = "gegenpress-provenance/1"
+
+
+def _digest(obj: Any) -> str:
+    return hashlib.sha256(json.dumps(obj, sort_keys=True, ensure_ascii=False)
+                          .encode("utf-8")).hexdigest()
+
+
+def provenance(seg: Segment, review: dict[str, Any]) -> dict[str, Any]:
+    """Machine-readable answer to "who wrote this, from what, checked how".
+
+    `generated_by` says whether a model wrote the sentence that is on air
+    (an approved draft) or a deterministic template did. `brief_sha256`
+    fingerprints exactly what the writer was allowed to use, and
+    `text_sha256` the sentence itself, so a downstream system can detect
+    an edit after the gate. It is integrity metadata, not a signature:
+    anyone who can change the text can recompute the hash. Signing needs a
+    key the deployer holds.
+    """
+    b = seg.brief
+    ai = review.get("status") == "approved"
+    return {
+        "generated_by": "ai" if ai else "template",
+        "writer": seg.verdict.model if ai else "template",
+        "gate_passed": True,
+        "human_review": review.get("status"),
+        "brief_sha256": _digest({"minute": b.minute, "player": b.player_name,
+                                 "metric": b.metric_label,
+                                 "allowed": sorted(round(v, 4) for v in b.allowed_numbers())}),
+        "text_sha256": hashlib.sha256(seg.verdict.text.encode("utf-8")).hexdigest(),
+    }
+
+
+def verify_feed(feed: dict[str, Any]) -> list[str]:
+    """Recompute every moment's fingerprints. -> problems, empty if none."""
+    problems = []
+    for m in feed.get("moments", []):
+        pv = m.get("provenance") or {}
+        if hashlib.sha256(m["text"].encode("utf-8")).hexdigest() != pv.get("text_sha256"):
+            problems.append(f"{m['minute']}' {m['player']}: text changed after the gate")
+        brief = {"minute": m["minute"], "player": m["player"], "metric": m["metric"],
+                 "allowed": sorted(m["allowed"])}
+        if _digest(brief) != pv.get("brief_sha256"):
+            problems.append(f"{m['minute']}' {m['player']}: allowed numbers changed")
+        if pv.get("generated_by") == "ai" and (m.get("review") or {}).get("status") != "approved":
+            problems.append(f"{m['minute']}' {m['player']}: AI text on air without sign-off")
+        if Gate.unsupported(m["text"], _BriefView(m["allowed"])):
+            problems.append(f"{m['minute']}' {m['player']}: a number not in the brief")
+    return problems
+
+
+class _BriefView:
+    """Just enough of a Brief for Gate.unsupported: its allowed numbers."""
+
+    def __init__(self, allowed: list[float]) -> None:
+        self._allowed = allowed
+
+    def allowed_numbers(self) -> list[float]:
+        return self._allowed
+
+
 def build_feed(
     store: Store,
     league: League,
@@ -234,9 +297,20 @@ def build_feed(
     model: Any = None,
     limit: int = 8,
     span: int = 240,
+    review_log: ReviewLog | None = None,
 ) -> dict[str, Any]:
     home, away = league.club(live.home_club_id), league.club(live.away_club_id)
-    segments = run_desk(store, league, live, model=model, limit=limit)
+    # Players who have objected are never the subject of a personal claim,
+    # on the strap or in the follow list.
+    from .privacy import objections
+    excluded = objections()
+    segments = run_desk(store, league, live, model=model, limit=limit,
+                        exclude=excluded)
+    # Producer sign-off. A model-written sentence airs only once a named
+    # producer has approved it; until then its template stands in. Must
+    # run before anything reads verdict.text -- translations included.
+    log = review_log or ReviewLog()
+    reviews = [editorial_apply(seg, log) for seg in segments]
 
     signals = measure_signal(season)
     # Who to follow is a question with a different answer at 30' than at
@@ -245,7 +319,8 @@ def build_feed(
     # So it is computed at every Form Line checkpoint, and the console
     # switches lists as the clock passes each one.
     def follow_as_of(minute: int) -> list[dict[str, Any]]:
-        ranked = store.follow_target(live, as_of_minute=minute)[:6]
+        ranked = [r for r in store.follow_target(live, as_of_minute=minute)
+                  if r[0] not in excluded][:6]
         best: dict[str, Any] = {}
         for line in store.form_lines(live, notable_only=False, as_of_minute=minute):
             cur = best.get(line.player_id)
@@ -258,7 +333,7 @@ def build_feed(
     state = store.match_state(live, as_of_minute=90, window_minutes=90)
 
     moments = []
-    for seg in segments:
+    for seg, review in zip(segments, reviews):
         b = seg.brief
         moments.append({
             "minute": b.minute,
@@ -310,6 +385,8 @@ def build_feed(
             "model": seg.verdict.model,
             "attempts": seg.verdict.attempts,
             "fell_back": seg.verdict.fell_back,
+            "review": review,
+            "provenance": provenance(seg, review),
         })
 
     # Showcase window: a real passage of the real match, SELECTED not
@@ -355,6 +432,8 @@ def build_feed(
         # The browser compares with this; so does Python. A test pins them
         # together, because two copies of a threshold is one too many.
         "gate": {"tolerance": TOLERANCE},
+        "provenance": {"schema": PROVENANCE_SCHEMA,
+                       "verify": "python -m gegenpress verify-feed docs/feed.json"},
         "i18n": {
             "default": "en",
             "languages": [

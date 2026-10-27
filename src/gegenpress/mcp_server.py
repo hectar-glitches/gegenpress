@@ -294,6 +294,19 @@ def verify_claim(text: str, player: str, metric: str,
     }
 
 
+def export_player_data(player: str) -> dict[str, Any]:
+    """A player's own data, for an access or portability request: every
+    event that names him, his season norm per metric with whether it may
+    carry a personal claim, and every claim made about him on air. The
+    shape is `gegenpress-player-data/1`."""
+    from .privacy import export_player
+    w = world()
+    pid = w.player_id(player)
+    if pid is None:
+        return {"error": f"no unique player matches {player!r}; try list_players"}
+    return export_player(w.league, w.season, w.live, pid)
+
+
 # -- serving ---------------------------------------------------------------
 
 # -- resources and prompts -------------------------------------------------
@@ -382,6 +395,7 @@ def serve() -> int:
     mcp.tool()(match_state)
     mcp.tool()(follow_targets)
     mcp.tool()(verify_claim)
+    mcp.tool()(export_player_data)
 
     mcp.resource("gegenpress://signal",
                  name="Claims this match supports",

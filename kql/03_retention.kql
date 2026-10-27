@@ -1,0 +1,36 @@
+// Gegenpress — retention and erasure. NOT part of the bootstrap.
+//
+// The free ADX cluster this project was verified on rejects policy and
+// purge commands ("endpoint does not exist"), so these are kept out of
+// 01_schema.kql, where a failure would stop the bootstrap. Run them on a
+// paid cluster or a Fabric Eventhouse, as a database admin.
+
+//
+// 1. Retention. The Form Line compares a player with his own season, so
+//    the store needs this season and the last one -- the first matches of
+//    a new season are measured against the previous one. Two seasons is
+//    the purpose; nothing older is kept. GDPR Art. 5(1)(e).
+//
+.alter-merge table Events policy retention softdelete = 730d recoverability = disabled
+
+//
+// Reference tables are overwritten wholesale on each season load, so they
+// hold no history to expire. Stated so the absence is a decision.
+//
+
+//
+// 2. Erasure, for a request under GDPR Art. 17 where the deployer has no
+//    overriding ground to keep the data. A purge is permanent, needs purge
+//    enabled on the cluster and database-admin rights, and runs against
+//    the ingest- (data management) endpoint. It is two steps on purpose:
+//    the first only counts what would go (NumRecordsToPurge) and returns a
+//    verification token; nothing is deleted until the second.
+//
+//    Replace PLAYER_ID. Afterwards rebuild the season baselines, because
+//    his match means were part of the league distribution every other
+//    player is compared against.
+//
+// Step 1 -- count and get a token:
+//   .purge table Events records in database gegenpress <| where player_id == "PLAYER_ID"
+// Step 2 -- execute with that token:
+//   .purge table Events records in database gegenpress with (verificationtoken=h'<token from step 1>') <| where player_id == "PLAYER_ID"

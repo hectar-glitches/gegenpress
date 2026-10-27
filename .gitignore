@@ -9,3 +9,5 @@ Claude outputs/
 
 # Scratch the session could not delete; safe to remove by hand
 _to_delete/
+.cache/
+node_modules/

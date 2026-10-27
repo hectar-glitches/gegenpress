@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- The privacy promise, enforced by the browser rather than by us: this
+     page may load and connect to its own origin and nothing else. A future
+     edit that adds an analytics tag or a CDN script is blocked at runtime,
+     not merely caught by tests/test_compliance.py. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <title>Gegenpress — Studio</title>
 <style>
   /* Archivo: one grotesque with a WIDTH axis as well as weight, so the
@@ -33,7 +39,10 @@
     --ink0:#0B0010; --ink1:#1C0423; --ink2:#2A0733; --ink3:#3A0F46;
     --rule:#471A54; --pl:#37003C;
     --up:#00FF85; --down:#E90052; --data:#04F5FF;
-    --white:#fff; --soft:#C9B4D3; --dim:#8A6E97;
+    --white:#fff; --soft:#C9B4D3; --dim:#9C83A8;
+    /* Small red text: --down is 4.2:1 on ink, under WCAG AA's 4.5 for text
+       this size. The bands and big figures keep --down. */
+    --down-t:#FF4F86;
     --home:#5aa9ff; --away:#ecA322;
     --f:'Archivo Variable',system-ui,sans-serif;
     --ease:cubic-bezier(.2,.7,.3,1);
@@ -94,8 +103,9 @@
   .bug .live{display:flex;align-items:center;gap:7px;padding:13px 15px;
     border-left:1px solid var(--rule);font:10px/1 var(--f);
     font-variation-settings:'wght' 750,'wdth' 74;letter-spacing:.13em;
-    color:var(--down);opacity:.3;transition:opacity .3s}
-  .bug .live.on{opacity:1}
+    color:var(--dim);transition:color .3s}
+  .bug .live.on{color:var(--down-t)}
+  .bug .live:not(.on) i{background:var(--dim)}
   .bug .live i{width:6px;height:6px;background:var(--down)}
   .bug .tick{display:flex;align-items:center;gap:22px;padding:0 18px;
     border-left:1px solid var(--rule);font:10px/1 var(--f);letter-spacing:.08em;
@@ -128,7 +138,7 @@
   .hero{flex:none;padding:14px 22px 13px;border-right:1px solid var(--rule);
     min-width:218px;background:var(--ink2)}
   .hero .k{font-size:9.5px;color:var(--up);margin-bottom:7px}
-  .lower.dn .hero .k{color:var(--down)}
+  .lower.dn .hero .k{color:var(--down-t)}
   .hero .v{font-size:38px;line-height:1;color:var(--up)}
   .lower.dn .hero .v{color:var(--down)}
   .hero .tag{font-size:9px;color:var(--soft);margin-top:9px;line-height:1.5}
@@ -138,6 +148,10 @@
   .ltop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
   .lname{font-size:21px;line-height:1.1}
   .lmeta{font-size:12.5px;color:var(--soft)}
+  .lwriter{font-size:11px;color:var(--dim);border:1px solid var(--rule);padding:2px 7px;white-space:nowrap}
+  .lwriter:empty{display:none}
+  .lower.ask .lwriter{display:none}
+  .hint.priv{margin-top:12px;color:var(--dim)}
   .lsaid{font-size:14.5px;color:#E8DCEE;margin-top:6px;max-width:68ch}
 
   .lnums{display:flex;flex:none}
@@ -196,8 +210,12 @@
     padding:14px 16px;background:var(--ink2)}
   .row{display:block;width:100%;text-align:left;cursor:pointer;padding:10px 16px;
     border:0;border-top:1px solid var(--rule);background:transparent;color:inherit;
-    font:inherit;opacity:.32;transition:.18s var(--ease)}
-  .row.fired{opacity:1}
+    font:inherit;transition:.18s var(--ease)}
+  /* Not yet played: quieter, but still readable -- these are buttons, and
+     dimming them with opacity took the text to 1.5:1. */
+  .row:not(.fired) .nm,.row:not(.fired) .mt{color:var(--dim)}
+  .row:not(.fired) .nm{font-variation-settings:'wght' 450,'wdth' 84}
+  .row:not(.fired) .dt{opacity:.45}
   .row:hover{background:var(--ink2)}
   .row[aria-current=true]{background:var(--ink3);box-shadow:inset 3px 0 0 var(--up)}
   .row .t{display:flex;align-items:baseline;gap:9px}
@@ -294,12 +312,44 @@
     .hero{min-width:164px}
     .hero .v{font-size:32px}
   }
+
+  /* ---------- accessibility ---------- */
+  .sheet.acc{z-index:6;min-width:min(560px,100%)}
+  .accrow{display:flex;align-items:center;gap:14px;padding:6px 0;border-top:1px solid var(--rule)}
+  .accl{flex:0 0 150px;font-size:12.5px;color:var(--soft)}
+  .seg{display:flex;flex-wrap:wrap}
+  .seg .btn{padding:10px 13px;border:1px solid var(--rule);margin:0 -1px -1px 0}
+  .seg .btn[aria-disabled=true]{opacity:.45}
+  .btn:focus-visible,.callb:focus-visible{outline:2px solid var(--data);outline-offset:-2px}
+  .cap{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);z-index:4;max-width:min(760px,86%);
+    background:rgba(11,0,16,.88);color:#fff;font-size:19px;line-height:1.35;padding:9px 16px;
+    font-variation-settings:'wght' 600;opacity:0;transition:opacity .25s;pointer-events:none;text-align:center}
+  .cap.on{opacity:1}
+  body.analyst .cap{left:calc(50% - clamp(116px,11.5vw,150px))}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .callchip{display:flex;align-items:center;padding:0 14px;font:11px/1 var(--f);
+    font-variation-settings:'wght' 600,'wdth' 80;letter-spacing:.06em;color:var(--soft);border-left:1px solid var(--rule)}
+  .callchip b{color:var(--data);margin-right:7px;text-transform:uppercase;font-variation-settings:'wght' 800,'wdth' 74}
+  .callchip.hide{display:none}
+  .callchip.hit{animation:gflash .9s}
+  .lower.ask .band{background:var(--data)}
+  .lower.ask .hero .k,.lower.ask .hero .v{color:var(--data)}
+  .lower.ask .lnums{display:flex;align-items:stretch}
+  .callb{font:13px/1.1 var(--f);font-variation-settings:'wght' 800,'wdth' 80;text-transform:uppercase;
+    letter-spacing:.05em;border:0;border-left:1px solid var(--rule);padding:0 26px;cursor:pointer;
+    background:var(--ink2);color:var(--white);min-width:150px}
+  .callb.up:hover,.callb.up:focus-visible{background:var(--up);color:var(--ink1)}
+  .callb.dn:hover,.callb.dn:focus-visible{background:var(--down);color:#fff}
+  body.large .lname{font-size:26px} body.large .lsaid{font-size:18px} body.large .lmeta{font-size:15px}
+  body.large .btn{font-size:14px} body.large .cap{font-size:24px}
+  body.large .row,body.large .item{font-size:15px}
+  body.still *,body.still *::before,body.still *::after{transition:none!important;animation:none!important}
 </style>
 </head>
 <body>
 <div class="stage">
   <div class="field">
-    <canvas id="cv"></canvas>
+    <canvas id="cv" role="img" aria-label="Match pitch. Turn on audio description under Access to hear the play."></canvas>
     <div class="vig"></div>
 
     <div class="bug">
@@ -312,7 +362,10 @@
            so the console is visibly a live match and not a still with a
            clock on it. Held to the Python state block by a parity test. -->
       <div class="tick" id="tick"></div>
+      <div class="callchip" id="callChip" aria-live="polite"></div>
     </div>
+    <div class="cap" id="cap" aria-hidden="true"></div>
+    <div class="sr" id="srLive" aria-live="off" role="status"></div>
 
     <div class="lower" id="lower">
       <div class="band"></div>
@@ -325,6 +378,7 @@
         <div class="ltop">
           <span class="lname name" id="lName"></span>
           <span class="lmeta meta" id="lMeta"></span>
+          <span class="lwriter meta" id="lWriter"></span>
         </div>
         <div class="lsaid" id="lSaid"></div>
       </div>
@@ -341,10 +395,15 @@
       <h3 id="tryTitle">Try to make it lie</h3>
       <p class="hint" id="tryHint"></p>
       <div class="tryrow">
-        <input id="tryIn" type="text" spellcheck="false" autocomplete="off">
+        <input id="tryIn" type="text" spellcheck="false" autocomplete="off" aria-label="Try to make it lie">
         <button class="btn p" id="tryGo">Check</button>
       </div>
       <div id="tryOut"></div>
+    </div>
+
+    <div class="sheet acc" id="acc" role="dialog" aria-labelledby="accTitle">
+      <h3 id="accTitle">Accessibility</h3>
+      <div id="accGrid"></div>
     </div>
 
     <div class="rail" id="rail">
@@ -361,6 +420,7 @@
     <button class="btn" id="spd">1&times;</button>
     <button class="btn" id="wide" aria-pressed="false">Wide</button>
     <button class="btn" id="snd" aria-pressed="false">Sound</button>
+    <button class="btn" id="accBtn" aria-pressed="false" aria-controls="acc">Access</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
     <div class="right">
       <select class="btn sel" id="lang" aria-label="Language"></select>
@@ -1124,7 +1184,7 @@ function drawFollow() {
   // does not scale with playback speed.
   const key = `${who.side}${who.p}${who.hex}`;
   if (key !== SUBJ_KEY) { SUBJ_KEY = key; SUBJ_SINCE = performance.now(); }
-  const ease = 1 - Math.pow(1 - Math.min(1, (performance.now() - SUBJ_SINCE) / 550), 3);
+  const ease = ACC.motion ? 1 : 1 - Math.pow(1 - Math.min(1, (performance.now() - SUBJ_SINCE) / 550), 3);
   const grow = 1 + 1.4 * (1 - ease);
   g.save(); g.globalAlpha = ease;
   g.lineCap = 'round';
@@ -1212,9 +1272,9 @@ function drawFollow() {
     return;
   }
 
-  const fs = Math.max(11, Math.min(14, h * .3));
+  const fs = Math.max(11, Math.min(14, h * .3)) * TS(), BH = Math.round(21 * TS()), BT = Math.round(10 * TS());
   g.font = `700 ${fs}px "Archivo Variable",system-ui,sans-serif`;
-  const ty = foot[1] - h - 30;
+  const ty = foot[1] - h - 30 * TS();
   const nw = g.measureText(label).width + 16;
   const sw = who.stat ? g.measureText(who.stat).width + 14 : 0;
   // Live: his figure tonight including every touch that has landed by
@@ -1240,7 +1300,7 @@ function drawFollow() {
   // two-tone the strap uses, so the tag and the strap read as one graphic.
   // Padded well past the tag itself: two tags that touch read as one
   // stacked label, which is no better than two that overlap.
-  SUBJ_TAG = { x: x0 - 14, y: ty - 26, w: nw + sw + lw + kw + 28, h: 53 };
+  SUBJ_TAG = { x: x0 - 14, y: ty - BT - 16, w: nw + sw + lw + kw + 28, h: BH + 32 };
   g.restore();
   // The ring lives on the grass, under the players' feet. The tag is a
   // broadcast graphic and sits over everyone -- a name half-hidden by a
@@ -1251,18 +1311,18 @@ function drawFollow() {
     g.save(); g.globalAlpha = ease; g.font = font;
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = '#1C0423';
-    g.fillRect(x0, ty - 10, nw, 21);
+    g.fillRect(x0, ty - BT, nw, BH);
     g.fillStyle = who.hex;
-    g.fillRect(x0, ty - 10, 3, 21);
-    if (who.stat) g.fillRect(x0 + nw, ty - 10, sw, 21);
+    g.fillRect(x0, ty - BT, 3, BH);
+    if (who.stat) g.fillRect(x0 + nw, ty - BT, sw, BH);
     g.fillStyle = '#fff';
     g.fillText(label, x0 + 1.5 + nw / 2, ty + .5);
     if (who.stat) { g.fillStyle = who.ink; g.fillText(who.stat, x0 + nw + sw / 2, ty + .5); }
     if (liveTxt) {
-      g.fillStyle = '#2A0733'; g.fillRect(x0 + nw + sw, ty - 10, lw, 21);
+      g.fillStyle = '#2A0733'; g.fillRect(x0 + nw + sw, ty - BT, lw, BH);
       g.fillStyle = '#fff'; g.fillText(liveTxt, x0 + nw + sw + lw / 2, ty + .5);
     }
-    g.fillStyle = '#140219'; g.fillRect(x0 + nw + sw + lw, ty - 10, kw, 21);
+    g.fillStyle = '#140219'; g.fillRect(x0 + nw + sw + lw, ty - BT, kw, BH);
     g.fillStyle = 'rgba(255,255,255,.78)'; g.fillText(kmTxt, x0 + nw + sw + lw + kw / 2, ty + .5);
     g.restore();
   });
@@ -1281,14 +1341,14 @@ function drawGoal() {
     [x, y] = at(GOAL.side === 'home' ? FEED.frames.h : FEED.frames.a, 22, GOAL.p * 2, clock);
     man = FEED.lineups[GOAL.side][GOAL.p];
   }
-  const k = Math.min(1, age / .6);
+  const k = ACC.motion ? 1 : Math.min(1, age / .6);
   const foot = P(x, y, 0), h = foot[1] - P(x, y, 1.84)[1];
   g.save();
   g.strokeStyle = `rgba(0,255,133,${.9 * (1 - Math.min(1, age / 4))})`;
   g.lineWidth = Math.max(2, .2 * mpp(y));
   poly(g, ring(x, y, 1.4 + 2.2 * k, 0, Math.PI * 2, 32), true); g.stroke();
   const lbl = man ? `${T('goal')}  ·  ${man.n} ${man.last.toUpperCase()}` : `${T('goal')}  ·  ${GOAL.club}`;
-  g.font = `800 ${Math.max(12, Math.min(16, h * .34))}px "Archivo Variable",system-ui,sans-serif`;
+  g.font = `800 ${Math.max(12, Math.min(16, h * .34)) * TS()}px "Archivo Variable",system-ui,sans-serif`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
   const tw2 = g.measureText(lbl).width + 20;
   let ty2 = foot[1] - h - 36;
@@ -1330,12 +1390,12 @@ function drawOverlay() {
     // The subject's figures are the story and get the full graphic; every
     // other man's are small and quick, so twenty-two players touching the
     // ball reads as a match and not as a slot machine.
-    const fs = pp.big ? 14 + 6 * (1 - ease) : 11 + 2 * (1 - ease);
+    const fs = (pp.big ? 14 + 6 * (1 - ease) : 11 + 2 * (1 - ease)) * TS();
     g.globalAlpha = (1 - k) * (pp.big ? 1 : .85);
     g.font = `${pp.big ? 800 : 700} ${fs}px "Archivo Variable",system-ui,sans-serif`;
     const w = g.measureText(pp.text).width + (pp.big ? 14 : 10);
-    const hh = pp.big ? 22 : 17;
-    const yy = base - (pp.big ? 30 : 20) * ease;
+    const hh = (pp.big ? 22 : 17) * TS();
+    const yy = base - (ACC.motion ? 0 : (pp.big ? 30 : 20) * ease);   // reduce motion: fade in place
     g.fillStyle = `rgba(${pp.rgb},.95)`; g.fillRect(px - w / 2, yy - hh / 2, w, hh);
     g.fillStyle = '#0B0010'; g.fillText(pp.text, px, yy + .5);
   }
@@ -1623,21 +1683,21 @@ function drawPeople() {
       const label = `${r.man.n}  ${r.man.last.toUpperCase()}`;
       const stat = `${n} ${word}`;
       const km = `${(metresRun(r.side, r.p, clock) / 1000).toFixed(2)} ${T('st_km')}`;
-      const fs = Math.max(11, Math.min(14, h * .3));
+      const fs = Math.max(11, Math.min(14, h * .3)) * TS(), BH = Math.round(21 * TS()), BT = Math.round(10 * TS());
       g.font = `700 ${fs}px "Archivo Variable",system-ui,sans-serif`;
       const nw = g.measureText(label).width + 16;
       g.font = `600 ${fs - 1}px "Archivo Variable",system-ui,sans-serif`;
       const sw = g.measureText(stat).width + 12, kw = g.measureText(km).width + 12;
       const tw = nw + sw + kw;
-      const ty = foot[1] - h - 14;
+      const ty = foot[1] - h - 14 * TS();
       const vr = VW - (document.body.classList.contains('analyst') ? ($('#rail')?.offsetWidth || 0) : 0);
       const x0 = Math.max(8, Math.min(vr - tw - 8, foot[0] - tw / 2));
       // Two tags on one patch of grass is one tag too many. The subject's
       // was placed first and matters more; this one yields, and his thin
       // team ring still says who has the ball.
       if (SUBJ_TAG && x0 + tw > SUBJ_TAG.x && x0 < SUBJ_TAG.x + SUBJ_TAG.w
-          && ty + 11 > SUBJ_TAG.y && ty - 10 < SUBJ_TAG.y + SUBJ_TAG.h) continue;
-      CARRIER_TAG = { x: x0 - 6, y: ty - 14, w: tw + 12, h: 30 };
+          && ty + BH - BT > SUBJ_TAG.y && ty - BT < SUBJ_TAG.y + SUBJ_TAG.h) continue;
+      CARRIER_TAG = { x: x0 - 6, y: ty - BT - 4, w: tw + 12, h: BH + 9 };
       const kit = r.side === 'home' ? '#5aa9ff' : '#ecA322';
       const hot = fl && clock - fl.t >= 0 && clock - fl.t < .9;
       // Hard-edged, opaque, with a kit-coloured leading rule: the same
@@ -1645,14 +1705,14 @@ function drawPeople() {
       // overlay pass so nobody standing in front of him hides it.
       OVERLAY.push(() => {
         g.save(); g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillStyle = '#1C0423'; g.fillRect(x0, ty - 10, nw, 21);
-        g.fillStyle = kit; g.fillRect(x0, ty - 10, 3, 21);
+        g.fillStyle = '#1C0423'; g.fillRect(x0, ty - BT, nw, BH);
+        g.fillStyle = kit; g.fillRect(x0, ty - BT, 3, BH);
         g.font = `700 ${fs}px "Archivo Variable",system-ui,sans-serif`;
         g.fillStyle = '#fff'; g.fillText(label, x0 + 1.5 + nw / 2, ty + .5);
         g.font = `600 ${fs - 1}px "Archivo Variable",system-ui,sans-serif`;
-        g.fillStyle = hot ? kit : '#2A0733'; g.fillRect(x0 + nw, ty - 10, sw, 21);
+        g.fillStyle = hot ? kit : '#2A0733'; g.fillRect(x0 + nw, ty - BT, sw, BH);
         g.fillStyle = hot ? '#0B0010' : '#fff'; g.fillText(stat, x0 + nw + sw / 2, ty + .5);
-        g.fillStyle = '#140219'; g.fillRect(x0 + nw + sw, ty - 10, kw, 21);
+        g.fillStyle = '#140219'; g.fillRect(x0 + nw + sw, ty - BT, kw, BH);
         g.fillStyle = 'rgba(255,255,255,.78)'; g.fillText(km, x0 + nw + sw + kw / 2, ty + .5);
         g.restore();
       });
@@ -1718,7 +1778,7 @@ function crowdFrame(dtReal) {
   const t = AC.currentTime;
   const breath = .88 + .12 * Math.sin(t * .31) * Math.sin(t * .13 + 2);
   CROWD.bedG.gain.setTargetAtTime(
-    ((playing ? .4 : .18) + .45 * EXC) * breath, t, .3);
+    ((playing ? .4 : .18) + .45 * EXC) * breath * (SAY.busy ? .35 : 1), t, .3);   // duck under the description
   CROWD.bedF.frequency.setTargetAtTime(
     (playing ? 4200 : 2800) + 4200 * EXC, t, .4);
 
@@ -1799,6 +1859,7 @@ function frame(now) {
         const who = PIDX[e.p];
         if (!who) continue;
         if (e.k === 'pa' || e.k === 're' || e.k === 'sh') FLASH[`${who.side}${who.p}`] = { k: e.k, t: tb };
+        if (ACC.ad !== 'off') adEvent(e, who, !!onTheBall(who.side, who.p, e.x, e.y, tb));
         if (e.k === 'sh' && e.g) {
           // The log names the scorer and the picture puts him on the ball
           // for it -- nine touches in ten. On the tenth they disagree (the
@@ -1827,6 +1888,8 @@ function frame(now) {
           big: isSubj });
       }
     }
+    { const m0 = Math.floor(CLOCK_PREV / 60), m1 = Math.floor(clock / 60);
+      if (m1 > m0 && m1 % 15 === 0 && m1 < 90) adMinute(m1); }
     POPS = POPS.filter(pp => clock - pp.t < 2);
     if (GOAL && clock - GOAL.t > 4) GOAL = null;
   }
@@ -1900,6 +1963,7 @@ function frame(now) {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   SUBJ = subjectIndex();
   drawPitch(); drawEvents(); drawFollow(); drawPeople(); drawOverlay();
+  if (CAP_T && performance.now() - CAP_T > 4500) { $('#cap').classList.remove('on'); CAP_T = 0; }
   requestAnimationFrame(frame);
 }
 
@@ -1911,9 +1975,15 @@ function showMoment(i) {
   if (!m) return;
   idx = i;
   const lo = $('#lower');
+  lo.classList.remove('ask');
+  $('#lFormK').textContent = T('form_line');
   lo.classList.toggle('dn', !m.above);
   $('#lName').textContent = m.player;
   $('#lMeta').textContent = `${m.club} · ${m.minute}' · ${TX(m, 'metric')}`;
+  // Who wrote this sentence, on the sentence. The EU AI Act asks that
+  // AI-generated text be disclosed as such; the honest label is also the
+  // one that says when no AI was involved at all.
+  $('#lWriter').textContent = writerLabel(m);
   // Two deliberate lines rather than one that wraps: "league-/wide"
   // breaking across a line looks like a bug, because it is one.
   const tag = m.diverges
@@ -1973,6 +2043,21 @@ function showMoment(i) {
     ? `every number verified · <code>${m.model}</code>` : 'fell back to template']);
   $('#sheet').innerHTML = `<h3>Why</h3>` +
     chain.map(([k, v]) => `<div class="step"><b>${k}</b><span>${v}</span></div>`).join('');
+
+  const asking = needsCall(i);
+  if (asking) {
+    renderAsk(i);
+    if (showWhy) { showWhy = false; $('#sheet').classList.remove('up'); $('#lower').classList.remove('hide'); }
+  } else if (JUST === i && i in CALL.ans) {
+    const hit = (m.z > 0 ? 'up' : 'down') === CALL.ans[i];
+    $('#lFormK').textContent = `${hit ? '✓' : '✗'} ${T(hit ? 'call_hit' : 'call_miss')}`;
+  }
+  // Spoken once per moment, when it arrives -- not on a language switch
+  // or a re-render, and not at load, where nobody has asked for sound.
+  if (BOOTED && i !== ANNOUNCED) {
+    ANNOUNCED = i;
+    say(asking ? callQuestion(m) : TX(m, 'text'), 3);
+  }
 
   if ($('#tryit').classList.contains('up')) openTry(true);
   document.querySelectorAll('.row').forEach((r, j) => {
@@ -2156,6 +2241,19 @@ function renderRail() {
       <span class="nm">${m.player}</span>
       ${m.diverges ? `<span class="dt" style="background:${m.above ? 'var(--up)' : 'var(--down)'}"></span>` : ''}
     </div><div class="mt">${TX(m, 'metric')} · <span class="num">${m.value} vs ${m.season_mean ?? m.expected}</span></div></button>`).join('');
+  // A moment the fan has not called yet must not be answered by the rail:
+  // no verdict dot, no norm -- just the man and the metric.
+  d.moments.forEach((m, i) => {
+    if (!needsCall(i)) return;
+    const r = $('#timeline').children[i];
+    r.querySelector('.dt')?.remove();
+    r.querySelector('.mt').textContent = `${TX(m, 'metric')} · ?`;
+  });
+  { const mn = minuteNow();
+    [...$('#timeline').children].forEach((r, i) => {
+      r.classList.toggle('fired', d.moments[i].minute <= mn);
+      r.setAttribute('aria-current', i === idx);
+    }); }
   document.querySelectorAll('.row').forEach((r, i) => r.onclick = () => {
     pause(); clock = d.moments[i].minute * 60 + 1; sync(); showMoment(i);
   });
@@ -2202,6 +2300,10 @@ function setLang(code) {
   $('#try').textContent = T('try_btn');
   $('#wide').textContent = T('wide');
   $('#snd').textContent = T('sound');
+  $('#accBtn').textContent = T('acc_btn');
+  $('#cv').setAttribute('aria-label', T('pitch_label'));
+  if ($('#acc').classList.contains('up')) renderAcc();
+  paintCallChip();
   $('#mAnalyst').textContent = T('analyst');
   $('#mFan').textContent = T('fan');
   $('#play').textContent = playing ? '❚❚ ' + T('pause') : '▶ ' + T('play');
@@ -2210,6 +2312,270 @@ function setLang(code) {
   renderRail();
   if (FOLLOW && FOLLOW.metric) showFollow();
   else if (idx >= 0) showMoment(idx);
+}
+
+/* ================== accessibility ==================
+   Settings a fan sets once and keeps: spoken description of the match,
+   the voice it uses, captions, larger text, less motion, and the Call it
+   game. Kept in this browser only; nothing here needs an account. */
+const ACC_DEF = { ad: 'off', voice: 'browser', rate: 1, captions: true,
+                  large: false, motion: false, callit: true };
+let ACC = { ...ACC_DEF }, AZURE = false;
+try { Object.assign(ACC, JSON.parse(localStorage.getItem('gp.acc') || '{}')); } catch (e) {}
+function saveAcc() { try { localStorage.setItem('gp.acc', JSON.stringify(ACC)); } catch (e) {} }
+const TS = () => ACC.large ? 1.3 : 1;          // canvas text scale
+
+function applyAcc() {
+  document.body.classList.toggle('large', !!ACC.large);
+  document.body.classList.toggle('still', !!ACC.motion);
+  $('#callChip').classList.toggle('hide', !ACC.callit);
+  if (ACC.ad === 'off') { stopSpeech(); SAY.q = []; $('#cap').classList.remove('on'); }
+  $('#srLive').setAttribute('aria-live', ACC.voice === 'reader' && ACC.ad !== 'off' ? 'polite' : 'off');
+  paintCallChip();
+}
+
+function renderAcc() {
+  const row = (key, label, opts) => `<div class="accrow"><span class="accl">${T(label)}</span>
+    <span class="seg" role="group" aria-label="${T(label)}">${opts.map(([v, l, dis]) =>
+      `<button class="btn" data-k="${key}" data-v="${v}" aria-pressed="${String(ACC[key]) === String(v)}"
+        ${dis ? 'aria-disabled="true" title="' + T('acc_noazure') + '"' : ''}>${l}</button>`).join('')}</span></div>`;
+  const onoff = k => [['false', T('acc_off')], ['true', T('acc_on')]];
+  $('#accTitle').textContent = T('acc_title');
+  $('#accGrid').innerHTML =
+    row('ad', 'acc_ad', [['off', T('acc_off')], ['key', T('acc_key')], ['full', T('acc_full')]]) +
+    row('voice', 'acc_voice', [['azure', T('acc_azure'), !AZURE], ['browser', T('acc_browser')], ['reader', T('acc_reader')]]) +
+    row('rate', 'acc_rate', [['0.8', '0.8×'], ['1', '1×'], ['1.25', '1.25×']]) +
+    row('captions', 'acc_captions', onoff()) +
+    row('large', 'acc_large', onoff()) +
+    row('motion', 'acc_motion', onoff()) +
+    row('callit', 'acc_callit', onoff()) +
+    (ACC.voice === 'azure' && !AZURE ? `<p class="hint">${T('acc_noazure')}</p>` : '') +
+    `<p class="hint priv">${T('priv')}${ACC.voice === 'azure' && AZURE ? ' ' + T('priv_azure') : ''}</p>` +
+    // Say which voice will actually speak: "Microsoft Ryan Online
+    // (Natural)" in Edge, something plainer elsewhere.
+    ((ACC.voice === 'browser' || (ACC.voice === 'azure' && !AZURE)) && voiceLabel()
+      ? `<p class="hint">♪ ${escapeHtml(voiceLabel())}</p>` : '');
+  $('#accGrid').querySelectorAll('button').forEach(b => b.onclick = () => {
+    const k = b.dataset.k, raw = b.dataset.v;
+    const v = raw === 'true' ? true : raw === 'false' ? false : (k === 'rate' ? parseFloat(raw) : raw);
+    const was = ACC.ad;
+    ACC[k] = v; saveAcc(); applyAcc(); renderAcc();
+    if (k === 'callit') { renderRail(); if (idx >= 0) showMoment(idx); }
+    // Turning description on says so, in the chosen voice -- the only
+    // way a blind user knows the switch did anything.
+    if (k === 'ad' && v !== 'off' && was === 'off') say(`${T('acc_ad')}: ${b.textContent}.`, 3);
+    if (k === 'voice' && ACC.ad !== 'off') say(`${T('acc_voice')}: ${b.textContent}.`, 3);
+  });
+}
+
+function openAcc(on) {
+  if (on) { openTry(false); showWhy = false; $('#sheet').classList.remove('up'); renderAcc(); }
+  $('#acc').classList.toggle('up', !!on);
+  $('#accBtn').setAttribute('aria-pressed', !!on);
+  if (on) setTimeout(() => { const b = $('#accGrid button'); if (b) b.focus({ preventScroll: true }); scrollTo(0, 0); }, 420);
+}
+
+/* ================== audio description ==================
+   Radio-style: the name of the man on the ball, the long pass and its
+   length, the ball won back, the shot, the goal and the score, the minute
+   every fifteen -- and the Form Line claim, read as the Gate passed it.
+
+   describe() is pure, so a test can run it in Node over the whole match
+   and check that every number it would ever say comes from the event row,
+   the score or the clock. Claims are never composed here; they are the
+   gated text, verbatim. */
+function fill(tpl, v) { return String(tpl).replace(/\{(\w+)\}/g, (_, k) => v[k] ?? ''); }
+function describe(e, c, ui) {
+  // c: { name, club, verbosity, last, named, home, away, hg, ag }
+  const full = c.verbosity === 'full';
+  if (e.k === 'sh' && e.g)
+    return { text: fill(ui.ad_goal, { who: c.named ? c.name : c.club, home: c.home, away: c.away, hg: c.hg, ag: c.ag }),
+             prio: 3, excited: true };
+  if (e.k === 'sh') return { text: `${fill(ui.ad_shot, { name: c.name })}. ${ui.ad_nogoal}`, prio: 2 };
+  if (!full) return null;
+  if (e.k === 're') return { text: fill(ui.ad_won, { name: c.name }), prio: 1 };
+  if (e.k === 'pa' && e.d != null && e.d >= 25)
+    return { text: fill(ui.ad_long, { name: c.name, d: Math.round(e.d) }), prio: 1 };
+  if ((e.k === 'pa' || e.k === 'ca') && c.last !== e.p) return { text: c.name, prio: 0 };
+  return null;
+}
+function describeMinute(min, c, ui) {
+  return { text: fill(ui.ad_min, { min, home: c.home, away: c.away, hg: c.hg, ag: c.ag }), prio: 2 };
+}
+
+const SAY = { q: [], busy: false, audio: null, last: null };
+const VOICE_LANG = { en: 'en-GB', 'en-simple': 'en-GB', es: 'es-ES', fr: 'fr-FR', ar: 'ar-SA' };
+function uiNow() { return { ...(FEED.i18n?.ui?.en || {}), ...(FEED.i18n?.ui?.[LANG] || {}) }; }
+
+let CAP_T = 0;
+function caption(text) {
+  if (!ACC.captions) return;
+  const c = $('#cap'); c.textContent = text; c.classList.add('on');
+  c.setAttribute('dir', (FEED.i18n?.dir?.[LANG] ?? 'ltr'));
+  CAP_T = performance.now();
+}
+function say(text, prio = 1, opts = {}) {
+  if (ACC.ad === 'off' || !text) return;
+  if (ACC.voice === 'reader') {
+    caption(text);
+    // The fan's own screen reader speaks it, at the speed and in the voice
+    // they already chose. Re-set the text so a repeat is still announced.
+    const sr = $('#srLive'); sr.textContent = ''; setTimeout(() => sr.textContent = text, 30);
+    return;
+  }
+  const item = { text, prio, at: performance.now(), excited: !!opts.excited };
+  if (prio >= 3) { stopSpeech(); SAY.q = SAY.q.filter(x => x.prio >= 3); }
+  SAY.q.push(item);
+  SAY.q.sort((a, b) => b.prio - a.prio || a.at - b.at);
+  pump();
+}
+function stopSpeech() {
+  try { if (SAY.audio) { SAY.audio.pause(); SAY.audio = null; } } catch (e) {}
+  try { speechSynthesis.cancel(); } catch (e) {}
+  SAY.busy = false;
+}
+function pump() {
+  if (SAY.busy) return;
+  const now = performance.now();
+  // A name is only worth saying while he still has the ball.
+  SAY.q = SAY.q.filter(x => x.prio >= 2 || now - x.at < 2200);
+  const it = SAY.q.shift();
+  if (!it) return;
+  SAY.busy = true;
+  caption(it.text);                    // the words on screen are the words being spoken, in that order
+  const done = () => { if (SAY.busy) { SAY.busy = false; pump(); } };
+  speakNow(it).then(done, done);
+}
+async function speakNow(it) {
+  if (ACC.voice === 'azure' && AZURE) {
+    try {
+      const r = await fetch('api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: it.text, lang: LANG, rate: ACC.rate, excited: it.excited }) });
+      if (!r.ok) throw new Error(r.status);
+      const url = URL.createObjectURL(await r.blob());
+      const a = new Audio(url); SAY.audio = a;
+      await new Promise(res => { a.onended = a.onerror = res; a.play().catch(res); });
+      URL.revokeObjectURL(url);
+      return;
+    } catch (e) { /* this line falls back to the browser voice */ }
+  }
+  if (!('speechSynthesis' in window)) return;
+  await new Promise(res => {
+    const u = new SpeechSynthesisUtterance(it.text);
+    u.lang = VOICE_LANG[LANG] || 'en-GB';
+    const v = pickVoice(u.lang);
+    if (v) u.voice = v;
+    u.rate = ACC.rate * (LANG === 'en-simple' ? .9 : 1) * (it.excited ? 1.08 : 1);
+    u.pitch = it.excited ? 1.15 : 1;
+    u.onend = u.onerror = res;
+    setTimeout(res, 12000);             // a voice that never fires onend must not wedge the queue
+    speechSynthesis.speak(u);
+  });
+}
+
+/* Microsoft Edge exposes Microsoft's own neural voices to every web page
+   as "Microsoft Ryan Online (Natural)" and friends -- the same voice
+   family Azure AI Speech sells, with no account and no key. So the browser
+   voice prefers a Natural one, then any online voice, then whatever the
+   machine has. Entries with a missing name or language (an Edge 150
+   regression) are skipped rather than chosen. */
+function pickVoice(lang) {
+  let vs = [];
+  try { vs = speechSynthesis.getVoices(); } catch (e) { return null; }
+  vs = vs.filter(v => v.name && v.lang && !/undefined/.test(v.name));
+  const exact = vs.filter(v => v.lang === lang), near = vs.filter(v => v.lang.startsWith(lang.slice(0, 2)));
+  const rank = v => (/Natural/.test(v.name) ? 0 : /Online|Neural/.test(v.name) ? 1 : /Google/.test(v.name) ? 2 : 3);
+  for (const pool of [exact, near]) if (pool.length) return [...pool].sort((a, b) => rank(a) - rank(b))[0];
+  return null;
+}
+function voiceLabel() {
+  const v = pickVoice(VOICE_LANG[LANG] || 'en-GB');
+  return v ? v.name : '';
+}
+try { speechSynthesis.onvoiceschanged = () => { if ($('#acc')?.classList.contains('up')) renderAcc(); }; } catch (e) {}
+
+function adEvent(e, who, named) {
+  if (ACC.ad === 'off') return;
+  const man = FEED.lineups[who.side][who.p];
+  const T2 = tallyStream(FEED.stream, FEED.match.home.id, e.tb ?? e.t);
+  const away = who.side === 'away';
+  const line = describe(e, {
+    name: man.last, club: (away ? FEED.match.away : FEED.match.home).name,
+    verbosity: ACC.ad, last: SAY.last, named,
+    home: FEED.match.home.name, away: FEED.match.away.name, hg: T2.home.goals, ag: T2.away.goals,
+  }, uiNow());
+  if (e.k === 'pa' || e.k === 'ca' || e.k === 're') SAY.last = e.p;
+  if (line) say(line.text, line.prio, { excited: line.excited });
+}
+function adMinute(min) {
+  if (ACC.ad === 'off') return;
+  const T2 = tallyStream(FEED.stream, FEED.match.home.id, clock);
+  const l = describeMinute(min, { home: FEED.match.home.name, away: FEED.match.away.name,
+    hg: T2.home.goals, ag: T2.away.goals }, uiNow());
+  say(l.text, l.prio);
+}
+
+/* ================== Call it ==================
+   Before a Form Line is revealed, the fan calls it: above or below his own
+   level? They are shown what a broadcast would show -- the number tonight,
+   and when the league reads it as ordinary, that too -- and asked the one
+   question only his own season can answer. Then the answer, the Gate's
+   sentence, and a streak. The opening claim is the worked example and is
+   never asked. */
+let CALL = { ans: {}, hits: 0, total: 0, streak: 0 }, OPENER = -1, BOOTED = false, ANNOUNCED = -1, JUST = -1;
+const callKey = () => `gp.call.${FEED.match.home.id}-${FEED.match.away.id}`;
+function loadCall() { try { Object.assign(CALL, JSON.parse(sessionStorage.getItem(callKey()) || '{}')); } catch (e) {} }
+function saveCall() { try { sessionStorage.setItem(callKey(), JSON.stringify(CALL)); } catch (e) {} }   // one sitting: a fresh visit gets fresh questions
+function writerLabel(m) {
+  if (!m || !m.model) return '';
+  if (m.fell_back) return T('wr_fallback');
+  const rv = m.review || {};
+  if (rv.status === 'approved') return fill(uiNow().wr_approved, { model: m.model, by: rv.by });
+  if (rv.status === 'pending') return T('wr_pending');
+  if (rv.status === 'rejected') return fill(uiNow().wr_rejected, { by: rv.by });
+  if (m.model === 'template') return T('wr_template');
+  return fill(uiNow().wr_model, { model: m.model });
+}
+function needsCall(i) {
+  const m = FEED.moments[i];
+  return ACC.callit && m && m.season_mean != null && i !== OPENER && !(i in CALL.ans);
+}
+function callQuestion(m) {
+  const ui = uiNow();
+  const q = fill(ui.call_q, { name: m.player, metric: TX(m, 'metric'), value: m.value });
+  return m.diverges ? `${q} ${ui.call_league}` : q;
+}
+function renderAsk(i) {
+  const m = FEED.moments[i], lo = $('#lower');
+  lo.classList.add('ask'); lo.classList.remove('dn');
+  $('#lFormK').textContent = T('call_title');
+  $('#lForm').textContent = '?';
+  $('#lTag').innerHTML = `<span>${T('call_wait')}</span>`;
+  $('#lSaid').textContent = callQuestion(m);
+  $('#lNums').innerHTML = `
+    <button class="callb up" id="cUp">▲ ${T('call_up')}</button>
+    <button class="callb dn" id="cDn">▼ ${T('call_down')}</button>`;
+  $('#cUp').onclick = () => answerCall(i, 'up');
+  $('#cDn').onclick = () => answerCall(i, 'down');
+}
+function answerCall(i, pick) {
+  const m = FEED.moments[i];
+  if (!m || i in CALL.ans) return;
+  const hit = (m.z > 0 ? 'up' : 'down') === pick;
+  CALL.ans[i] = pick; CALL.total++;
+  if (hit) { CALL.hits++; CALL.streak++; } else CALL.streak = 0;
+  saveCall(); JUST = i;
+  renderRail();
+  showMoment(i);
+  paintCallChip(true);
+  say(`${T(hit ? 'call_hit' : 'call_miss')}. ${TX(m, 'text')}`, 3);
+}
+function paintCallChip(flash) {
+  const c = $('#callChip');
+  if (!c || !FEED) return;
+  c.innerHTML = `<b>${T('call_title')}</b> ${CALL.hits}/${CALL.total}` +
+    (CALL.streak > 1 ? ` · ${CALL.streak} ${T('call_streak')}` : '');
+  if (flash) { c.classList.remove('hit'); void c.offsetWidth; c.classList.add('hit'); }
 }
 
 /* The Gate, in the browser.
@@ -2265,6 +2631,7 @@ function openTry(on) {
   $('#try').setAttribute('aria-pressed', !!on);
   if (!on || !m) return;
   $('#tryTitle').textContent = T('try_title');
+  $('#tryIn').setAttribute('aria-label', T('try_title'));
   $('#tryHint').textContent = T('try_hint');
   $('#tryGo').textContent = T('try_check');
   // Pre-loaded with the lie from the MCP demo, so the two
@@ -2315,7 +2682,7 @@ fetch('feed.json').then(r => r.json()).then(d => {
 
   $('#play').onclick = () => playing ? pause() : play();
   $('#why').onclick = () => {
-    openTry(false);
+    openTry(false); openAcc(false);
     showWhy = !showWhy;
     $('#sheet').classList.toggle('up', showWhy && idx >= 0);
     $('#lower').classList.toggle('hide', showWhy);
@@ -2346,7 +2713,8 @@ fetch('feed.json').then(r => r.json()).then(d => {
   sel.innerHTML = (d.i18n?.languages ?? [{code: 'en', name: 'English'}])
     .map(l => `<option value="${l.code}">${l.name}</option>`).join('');
   sel.onchange = () => setLang(sel.value);
-  $('#try').onclick = () => openTry(!$('#tryit').classList.contains('up'));
+  $('#try').onclick = () => { openAcc(false); openTry(!$('#tryit').classList.contains('up')); };
+  $('#accBtn').onclick = () => openAcc(!$('#acc').classList.contains('up'));
   $('#tryGo').onclick = runTry;
   $('#tryIn').onkeydown = e => {
     if (e.key === 'Enter') { e.preventDefault(); runTry(); }
@@ -2360,7 +2728,13 @@ fetch('feed.json').then(r => r.json()).then(d => {
     clock = (e.clientX - r.left) / r.width * FULL; sync();
   };
   addEventListener('keydown', e => {
-    if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
+    if (e.target && e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space' && !(e.target && e.target.tagName === 'BUTTON')) { e.preventDefault(); playing ? pause() : play(); }
+    if (e.key === 'Escape' && $('#acc').classList.contains('up')) { openAcc(false); $('#accBtn').focus(); }
+    // Call it from the keyboard: up for above his level, down for below.
+    if ($('#lower').classList.contains('ask') && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault(); answerCall(idx, e.key === 'ArrowUp' ? 'up' : 'down');
+    }
   });
   setMode('analyst');
   setLang(d.i18n?.default ?? 'en');
@@ -2380,7 +2754,18 @@ fetch('feed.json').then(r => r.json()).then(d => {
   { const edge = Math.max(11, RIG.span * .22), b0 = ballAt(clock);
     camX = Math.max(edge, Math.min(L - edge, b0.x));
     lookY = Math.max(16, Math.min(W - 16, b0.y)); }
+  OPENER = open;
+  loadCall(); applyAcc(); renderRail();
   sync(); showMoment(open);
+  BOOTED = true; ANNOUNCED = open;
+  // Azure voices exist only behind the local server, which holds the key.
+  // On the static site this 404s and the browser voice is used.
+  if (!/github\.io$/.test(location.hostname)) fetch('api/speech').then(r => r.ok ? r.json() : null).then(j => {
+    AZURE = !!(j && j.azure);
+    let saved = null; try { saved = localStorage.getItem('gp.acc'); } catch (e) {}
+    if (AZURE && !saved) ACC.voice = 'azure';
+    if ($('#acc').classList.contains('up')) renderAcc();
+  }).catch(() => {});
   last = performance.now();
   requestAnimationFrame(frame);
 }).catch(() => {

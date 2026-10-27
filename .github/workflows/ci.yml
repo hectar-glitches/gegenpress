@@ -45,3 +45,29 @@ jobs:
 
       - name: it does not run as root
         run: test "$(docker run --rm --entrypoint id gegenpress:ci -un)" = gegen
+
+  # The WCAG AA audit, in a real browser, on every push. Without this job
+  # the axe test skips on the runner and "0 violations" would rest on a run
+  # on somebody's laptop. GEGENPRESS_REQUIRE_AXE turns that skip into a
+  # failure, so the claim cannot pass by default.
+  accessibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install pytest
+      - run: npm install --no-save axe-core@4.10.2 playwright@1.49.1
+      - run: npx playwright install --with-deps chromium
+
+      - name: axe-core, six screen states, WCAG 2.x A/AA — fails on any violation
+        run: node scripts/a11y_audit.cjs
+
+      - name: the compliance controls, audit included
+        env:
+          GEGENPRESS_REQUIRE_AXE: "1"
+        run: python -m pytest tests/test_compliance.py -q

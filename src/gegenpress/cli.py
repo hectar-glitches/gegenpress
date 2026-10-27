@@ -327,6 +327,73 @@ def cmd_chaos(args: argparse.Namespace) -> int:
     return 0 if r.ok else 1
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    """Producer sign-off on model-written sentences."""
+    from .editorial import ReviewLog
+    log = ReviewLog(args.log) if args.log else ReviewLog()
+    if args.action == "list":
+        pending = log.pending()
+        if not pending:
+            print("nothing waiting. (Template sentences need no sign-off; drafts "
+                  "appear here when a model writes one and the gate passes it.)")
+        for d in pending:
+            print(f"{d['id']}  {d['minute']}' {d['player']} [{d['writer']}]\n    {d['text']}")
+        return 0
+    if not args.id:
+        print("which draft? pass its id (see: review list)", file=sys.stderr)
+        return 2
+    try:
+        e = log.decide(args.id, "approved" if args.action == "approve" else "rejected",
+                       args.by or "", args.note or "")
+    except (KeyError, ValueError) as err:
+        print(err, file=sys.stderr)
+        return 2
+    print(f"{e['event']} {e['id']} by {e['by']} at {e['at']}. Rebuild the feed to put it on air.")
+    return 0
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    """A player's own data, for access and portability requests."""
+    from .privacy import export_player
+    league = build_league(seed=args.seed)
+    season = simulate_season(league, seed=args.seed)
+    live = simulate_live(league, league.fixtures[0], seed=args.seed)
+    q = args.player.strip().lower()
+    hits = [p for p in league.players if q in (p.player_id.lower(), p.name.lower())] or \
+           [p for p in league.players if q in p.name.lower()]
+    if len(hits) != 1:
+        print(f"{len(hits)} players match {args.player!r}; use the full name or id", file=sys.stderr)
+        return 2
+    claims = None
+    feed_path = pathlib.Path(args.feed)
+    if feed_path.exists():
+        claims = json.loads(feed_path.read_text()).get("moments")   # what actually aired
+    doc = export_player(league, season, live, hits[0].player_id, claims=claims)
+    out = json.dumps(doc, indent=2, ensure_ascii=False)
+    if args.out:
+        pathlib.Path(args.out).write_text(out, encoding="utf-8")
+        print(f"{doc['subject']['name']}: {doc['events']['count']} events, "
+              f"{len(doc['claims'])} claims -> {args.out}")
+    else:
+        print(out)
+    return 0
+
+
+def cmd_verify_feed(args: argparse.Namespace) -> int:
+    """Recompute each claim's provenance fingerprints."""
+    from .feed import verify_feed
+    feed = json.loads(pathlib.Path(args.path).read_text())
+    problems = verify_feed(feed)
+    for p in problems:
+        print("FAIL", p)
+    n = len(feed.get("moments", []))
+    if not problems:
+        ai = sum(1 for m in feed["moments"] if m["provenance"]["generated_by"] == "ai")
+        print(f"ok: {n} claims, text and briefs unchanged since the gate; "
+              f"{ai} AI-written (all signed off), {n - ai} template")
+    return 1 if problems else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gegenpress")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -396,6 +463,25 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("calibrate", help="check the season against football-realistic targets")
     c.add_argument("--seed", type=int, default=2026)
     c.set_defaults(func=cmd_calibrate)
+
+    rv = sub.add_parser("review", help="producer sign-off on model-written sentences")
+    rv.add_argument("action", nargs="?", default="list", choices=["list", "approve", "reject"])
+    rv.add_argument("id", nargs="?")
+    rv.add_argument("--by", help="the producer taking editorial responsibility")
+    rv.add_argument("--note", default="")
+    rv.add_argument("--log", default=None, help="review log (default data/review.jsonl)")
+    rv.set_defaults(func=cmd_review)
+
+    ex = sub.add_parser("export", help="a player's own data (access and portability)")
+    ex.add_argument("--player", required=True, help="name or id")
+    ex.add_argument("--seed", type=int, default=2026)
+    ex.add_argument("--feed", default="docs/feed.json", help="aired claims are read from here")
+    ex.add_argument("--out", default=None)
+    ex.set_defaults(func=cmd_export)
+
+    vf = sub.add_parser("verify-feed", help="check each claim's provenance fingerprints")
+    vf.add_argument("path", nargs="?", default="docs/feed.json")
+    vf.set_defaults(func=cmd_verify_feed)
 
     args = parser.parse_args(argv)
     return args.func(args)
