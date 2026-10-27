@@ -72,7 +72,7 @@
      breathe, let type carry it. Every panel here is an opaque plane
      flush to an edge, divided by solid hairlines. */
   .stage{position:fixed;inset:0;display:flex;flex-direction:column}
-  .field{position:relative;flex:1;min-height:0;overflow:hidden}
+  .field{position:relative;flex:1;min-height:0;overflow:hidden;overflow:clip}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
   .vig{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(ellipse at 50% 56%,transparent 58%,rgba(8,0,14,.5) 100%)}
@@ -344,6 +344,38 @@
   body.large .btn{font-size:14px} body.large .cap{font-size:24px}
   body.large .row,body.large .item{font-size:15px}
   body.still *,body.still *::before,body.still *::after{transition:none!important;animation:none!important}
+
+  /* ---------- phone ----------
+     Under 760px there is no room for the rail beside the pitch: the page
+     opens in Fan mode, the strap stacks (verdict on top, sentence below),
+     the scoreboard drops its secondary cells and the transport scrolls
+     sideways instead of clipping. */
+  @media (max-width:760px){
+    .bug .live,.bug .clk{padding:10px 9px}
+    .bug .side{padding:10px 10px;gap:7px}
+    .callchip{padding:0 9px}
+    .callchip b{display:none}
+    .lower{flex-wrap:wrap}
+    .lower .band{width:4px}
+    .hero{flex:1 1 auto;min-width:0;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+      padding:10px 14px;border-right:0}
+    .hero .k{margin:0}
+    .hero .v{font-size:28px}
+    .hero .tag{margin:0}
+    .lower .body{flex:1 1 100%;padding:10px 14px 12px}
+    .lname{font-size:18px}
+    .lsaid{font-size:13.5px}
+    .lwriter{white-space:normal}
+    .lower.ask .lnums{flex:1 1 100%}
+    .lower.ask .callb{flex:1;padding:14px 10px;min-width:0}
+    .bar{overflow-x:auto;scrollbar-width:none}
+    .bar .btn{padding:13px 13px}
+    .track{min-width:90px}
+    .sheet,.sheet.acc{min-width:0;width:100%}
+    .accrow{flex-wrap:wrap}
+    .accl{flex:1 1 100%}
+    .cap{bottom:auto;top:58px;font-size:16px;max-width:94%}
+  }
 </style>
 </head>
 <body>
@@ -2062,7 +2094,14 @@ function showMoment(i) {
   if ($('#tryit').classList.contains('up')) openTry(true);
   document.querySelectorAll('.row').forEach((r, j) => {
     r.setAttribute('aria-current', j === i);
-    if (j === i) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    // Scroll the rail itself, never the page: scrollIntoView on a row of a
+    // rail that is off-canvas (Fan mode, phones) dragged the whole pitch
+    // sideways to reveal it.
+    if (j === i && mode === 'analyst') {
+      const box = r.parentElement, rr = r.getBoundingClientRect(), bb = box.getBoundingClientRect();
+      if (rr.top < bb.top || rr.bottom > bb.bottom)
+        box.scrollTo({ top: Math.max(0, box.scrollTop + rr.top - bb.top - 8), behavior: 'smooth' });
+    }
   });
 }
 
@@ -2736,7 +2775,8 @@ fetch('feed.json').then(r => r.json()).then(d => {
       e.preventDefault(); answerCall(idx, e.key === 'ArrowUp' ? 'up' : 'down');
     }
   });
-  setMode('analyst');
+  // A phone has no room for the rail beside the pitch: open in Fan mode.
+  setMode(matchMedia('(max-width: 760px)').matches ? 'fan' : 'analyst');
   setLang(d.i18n?.default ?? 'en');
 
   // Open ON the claim, not at kickoff. Every competitor's demo loads at
