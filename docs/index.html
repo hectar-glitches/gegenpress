@@ -2456,7 +2456,11 @@ function renderAcc() {
     if (k === 'callit') { renderRail(); if (idx >= 0) showMoment(idx); }
     // Turning description on says so, in the chosen voice -- the only
     // way a blind user knows the switch did anything.
-    if (k === 'ad' && v !== 'off' && was === 'off') say(`${T('acc_ad')}: ${b.textContent}.`, 3);
+    // Turning description on says so, then where everyone is: which side
+    // is which colour and which way they attack -- the first thing a stadium
+    // describer tells a blind fan.
+    if (k === 'ad' && v !== 'off' && was === 'off')
+      say(`${T('acc_ad')}: ${b.textContent}. ${describeOrientation({ home: FEED.match.home.name, away: FEED.match.away.name }, uiNow())}`, 3);
     if (k === 'voice' && ACC.ad !== 'off') say(`${T('acc_voice')}: ${b.textContent}.`, 3);
   });
 }
@@ -2478,25 +2482,57 @@ function openAcc(on) {
    the score or the clock. Claims are never composed here; they are the
    gated text, verbatim. */
 function fill(tpl, v) { return String(tpl).replace(/\{(\w+)\}/g, (_, k) => v[k] ?? ''); }
+// Where on the pitch, in the acting team's own frame (the log records every
+// event from the side of the team on the ball, 0 at its own goal line, 105
+// at the opponent's). Box: the 16.5 m area; edge: the ten metres in front
+// of it; wide: outside the box's width in the final third.
+function zoneOf(x, y) {
+  const central = Math.abs(y - 34) <= 20.16;
+  if (x >= 88.5 && central) return 'box';
+  if (x >= 78.5 && central) return 'edge';
+  if (x >= 70) return central ? 'final' : 'wide';
+  return x >= 35 ? 'mid' : 'def';
+}
 function describe(e, c, ui) {
-  // c: { name, club, verbosity, last, named, home, away, hg, ag }
+  // c: { name, club, verbosity, last, lastTeam, lastZone, named, min, home, away, hg, ag }
+  // Like a stadium describer: who has it, where it is, which side is going
+  // forward. Every word of place comes from the event's own coordinates;
+  // every number from the event row, the score or the clock.
   const full = c.verbosity === 'full';
+  const zone = zoneOf(e.x, e.y), where = ui[`ad_zone_${zone}`];
+  // A change of possession names the side that now has it -- in a
+  // fictional league, a listener cannot know whose player Kowalski is.
+  const turned = full && c.lastTeam && c.lastTeam !== e.m;
+  const poss = turned ? `${fill(ui.ad_poss, { club: c.club })} ` : '';
   if (e.k === 'sh' && e.g)
-    return { text: fill(ui.ad_goal, { who: c.named ? c.name : c.club, home: c.home, away: c.away, hg: c.hg, ag: c.ag }),
-             prio: 3, excited: true };
-  if (e.k === 'sh') return { text: `${fill(ui.ad_shot, { name: c.name })}. ${ui.ad_nogoal}`, prio: 2 };
+    return { text: fill(ui.ad_goal, { who: c.named ? c.name : c.club, min: c.min, home: c.home, away: c.away, hg: c.hg, ag: c.ag }),
+             prio: 3, excited: true, zone };
+  if (e.k === 'sh') {
+    const from = zone === 'box' ? ui.ad_shot_box : zone === 'edge' ? ui.ad_shot_edge : ui.ad_shot_far;
+    return { text: `${poss}${fill(ui.ad_shot, { name: c.name, where: from })}. ${ui.ad_nogoal}`, prio: 2, zone };
+  }
   if (!full) return null;
-  if (e.k === 're') return { text: fill(ui.ad_won, { name: c.name }), prio: 1 };
-  if (e.k === 'pa' && e.d != null && e.d >= 25)
-    return { text: fill(ui.ad_long, { name: c.name, d: Math.round(e.d) }), prio: 1 };
-  if ((e.k === 'pa' || e.k === 'ca') && c.last !== e.p) return { text: c.name, prio: 0 };
+  if (e.k === 're') return { text: `${poss}${fill(ui.ad_won, { name: c.name, where })}`, prio: 1, zone };
+  if (e.k === 'pa' && e.d != null && e.d >= 25) {
+    const into = e.X != null && zoneOf(e.X, e.Y) === 'box' ? ui.ad_into_box : '';
+    return { text: `${poss}${fill(ui.ad_long, { name: c.name, d: Math.round(e.d), into })}`, prio: 1, zone };
+  }
+  if ((e.k === 'pa' || e.k === 'ca') && c.last !== e.p) {
+    // Say where only when it has changed: "Varga, in midfield ... Esposito
+    // ... Marchetti, in the final third", not the zone on every touch.
+    const said = zone !== c.lastZone ? fill(ui.ad_name_zone, { name: c.name, where }) : c.name;
+    return { text: `${poss}${said}`, prio: turned ? 1 : 0, zone };
+  }
   return null;
+}
+function describeOrientation(c, ui) {
+  return fill(ui.ad_orient, { home: c.home, away: c.away });
 }
 function describeMinute(min, c, ui) {
   return { text: fill(ui.ad_min, { min, home: c.home, away: c.away, hg: c.hg, ag: c.ag }), prio: 2 };
 }
 
-const SAY = { q: [], busy: false, audio: null, last: null };
+const SAY = { q: [], busy: false, audio: null, last: null, lastTeam: null, lastZone: null };
 const VOICE_LANG = { en: 'en-GB', 'en-simple': 'en-GB', es: 'es-ES', fr: 'fr-FR', ar: 'ar-SA' };
 function uiNow() { return { ...(FEED.i18n?.ui?.en || {}), ...(FEED.i18n?.ui?.[LANG] || {}) }; }
 
@@ -2594,11 +2630,15 @@ function adEvent(e, who, named) {
   const away = who.side === 'away';
   const line = describe(e, {
     name: man.last, club: (away ? FEED.match.away : FEED.match.home).name,
-    verbosity: ACC.ad, last: SAY.last, named,
+    verbosity: ACC.ad, last: SAY.last, lastTeam: SAY.lastTeam, lastZone: SAY.lastZone, named,
+    min: Math.floor((e.tb ?? e.t) / 60),
     home: FEED.match.home.name, away: FEED.match.away.name, hg: T2.home.goals, ag: T2.away.goals,
   }, uiNow());
   if (e.k === 'pa' || e.k === 'ca' || e.k === 're') SAY.last = e.p;
-  if (line) say(line.text, line.prio, { excited: line.excited });
+  // Only an event on the ball says who has it. A presser is near the ball,
+  // and counting him announced "... ball." for a side that never had it.
+  if (e.k !== 'pr') SAY.lastTeam = e.m;
+  if (line) { SAY.lastZone = line.zone; say(line.text, line.prio, { excited: line.excited }); }
 }
 function adMinute(min) {
   if (ACC.ad === 'off') return;

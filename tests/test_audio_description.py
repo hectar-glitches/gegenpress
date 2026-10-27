@@ -46,24 +46,30 @@ def spoken(tmp_path_factory):
     src = CONSOLE.read_text()
     tmp = tmp_path_factory.mktemp("ad")
     script = tmp / "ad.cjs"
-    script.write_text("\n".join(_fn(src, n) for n in ("fill", "describe", "describeMinute", "tallyStream")) + r"""
+    script.write_text("\n".join(_fn(src, n) for n in ("fill", "zoneOf", "describe", "describeMinute",
+                                                      "describeOrientation", "tallyStream")) + r"""
 const feed = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8'));
 const out = [];
 const names = {};
 for (const s of ['home', 'away']) for (const m of feed.lineups[s]) names[m.id] = m.last;
 for (const lang of Object.keys(feed.i18n.ui)) {
   const ui = { ...feed.i18n.ui.en, ...feed.i18n.ui[lang] };
-  let last = null;
+  let last = null, lastTeam = null, lastZone = null;
   for (const e of feed.stream) {
-    const t = e.tb ?? e.t, T2 = tallyStream(feed.stream, feed.match.home.id, t);
+    const t = e.tb ?? e.t, T2 = tallyStream(feed.stream, feed.match.home.id, t), min = Math.floor(t / 60);
+    let zoneNow = lastZone;
     for (const verbosity of ['key', 'full']) for (const named of [true, false]) {
       const l = describe(e, { name: names[e.p], club: e.m === feed.match.home.id ? feed.match.home.name : feed.match.away.name,
-        verbosity, last, named, home: feed.match.home.name, away: feed.match.away.name,
+        verbosity, last, lastTeam, lastZone, named, min, home: feed.match.home.name, away: feed.match.away.name,
         hg: T2.home.goals, ag: T2.away.goals }, ui);
-      if (l) out.push({ lang, text: l.text, allowed: [e.d != null ? Math.round(e.d) : null, T2.home.goals, T2.away.goals] });
+      if (l) { out.push({ lang, text: l.text, allowed: [e.d != null ? Math.round(e.d) : null, T2.home.goals, T2.away.goals, min] });
+               if (verbosity === 'full') zoneNow = l.zone; }
     }
     if (e.k === 'pa' || e.k === 'ca' || e.k === 're') last = e.p;
+    if (e.k !== 'pr') lastTeam = e.m;
+    lastZone = zoneNow;
   }
+  out.push({ lang, text: describeOrientation({ home: feed.match.home.name, away: feed.match.away.name }, ui), allowed: [] });
   for (const min of [15, 30, 45, 60, 75]) {
     const T2 = tallyStream(feed.stream, feed.match.home.id, min * 60);
     const l = describeMinute(min, { home: feed.match.home.name, away: feed.match.away.name,
@@ -201,3 +207,32 @@ console.log(JSON.stringify(['en-GB', 'ar-SA', 'es-ES', 'en-AU', 'fr-FR'].map(l =
                    "Microsoft Pablo - Spanish (Spain)",
                    "Microsoft Ryan Online (Natural) - English (United Kingdom)",   # nearest English, Natural first
                    None]
+
+
+def test_where_is_said_from_the_events_own_coordinates(tmp_path):
+    """Zones are the acting team's frame: 0 is its own goal line, 105 the
+    opponent's. A recovery on its own six-yard line is 'in defence'; a
+    shot from the penalty spot is 'in the box'."""
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    src = CONSOLE.read_text()
+    script = tmp_path / "zone.cjs"
+    script.write_text(_fn(src, "zoneOf") + r"""
+console.log(JSON.stringify([zoneOf(5, 34), zoneOf(50, 10), zoneOf(94, 34), zoneOf(82, 30), zoneOf(80, 5), zoneOf(75, 34)]));""")
+    out = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, check=True).stdout)
+    assert out == ["def", "mid", "box", "edge", "wide", "final"]
+
+
+def test_a_presser_never_changes_who_has_the_ball():
+    """'... ball.' is said when possession changes. A pressure event is a
+    defender near the ball; counting it flipped possession on every press."""
+    src = CONSOLE.read_text()
+    assert "if (e.k !== 'pr') SAY.lastTeam = e.m;" in src
+
+
+def test_switching_description_on_says_who_is_who():
+    feed = json.loads(FEED.read_text())
+    for lang, ui in feed["i18n"]["ui"].items():
+        assert "{home}" in ui["ad_orient"] and "{away}" in ui["ad_orient"], lang
+        for z in ("def", "mid", "final", "wide", "edge", "box"):
+            assert ui.get(f"ad_zone_{z}"), (lang, z)
