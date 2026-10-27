@@ -17,6 +17,7 @@ One deterministic gate decides what is allowed on screen, what gets spoken aloud
 | **Try to make it lie** | Write a claim in the console's box and watch the gate strike out the number nobody measured. [More below.](#try-to-make-it-lie) |
 | **For fans** | Every player's stats move as the match plays. *Call it*: guess above or below his own level before the reveal. Audio description of the whole match, in five languages. [More below.](#for-fans) |
 | **Rules and regulations** | EU AI Act transparency with producer sign-off on any AI-written sentence. GDPR accuracy, fairness, access, portability, objection and retention. ePrivacy. The European Accessibility Act. WCAG 2.2 AA (axe-core: 0 violations in six states, run in CI). [Each one mapped to the control and the test that enforces it](docs/COMPLIANCE.md), with a [record of processing](docs/privacy/ROPA.md) and a [DPIA draft](docs/privacy/DPIA.md). |
+| **On air** | `/?output=overlay` turns the console into a TV graphic: the strap alone on a transparent 1920×1080 frame, inside title-safe, taken and cleared by an operator. It loads as a browser source in OBS or vMix, or as a CasparCG HTML template (`play`, `stop`, `next`, `update`). [More below.](#on-air) |
 | **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, with the ICC gate computed again in Kusto and held to the Python by a parity test. |
 | **Agents** | Scout, Why, Desk and Gate share one closed `Brief`, with Desk on Microsoft Agent Framework. An MCP server exposes 9 tools, and `verify_claim` checks a sentence *before* a model says it. |
 | **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League data. |
@@ -39,6 +40,20 @@ It is the same gate, not a demo of one. The numbers a claim may contain ship wit
 
 **Reach.** English, Spanish, French and Arabic (right-to-left), plus a plain-English register for someone who has never watched a match. Every claim in every language passes the same gate.
 
+### On air
+
+The console is a studio tool; a broadcast needs a graphic it can key over the programme. Add `?output=overlay` to the console's address and it becomes one:
+
+- **Transparent, 1920×1080, title-safe.** Only the strap is drawn, 96 px from each side and 54 px from the bottom (5% of the raster), scaled for a 1080 picture. The pitch, rail and controls are gone, because the real pictures replace them.
+- **Taken, not timed.** On a programme feed a producer calls the graphic. Enter or F8 takes the cue to air, Escape or F9 clears it, Left and Right pick the cue (swapping it live if one is on air). `&hold=8` clears automatically after eight seconds.
+- **The graphics systems broadcasters use.** Load it as a browser source in OBS or vMix. For CasparCG it is an HTML template: the server's `play`, `stop` and `next` commands take, clear and advance the cue, and `update` accepts JSON such as `{"cue": 3, "lang": "fr"}`. The same claims also ship as a timed cue feed (`overlay` in `feed.json`) for systems that build their own graphics.
+- **Same rules on air.** Every strap still says who wrote it. No question is asked and nothing is spoken on a programme feed. Any of the five languages via `&lang=`.
+- **A preview for the operator.** `&preview=1` adds a checkerboard, the title-safe box and a cue HUD, none of which reach a keyed output.
+
+[`scripts/tv_check.cjs`](scripts/tv_check.cjs) loads it the way a graphics system would and checks it: transparent, on and off air, inside title-safe, cue changes, and the CasparCG calls ([`test_tv_output.py`](tests/test_tv_output.py)).
+
+What it does not have yet is real data and real tracking. The strap is ready for a licensed event feed; the player tags on the pitch would need the league's tracking data, and are left out of the TV output until then.
+
 ### The one thing nothing else here does
 
 Every entry in this field verifies that its numbers are **true**. This one decides whether a sentence is **sayable**.
@@ -53,7 +68,7 @@ Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** 
 
 **The controls.** In sport the figures are expected to be right, and a receipt proving 13.77 equals 13.77 impresses nobody. A broadcaster's risk is not that a number is wrong. It is that a claim goes to air which the data cannot support, in front of a rights-holder, a regulator and the player's club. The gate is deterministic, so the same inputs give the same verdict every time and it can be **audited** rather than re-sampled. So the receipt is not about the number; it is about the sentence built on it. The console's **Why** panel is ordered by what is actually in dispute: his own reference class first, then the verdict, then whether this metric is entitled to carry a personal claim at all — ICC 0.112 for pass range, 0.006 for recovery time — then the league's view, and only then the measurement, which nobody was questioning. It lives in the data layer, as KQL alongside the events it governs, not in a prompt that can be edited away. And its limits are published as measured numbers rather than described: the two corruption classes it cannot catch are `xfail` tests scoring a hard zero, which is the form an audit can actually read.
 
-**The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 167 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
+**The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 171 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
 
 **Language is a residency property, not a feature.** The console ships in four languages and a plain-English register, and switching is a re-render rather than a request: every translated claim is already in the feed, already checked by the same gate. Nothing is sent to a translation service, so a claim never leaves the region that computed it. And because the gate reads digits rather than prose, one control covers every locale — a model-based fact-checker needs retraining, re-thresholding and re-evaluating per language, which is why most ship one. [Pinned by 14 tests](tests/test_i18n.py), including that the figures on screen are identical in all five.
 
@@ -108,7 +123,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 167 tests
+PYTHONPATH=src python -m pytest -q              # 171 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000

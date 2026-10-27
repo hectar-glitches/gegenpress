@@ -67,7 +67,7 @@ jobs:
       - name: axe-core, six screen states, WCAG 2.x A/AA — fails on any violation
         run: node scripts/a11y_audit.cjs
 
-      - name: the compliance controls, audit included
+      - name: the compliance controls and the TV output, in a real browser
         env:
           GEGENPRESS_REQUIRE_AXE: "1"
-        run: python -m pytest tests/test_compliance.py -q
+        run: python -m pytest tests/test_compliance.py tests/test_tv_output.py -q
