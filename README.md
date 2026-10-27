@@ -4,7 +4,7 @@
 
 [![ci](https://github.com/hectar-glitches/gegenpress/actions/workflows/ci.yml/badge.svg)](https://github.com/hectar-glitches/gegenpress/actions/workflows/ci.yml)
 
-[![The console at 30:29: Noor Kowalski's pass range, 3.85 standard deviations below his own season while the league reads it as ordinary](docs/og.jpg)](https://hectar-glitches.github.io/gegenpress/)
+[![The console at 30:29: Noor Kowalski's pass range, the lowest of his 18 matches this season, while the league reads it as ordinary](docs/og.jpg)](https://hectar-glitches.github.io/gegenpress/)
 
 Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon. **Category: Best Enterprise Solution.**
 
@@ -53,7 +53,7 @@ Gate precision **100%**, claim integrity **100%**, refusal correctness **100%** 
 
 **The controls.** In sport the figures are expected to be right, and a receipt proving 13.77 equals 13.77 impresses nobody. A broadcaster's risk is not that a number is wrong. It is that a claim goes to air which the data cannot support, in front of a rights-holder, a regulator and the player's club. The gate is deterministic, so the same inputs give the same verdict every time and it can be **audited** rather than re-sampled. So the receipt is not about the number; it is about the sentence built on it. The console's **Why** panel is ordered by what is actually in dispute: his own reference class first, then the verdict, then whether this metric is entitled to carry a personal claim at all — ICC 0.112 for pass range, 0.006 for recovery time — then the league's view, and only then the measurement, which nobody was questioning. It lives in the data layer, as KQL alongside the events it governs, not in a prompt that can be edited away. And its limits are published as measured numbers rather than described: the two corruption classes it cannot catch are `xfail` tests scoring a hard zero, which is the form an audit can actually read.
 
-**The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 160 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
+**The claim is enforced, not asserted.** `python -m gegenpress eval` exits non-zero if gate precision, claim integrity or refusal correctness falls below 100%, and [it runs on every push](.github/workflows/ci.yml) — alongside the 167 tests and a live start of the MCP server over stdio. The three figures above are not a number somebody typed into a README once. If they ever stop being true, the build goes red. That is the difference between a metric and a control, and it is the whole of what an enterprise is buying here.
 
 **Language is a residency property, not a feature.** The console ships in four languages and a plain-English register, and switching is a re-render rather than a request: every translated claim is already in the feed, already checked by the same gate. Nothing is sent to a translation service, so a claim never leaves the region that computed it. And because the gate reads digits rather than prose, one control covers every locale — a model-based fact-checker needs retraining, re-thresholding and re-evaluating per language, which is why most ship one. [Pinned by 14 tests](tests/test_i18n.py), including that the figures on screen are identical in all five.
 
@@ -108,7 +108,7 @@ pip install pytest
 PYTHONPATH=src python -m gegenpress form        # the differentiator, on one screen
 PYTHONPATH=src python -m gegenpress desk        # Scout -> Why -> Desk -> Gate
 PYTHONPATH=src python -m gegenpress calibrate   # realism report
-PYTHONPATH=src python -m pytest -q              # 160 tests
+PYTHONPATH=src python -m pytest -q              # 167 tests
 
 PYTHONPATH=src python -m gegenpress feed
 python -m http.server -d docs 8000              # the console at localhost:8000

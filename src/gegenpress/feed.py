@@ -16,8 +16,9 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from .agents import TOLERANCE, Gate, Segment, run_desk
+from .baselines import METRICS
 from .editorial import ReviewLog, apply as editorial_apply
-from .form import CHECKPOINTS, METRIC_LABELS, NOTABLE_Z
+from .form import CHECKPOINTS, METRIC_LABELS, NOTABLE_Z, build_form_baselines
 from .i18n import (DIRECTION, LANGUAGES, LANGUAGE_CODES, form_claim,
                    metric_label, moment_text)
 from .i18n import ui as ui_strings
@@ -289,6 +290,30 @@ class _BriefView:
         return self._allowed
 
 
+def season_rank(form_means: list[float], value: float, z: float | None,
+                low_is_good: bool = False) -> dict[str, Any] | None:
+    """Where tonight sits among his own matches this season, in words a fan
+    reads at a glance: "lowest of his 18", "2nd highest of 18".
+
+    The same comparison the z-score makes -- him against himself -- without
+    asking anyone to know what a standard deviation is. Ranked in the
+    direction of the claim: a night below his level is ranked from the
+    bottom, one above it from the top. Ties count against the claim, so
+    "lowest" means strictly lower than every match he has played.
+    """
+    if not form_means or z is None or z == 0:
+        return None
+    # z is direction-aware (positive always means better), the rank is in
+    # raw values: a worse night on a low-is-good metric is a HIGH value.
+    if (z < 0) != low_is_good:
+        pos = 1 + sum(1 for x in form_means if x <= value)
+        end = "lowest"
+    else:
+        pos = 1 + sum(1 for x in form_means if x >= value)
+        end = "highest"
+    return {"pos": pos, "of": len(form_means), "end": end}
+
+
 def build_feed(
     store: Store,
     league: League,
@@ -332,6 +357,7 @@ def build_feed(
     follow_at = {str(m): follow_as_of(m) for m in CHECKPOINTS}
     state = store.match_state(live, as_of_minute=90, window_minutes=90)
 
+    form_base = build_form_baselines(season)
     moments = []
     for seg, review in zip(segments, reviews):
         b = seg.brief
@@ -368,6 +394,11 @@ def build_feed(
             "season_mean": b.season_mean,
             "z": b.z,
             "appearances": b.appearances,
+            "season_rank": season_rank(
+                form_base.player_match_means.get((seg.form_player_id, seg.form_metric), []),
+                b.value, b.z,
+                METRICS.get(seg.form_metric, ("", "", ""))[2] == "low_is_good",
+            ) if seg.form_player_id else None,
             "diverges": b.diverges,
             "above": (b.z or 0) > 0,
             "events": contributing_events(

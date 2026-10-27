@@ -183090,6 +183090,11 @@
       "season_mean": 17.07,
       "z": -3.85,
       "appearances": 18,
+      "season_rank": {
+        "pos": 1,
+        "of": 18,
+        "end": "lowest"
+      },
       "diverges": true,
       "above": false,
       "events": [
@@ -183668,6 +183673,11 @@
       "season_mean": 15.64,
       "z": 2.28,
       "appearances": 18,
+      "season_rank": {
+        "pos": 1,
+        "of": 18,
+        "end": "highest"
+      },
       "diverges": true,
       "above": true,
       "events": [
@@ -184554,6 +184564,11 @@
       "season_mean": 14.38,
       "z": 1.75,
       "appearances": 18,
+      "season_rank": {
+        "pos": 2,
+        "of": 18,
+        "end": "highest"
+      },
       "diverges": true,
       "above": true,
       "events": [
@@ -185407,6 +185422,11 @@
       "season_mean": 8.17,
       "z": -1.61,
       "appearances": 13,
+      "season_rank": {
+        "pos": 3,
+        "of": 13,
+        "end": "lowest"
+      },
       "diverges": true,
       "above": false,
       "events": [
@@ -185622,6 +185642,11 @@
       "season_mean": 10.52,
       "z": -2.85,
       "appearances": 13,
+      "season_rank": {
+        "pos": 1,
+        "of": 13,
+        "end": "lowest"
+      },
       "diverges": false,
       "above": false,
       "events": [
@@ -185837,6 +185862,11 @@
       "season_mean": 18.65,
       "z": -3.41,
       "appearances": 18,
+      "season_rank": {
+        "pos": 1,
+        "of": 18,
+        "end": "lowest"
+      },
       "diverges": true,
       "above": false,
       "events": [
@@ -186624,6 +186654,11 @@
       "season_mean": 17.58,
       "z": 2.24,
       "appearances": 18,
+      "season_rank": {
+        "pos": 1,
+        "of": 18,
+        "end": "highest"
+      },
       "diverges": true,
       "above": true,
       "events": [
@@ -187532,6 +187567,11 @@
       "season_mean": 10.26,
       "z": -2.44,
       "appearances": 18,
+      "season_rank": {
+        "pos": 1,
+        "of": 18,
+        "end": "lowest"
+      },
       "diverges": false,
       "above": false,
       "events": [
@@ -187790,6 +187830,14 @@
         "why_gate_fb": "fell back to template",
         "refused": "refused",
         "refused_tag": "no between-player signal \u00b7 league claim only",
+        "rank_lowest_1": "Lowest",
+        "rank_lowest_2": "2nd lowest",
+        "rank_lowest_3": "3rd lowest",
+        "rank_highest_1": "Highest",
+        "rank_highest_2": "2nd highest",
+        "rank_highest_3": "3rd highest",
+        "rank_of": "of his {n} matches",
+        "rank_short": "{rank} of {n}",
         "priv": "Your settings stay in this browser. No account, no cookies, and nothing about you is sent anywhere.",
         "priv_azure": "With the Azure voice, the line being spoken is sent to Azure Speech to be voiced. Nothing about you is.",
         "pitch_label": "Match pitch. Turn on audio description under Access to hear the play.",
@@ -187902,6 +187950,14 @@
         "why_gate_fb": "se us\u00f3 la plantilla",
         "refused": "rechazado",
         "refused_tag": "sin se\u00f1al entre jugadores \u00b7 solo afirmaci\u00f3n de liga",
+        "rank_lowest_1": "El m\u00e1s bajo",
+        "rank_lowest_2": "2.\u00ba m\u00e1s bajo",
+        "rank_lowest_3": "3.\u00ba m\u00e1s bajo",
+        "rank_highest_1": "El m\u00e1s alto",
+        "rank_highest_2": "2.\u00ba m\u00e1s alto",
+        "rank_highest_3": "3.\u00ba m\u00e1s alto",
+        "rank_of": "de sus {n} partidos",
+        "rank_short": "{rank} de {n}",
         "priv": "Tus ajustes se quedan en este navegador. Sin cuenta, sin cookies y nada sobre ti se env\u00eda a ning\u00fan sitio.",
         "priv_azure": "Con la voz de Azure, la frase que se lee se env\u00eda a Azure Speech para sonorizarla. Nada sobre ti.",
         "pitch_label": "Campo del partido. Activa la audiodescripci\u00f3n en Accesibilidad para escuchar el juego.",
@@ -188014,6 +188070,14 @@
         "why_gate_fb": "mod\u00e8le de secours utilis\u00e9",
         "refused": "refus\u00e9",
         "refused_tag": "aucun signal entre joueurs \u00b7 affirmation de ligue seulement",
+        "rank_lowest_1": "Le plus bas",
+        "rank_lowest_2": "2e plus bas",
+        "rank_lowest_3": "3e plus bas",
+        "rank_highest_1": "Le plus haut",
+        "rank_highest_2": "2e plus haut",
+        "rank_highest_3": "3e plus haut",
+        "rank_of": "sur ses {n} matchs",
+        "rank_short": "{rank} sur {n}",
         "priv": "Vos r\u00e9glages restent dans ce navigateur. Pas de compte, pas de cookies, et rien vous concernant n\u2019est envoy\u00e9.",
         "priv_azure": "Avec la voix Azure, la phrase lue est envoy\u00e9e \u00e0 Azure Speech pour \u00eatre vocalis\u00e9e. Rien vous concernant.",
         "pitch_label": "Terrain du match. Activez l\u2019audiodescription dans Acc\u00e8s pour entendre le jeu.",
@@ -188126,6 +188190,14 @@
         "why_gate_fb": "\u0627\u0633\u062a\u064f\u062e\u062f\u0645 \u0627\u0644\u0642\u0627\u0644\u0628 \u0627\u0644\u0627\u062d\u062a\u064a\u0627\u0637\u064a",
         "refused": "\u0645\u0631\u0641\u0648\u0636",
         "refused_tag": "\u0644\u0627 \u0641\u0631\u0642 \u0628\u064a\u0646 \u0627\u0644\u0644\u0627\u0639\u0628\u064a\u0646 \u00b7 \u0645\u0642\u0627\u0631\u0646\u0629 \u0627\u0644\u062f\u0648\u0631\u064a \u0641\u0642\u0637",
+        "rank_lowest_1": "\u0627\u0644\u0623\u062f\u0646\u0649",
+        "rank_lowest_2": "\u062b\u0627\u0646\u064a \u0623\u062f\u0646\u0649",
+        "rank_lowest_3": "\u062b\u0627\u0644\u062b \u0623\u062f\u0646\u0649",
+        "rank_highest_1": "\u0627\u0644\u0623\u0639\u0644\u0649",
+        "rank_highest_2": "\u062b\u0627\u0646\u064a \u0623\u0639\u0644\u0649",
+        "rank_highest_3": "\u062b\u0627\u0644\u062b \u0623\u0639\u0644\u0649",
+        "rank_of": "\u0645\u0646 \u0645\u0628\u0627\u0631\u064a\u0627\u062a\u0647 \u0627\u0644\u0640{n}",
+        "rank_short": "{rank} \u0645\u0646 {n}",
         "priv": "\u062a\u0628\u0642\u0649 \u0625\u0639\u062f\u0627\u062f\u0627\u062a\u0643 \u0641\u064a \u0647\u0630\u0627 \u0627\u0644\u0645\u062a\u0635\u0641\u062d. \u0644\u0627 \u062d\u0633\u0627\u0628\u060c \u0648\u0644\u0627 \u0645\u0644\u0641\u0627\u062a \u062a\u0639\u0631\u064a\u0641 \u0627\u0631\u062a\u0628\u0627\u0637\u060c \u0648\u0644\u0627 \u064a\u064f\u0631\u0633\u0644 \u0623\u064a \u0634\u064a\u0621 \u0639\u0646\u0643.",
         "priv_azure": "\u0645\u0639 \u0635\u0648\u062a Azure\u060c \u062a\u064f\u0631\u0633\u0644 \u0627\u0644\u062c\u0645\u0644\u0629 \u0627\u0644\u0645\u0642\u0631\u0648\u0621\u0629 \u0625\u0644\u0649 Azure Speech \u0644\u0646\u0637\u0642\u0647\u0627. \u0644\u0627 \u0634\u064a\u0621 \u0639\u0646\u0643.",
         "pitch_label": "\u0623\u0631\u0636 \u0627\u0644\u0645\u0644\u0639\u0628. \u0641\u0639\u0651\u0644 \u0627\u0644\u0648\u0635\u0641 \u0627\u0644\u0635\u0648\u062a\u064a \u0645\u0646 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0625\u062a\u0627\u062d\u0629 \u0644\u0633\u0645\u0627\u0639 \u0627\u0644\u0644\u0639\u0628.",
@@ -188238,6 +188310,14 @@
         "why_gate_fb": "a fixed template was used",
         "refused": "not allowed",
         "refused_tag": "measures the game, not the player \u00b7 league comparison only",
+        "rank_lowest_1": "His lowest",
+        "rank_lowest_2": "His 2nd lowest",
+        "rank_lowest_3": "His 3rd lowest",
+        "rank_highest_1": "His highest",
+        "rank_highest_2": "His 2nd highest",
+        "rank_highest_3": "His 3rd highest",
+        "rank_of": "in {n} games this season",
+        "rank_short": "{rank} of {n}",
         "priv": "Your choices stay on this computer. No account, no cookies, nothing about you is sent.",
         "priv_azure": "With the Azure voice, the words being read out are sent to Azure to be spoken. Nothing about you is.",
         "pitch_label": "The pitch. Turn on spoken description under Access to hear what happens.",

@@ -54,8 +54,8 @@ are the only words you say.
 
 "A producer has seconds to decide what goes on screen. Broadcast says that
 pass was long. Gegenpress says it was long **for him**. Kowalski tonight:
-thirty-seventh percentile for the league, nearly four standard deviations
-below his own season."
+thirty-seventh percentile for the league, ordinary. For him, the lowest of
+his eighteen matches this season."
 
 *Why this works: the differentiator and the user are both delivered before
 the viewer has been asked to understand anything. No architecture, no tour.*

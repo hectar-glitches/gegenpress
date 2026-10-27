@@ -1200,7 +1200,10 @@ function subjectIndex() {
   return { side, p, away: side === 'away',
     rgb: up ? SUBJECT_RGB.up : SUBJECT_RGB.down, hex: up ? '#00FF85' : '#E90052',
     ink: '#0B0010', shirt: FEED.lineups[side][p].n, last: FEED.lineups[side][p].last,
-    stat: `${m.z > 0 ? '+' : ''}${m.z} SD`, events: m.events || [],
+    // The pitch tag says what the strap's headline says: "Lowest of 18".
+    stat: (m.season_rank && m.season_rank.pos <= 3)
+      ? fill(uiNow().rank_short, { rank: T(`rank_${m.season_rank.end}_${m.season_rank.pos}`), n: m.season_rank.of })
+      : `${m.z > 0 ? '+' : ''}${m.z} SD`, events: m.events || [],
     touches: m.touches || null, claimMinute: m.minute, claimN: (m.events || []).length,
     unit: unitFor(m.metric), metres: /range/.test(m.metric_key || m.metric || '') };
 }
@@ -2035,8 +2038,19 @@ function showMoment(i) {
   // The Form Line is the hero block, read first. Everything else on the
   // strap is a supporting figure any competitor could also show.
   const hero = $('#lForm');
-  if (m.season_mean != null) {
-    hero.textContent = `${m.z > 0 ? '+' : ''}${m.z} SD`;
+  const rk = m.season_rank, sd = `${m.z > 0 ? '+' : ''}${m.z} SD`;
+  if (m.season_mean != null && rk && rk.pos <= 3) {
+    // Lead with where tonight ranks among his own matches -- "Lowest",
+    // "2nd highest" -- which says what the z-score says without asking
+    // anyone to know what a standard deviation is. The SD stays, small,
+    // for the analyst; so does the league's view, which is the contrast.
+    hero.textContent = T(`rank_${rk.end}_${rk.pos}`);
+    hero.style.fontSize = '30px';
+    // The SD sits in its own left-to-right run, or Arabic shows "3.85- SD".
+    $('#lTag').innerHTML = `<span>${escapeHtml(fill(uiNow().rank_of, { n: rk.of }))}</span>` +
+      `<span><bdi dir="ltr">${sd}</bdi> · ${escapeHtml(m.diverges ? T('ordinary') : (m.above ? T('above') : T('below')))}</span>`;
+  } else if (m.season_mean != null) {
+    hero.textContent = sd;
     hero.style.fontSize = '';
   } else {
     hero.textContent = T('refused');
