@@ -151,7 +151,7 @@ def cmd_state(args: argparse.Namespace) -> int:
               f"recov {s['recoveries']} (hi {s['high_recoveries']})  "
               f"gegenpress {s['gegenpress_idx']}")
 
-    print("\nfollow target, ranked by lift over their own season norm")
+    print("\nfollow target, ranked by how far above their usual level they are playing")
     for player_id, score in store.follow_target(live, args.minute)[:5]:
         p = league.player(player_id)
         print(f"  {score:>7.3f}  {p.name:<24} {p.position}  {league.club(p.club_id).short_name}")
