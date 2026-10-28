@@ -252,7 +252,7 @@
   /* Right-to-left applies to the prose columns only. The figures stay
      left-aligned in their tiles because a number is not text. */
   [dir=rtl] .item,[dir=rtl] .row{direction:rtl;text-align:right}
-  [dir=rtl] .item .v,[dir=rtl] .item .icc{margin-left:0;margin-right:auto}
+  [dir=rtl] .item .v{margin-left:0;margin-right:auto}
   [dir=rtl] .row .mt{padding-left:0;padding-right:35px}
   [dir=rtl] .lsaid,[dir=rtl] .tag,[dir=rtl] #lMeta{direction:rtl;text-align:right}
   [dir=rtl] .ln .v.fig,[dir=rtl] .hero .v,[dir=rtl] .num,[dir=rtl] .step code{direction:ltr;unicode-bidi:isolate}
@@ -262,11 +262,7 @@
   .item .v{margin-left:auto;font-size:11.5px;color:var(--data);
     font-variation-settings:'wght' 700,'wdth' 100;font-feature-settings:'tnum' 1}
   .item .yes{color:var(--up)} .item .no{color:var(--dim)}
-  /* ICC carries the claim, so show the measurement next to the verdict
-     rather than making a viewer take the word on trust. */
-  #signal .icc{margin-left:auto;font-size:11px;color:var(--soft);
-    font-variation-settings:'wght' 600,'wdth' 90;font-feature-settings:'tnum' 1}
-  #signal .v{margin-left:0;min-width:70px;text-align:right}
+  #signal .v{margin-left:auto;text-align:right}
 
   /* ---------- why sheet ---------- */
   .sheet{position:absolute;left:0;bottom:0;z-index:4;
@@ -475,7 +471,7 @@
     <div class="rail" id="rail">
       <section class="card grow"><h2 id="hMoments">Moments</h2><div id="timeline"></div></section>
       <section class="card"><h2 id="hFollow">Who to watch: above their usual</h2><div id="follow"></div></section>
-      <section class="card"><h2 id="hSignal">About the player, or the match?</h2><div id="signal"></div></section>
+      <section class="card"><h2 id="hSignal">How each stat is compared</h2><div id="signal"></div></section>
     </div>
   </div>
 
@@ -2355,14 +2351,13 @@ function renderRail() {
   $('#follow').innerHTML = fl.map((f, i) =>
     `<button class="item" aria-pressed="false"><span class="r">${i + 1}</span>
      <span>${f.player}</span>
-     <span class="v">${f.score.toFixed(3)}</span></button>`).join('');
+     </button>`).join('');
   document.querySelectorAll('#follow button').forEach((btn, i) => {
     btn.setAttribute('aria-pressed', !!(FOLLOW && fl[i] && fl[i].player_id === FOLLOW.player_id));
     btn.onclick = () => setFollow(FOLLOW && fl[i].player_id === FOLLOW.player_id ? null : i);
   });
   $('#signal').innerHTML = d.signal.map(s =>
     `<div class="item"><span>${TX(s, 'metric')}</span>
-     <span class="icc">${s.icc.toFixed(3)}</span>
      <span class="v ${s.personal ? 'yes' : 'no'}">${s.personal ? T('personal') : T('league_only')}</span></div>`).join('');
   if (idx >= 0) {
     const cur = document.querySelector(`.row[data-i="${idx}"]`);
