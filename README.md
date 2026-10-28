@@ -17,7 +17,7 @@ One deterministic gate decides what is allowed on screen, what gets spoken aloud
 | **Try to make it lie** | Write a claim in the console's box and watch the gate strike out the number nobody measured. [More below.](#try-to-make-it-lie) |
 | **For fans** | Every player's stats move as the match plays. *Call it*: guess above or below his own level before the reveal. Audio description of the whole match, in five languages. [More below.](#for-fans) |
 | **Rules and regulations** | EU AI Act transparency with producer sign-off on any AI-written sentence. GDPR accuracy, fairness, access, portability, objection and retention. ePrivacy. The European Accessibility Act. WCAG 2.2 AA (axe-core: 0 violations in six states, run in CI). [Each one mapped to the control and the test that enforces it](docs/COMPLIANCE.md), with a [record of processing](docs/privacy/ROPA.md) and a [DPIA draft](docs/privacy/DPIA.md). |
-| **On air** | `/?output=overlay` turns the console into a TV graphic: the strap alone on a transparent 1920×1080 frame, inside title-safe, taken and cleared by an operator. It loads as a browser source in OBS or vMix, or as a CasparCG HTML template (`play`, `stop`, `next`, `update`). [More below.](#on-air) |
+| **On air** | Add `?output=overlay` and the console becomes a graphic laid over live TV pictures, put on and taken off screen by a producer. Works with OBS, vMix and CasparCG. [More below.](#on-air) |
 | **Azure** | Azure Data Explorer on a live cluster: 11 KQL functions, with the ICC gate computed again in Kusto and held to the Python by a parity test. |
 | **Agents** | Scout, Why, Desk and Gate share one closed `Brief`, with Desk on Microsoft Agent Framework. An MCP server exposes 9 tools, and `verify_claim` checks a sentence *before* a model says it. |
 | **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League data. |
@@ -40,7 +40,7 @@ Each row is something a broadcaster or league would ask for before putting this 
 | **Accessibility** | Audio description, synced captions, larger text, reduce motion, full keyboard control. European Accessibility Act. | axe-core: 0 WCAG AA violations in 6 states, in its own CI job |
 | **Resilience** | ADX fails over per call, the model falls back to templates, and bad sentences are replaced. `chaos` breaks each one: the wording degrades, the numbers never move. | [`test_resilience.py`](tests/test_resilience.py), chaos run in CI |
 | **Deployment** | A non-root container whose health check is the gate's own evaluation. The console is one static page. | [`Dockerfile`](Dockerfile), built and run in CI |
-| **Broadcast integration** | `?output=overlay` is a keyable 1920×1080 graphic for OBS, vMix or CasparCG, taken and cleared by an operator. | [`test_tv_output.py`](tests/test_tv_output.py) |
+| **Broadcast integration** | `?output=overlay` turns the console into a graphic laid over live TV pictures, put on and taken off screen by a producer, in OBS, vMix or CasparCG. | [`test_tv_output.py`](tests/test_tv_output.py) |
 | **One control for every product** | An MCP server with 9 tools, so graphics, recaps and assistants call the same gate (`verify_claim`) instead of building their own. | [`test_mcp.py`](tests/test_mcp.py) |
 | **Data residency** | The gate runs as KQL inside Azure Data Explorer, in the deployer's region. Every language is precomputed, so no translation service sees a claim. | [`test_i18n.py`](tests/test_i18n.py) |
 | **Portability** | Python and KQL backends held to identical answers by a parity test. The KQL runs unchanged on a Fabric Eventhouse. | [`test_store.py`](tests/test_store.py) |
@@ -67,17 +67,25 @@ It is the same gate, not a demo of one. The numbers a claim may contain ship wit
 
 ### On air
 
-The console is a studio tool; a broadcast needs a graphic it can key over the programme. Add `?output=overlay` to the console's address and it becomes one:
+The console is built for a laptop screen. Live TV needs something different: just the graphic, laid over the match pictures, like the score box or the player name bar you already see on TV.
 
-- **Transparent, 1920×1080, title-safe.** Only the strap is drawn, 96 px from each side and 54 px from the bottom (5% of the raster), scaled for a 1080 picture. The pitch, rail and controls are gone, because the real pictures replace them.
-- **Taken, not timed.** On a programme feed a producer calls the graphic. Enter or F8 takes the cue to air, Escape or F9 clears it, Left and Right pick the cue (swapping it live if one is on air). `&hold=8` clears automatically after eight seconds.
-- **The graphics systems broadcasters use.** Load it as a browser source in OBS or vMix. For CasparCG it is an HTML template: the server's `play`, `stop` and `next` commands take, clear and advance the cue, and `update` accepts JSON such as `{"cue": 3, "lang": "fr"}`. The same claims also ship as a timed cue feed (`overlay` in `feed.json`) for systems that build their own graphics.
-- **Same rules on air.** An AI-written strap still says so. No question is asked and nothing is spoken on a programme feed. Any of the five languages via `&lang=`.
-- **A preview for the operator.** `&preview=1` adds a checkerboard, the title-safe box and a cue HUD, none of which reach a keyed output.
+Add `?output=overlay` to the console's address and it becomes that graphic:
 
-[`scripts/tv_check.cjs`](scripts/tv_check.cjs) loads it the way a graphics system would and checks it: transparent, on and off air, inside title-safe, cue changes, and the CasparCG calls ([`test_tv_output.py`](tests/test_tv_output.py)).
+- **Only the stat bar.** The pitch, timeline and buttons disappear. Everything around the bar is see-through, so the live pictures show behind it. It is sized for a full-HD broadcast and kept clear of the screen edges, which some TVs crop.
+- **A person decides when it appears.** On live TV a producer picks the moment, not a timer. Enter puts the graphic on screen, Escape takes it off, the arrow keys choose the next one. Add `&hold=8` and it takes itself off after eight seconds.
+- **Works with the software broadcasters already use.** OBS, vMix and CasparCG load it as it is. In CasparCG, the usual play, stop and next commands control it.
+- **Made for TV.** It never asks viewers a question and never speaks over the commentary. Any of the five languages, with `&lang=fr` and so on.
+- **A practice view.** Add `&preview=1` to see a chequered background (so it is obvious what is see-through), the safe area, and which graphic is next. None of it goes to air.
 
-What it does not have yet is real data and real tracking. The strap is ready for a licensed event feed; the player tags on the pitch would need the league's tracking data, and are left out of the TV output until then.
+[`scripts/tv_check.cjs`](scripts/tv_check.cjs) loads it the way broadcast software would and checks all of the above ([`test_tv_output.py`](tests/test_tv_output.py)).
+
+<details><summary>Technical detail</summary>
+
+Transparent 1920×1080 frame; title-safe margins of 96 px at the sides and 54 px at the bottom (5% of the raster). F8 and F9 also take and clear. CasparCG's `update` accepts JSON such as `{"cue": 3, "lang": "fr"}`. The same claims also ship as a timed cue list (`overlay` in `feed.json`) for systems that draw their own graphics.
+
+</details>
+
+What it does not have yet is real data. The stat bar is ready for a licensed event feed. The player tags on the pitch would need the league's tracking data, so they are left out of the TV output until then.
 
 ### The one thing nothing else here does
 
