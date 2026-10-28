@@ -106,10 +106,32 @@ def test_every_claim_says_who_wrote_it(feed):
 
 def test_the_disclosure_exists_in_every_language(feed, page):
     for lang, ui in feed["i18n"]["ui"].items():
-        for k in ("wr_template", "wr_model", "wr_fallback"):
-            assert ui.get(k), (lang, k)
-        assert "{model}" in ui["wr_model"], lang
+        for k in ("wr_model", "wr_approved"):
+            assert ui.get(k) and "{model}" in ui[k], (lang, k)
     assert "$('#lWriter').textContent = writerLabel(m)" in page
+
+
+def test_only_ai_text_is_labelled(tmp_path):
+    """A label on every line, AI or not, is noise a viewer learns to ignore.
+    The strap names the writer only when a model wrote what is on air;
+    a template line, or the template airing in place of a held or refused
+    draft, carries none."""
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    src = CONSOLE.read_text()
+    fn = re.search(r"function writerLabel\(m\) \{.*?\n\}", src, re.S).group(0)
+    js = tmp_path / "w.cjs"
+    js.write_text("const fill=(s,o)=>s.replace(/\\{(\\w+)\\}/g,(_,k)=>o[k]);"
+                  "const uiNow=()=>({wr_model:'AI ({model})',wr_approved:'AI ({model}) ok {by}'});\n" + fn + """
+console.log(JSON.stringify([
+  writerLabel({model:'template', review:{status:'not_required'}}),
+  writerLabel({model:'gpt', fell_back:true}),
+  writerLabel({model:'gpt', review:{status:'pending'}}),
+  writerLabel({model:'gpt', review:{status:'rejected', by:'Ana'}}),
+  writerLabel({model:'gpt', review:{status:'approved', by:'Ana'}}),
+]));""")
+    out = json.loads(subprocess.run(["node", str(js)], capture_output=True, text=True, check=True).stdout)
+    assert out == ["", "", "", "", "AI (gpt) ok Ana"]
 
 
 # ---------------------------------------------- accessibility (EAA, WCAG AA)

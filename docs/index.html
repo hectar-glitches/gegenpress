@@ -2660,13 +2660,13 @@ const callKey = () => `gp.call.${FEED.match.home.id}-${FEED.match.away.id}`;
 function loadCall() { try { Object.assign(CALL, JSON.parse(sessionStorage.getItem(callKey()) || '{}')); } catch (e) {} }
 function saveCall() { try { sessionStorage.setItem(callKey(), JSON.stringify(CALL)); } catch (e) {} }   // one sitting: a fresh visit gets fresh questions
 function writerLabel(m) {
-  if (!m || !m.model) return '';
-  if (m.fell_back) return T('wr_fallback');
+  // Disclosure is for AI text (AI Act Art. 50). A template line is not AI, and
+  // neither is the template that airs while a draft is held or refused, so
+  // those carry no label: the strap only speaks up when a model wrote it.
+  if (!m || !m.model || m.model === 'template' || m.fell_back) return '';
   const rv = m.review || {};
+  if (rv.status === 'pending' || rv.status === 'rejected') return '';
   if (rv.status === 'approved') return fill(uiNow().wr_approved, { model: m.model, by: rv.by });
-  if (rv.status === 'pending') return T('wr_pending');
-  if (rv.status === 'rejected') return fill(uiNow().wr_rejected, { by: rv.by });
-  if (m.model === 'template') return T('wr_template');
   return fill(uiNow().wr_model, { model: m.model });
 }
 function needsCall(i) {
