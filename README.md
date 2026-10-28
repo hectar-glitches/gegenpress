@@ -11,7 +11,7 @@ Built for the Microsoft × Premier League *Inside the Game* Developer Hackathon.
 | | |
 | --- | --- |
 | **Try it** | **https://hectar-glitches.github.io/gegenpress/**. Opens in your browser. Nothing to install, no sign-in. |
-| **Video** | _paste URL before submitting_ |
+| **Video** | **https://youtu.be/lJFSSqOCNi4**. Under two minutes. |
 | **Data** | Made up, on purpose: a simulated season of 10 clubs, 90 matches and 151,435 events. No real Premier League data is used. |
 
 ---
