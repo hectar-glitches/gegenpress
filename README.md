@@ -22,6 +22,31 @@ One deterministic gate decides what is allowed on screen, what gets spoken aloud
 | **Agents** | Scout, Why, Desk and Gate share one closed `Brief`, with Desk on Microsoft Agent Framework. An MCP server exposes 9 tools, and `verify_claim` checks a sentence *before* a model says it. |
 | **Data** | Synthetic: 10 clubs, 90 matches, 151,435 events. No real Premier League data. |
 
+### Enterprise capabilities
+
+Each row is something a broadcaster or league would ask for before putting this on air, and the test or command that proves it. Two rows are written and tested but not deployed, because there is no Azure subscription; they say so.
+
+| Capability | What it does | Proof |
+| --- | --- | --- |
+| **Claim verification** | A deterministic gate checks every number in a sentence against the data it was built from. A failing sentence is replaced by a template, never aired. | 100% gate precision, claim integrity and refusal correctness across 373 claims and 3 seeds. `eval` fails CI below 100%. [`test_browser_gate.py`](tests/test_browser_gate.py) |
+| **Fairness to players** | Refuses personal claims on metrics with no between-player signal (ICC below 0.08). Recovery time (0.006) is never made personal. | [`test_form.py`](tests/test_form.py), [`test_agents.py`](tests/test_agents.py) |
+| **Human sign-off on AI** | A model-written sentence is a draft until a named producer approves it (`review approve <id> --by "Name"`). An edit of one character needs a new approval. Decisions go to an append-only log. | [`test_editorial.py`](tests/test_editorial.py) |
+| **AI disclosure and provenance** | Every claim says who wrote it and who approved it, in five languages. Each carries machine-readable provenance with SHA-256 fingerprints; `verify-feed` detects any edit made after the gate. EU AI Act Art. 50. | [`test_privacy.py`](tests/test_privacy.py), [`test_compliance.py`](tests/test_compliance.py) |
+| **Auditability** | Same inputs, same verdict, every time. Its two known blind spots are published as tests scoring a measured zero. | [Evidence](#evidence) |
+| **Player data rights** | `export --player` returns everything held and everything said about a player. An objection list removes him from personal claims, and fails closed if unreadable. GDPR Art. 15, 20, 21. | [`test_privacy.py`](tests/test_privacy.py) |
+| **Retention and erasure** | Two seasons (730 days), then ADX's two-step purge. *Written, not applied: the free cluster rejects it.* | [`kql/03_retention.kql`](kql/03_retention.kql) |
+| **Viewer privacy** | No account, cookies, analytics or referrer. A Content-Security-Policy makes the browser block any third-party request. | [`test_compliance.py`](tests/test_compliance.py) |
+| **Access control** | Event store behind Azure AD. Hosted console behind Entra ID sign-in on every route, with security headers. *Sign-in config validated, not deployed.* | [`staticwebapp.config.json`](docs/staticwebapp.config.json), [`test_compliance.py`](tests/test_compliance.py) |
+| **Accessibility** | Audio description, synced captions, larger text, reduce motion, full keyboard control. European Accessibility Act. | axe-core: 0 WCAG AA violations in 6 states, in its own CI job |
+| **Resilience** | ADX fails over per call, the model falls back to templates, and bad sentences are replaced. `chaos` breaks each one: the wording degrades, the numbers never move. | [`test_resilience.py`](tests/test_resilience.py), chaos run in CI |
+| **Deployment** | A non-root container whose health check is the gate's own evaluation. The console is one static page. | [`Dockerfile`](Dockerfile), built and run in CI |
+| **Broadcast integration** | `?output=overlay` is a keyable 1920×1080 graphic for OBS, vMix or CasparCG, taken and cleared by an operator. | [`test_tv_output.py`](tests/test_tv_output.py) |
+| **One control for every product** | An MCP server with 9 tools, so graphics, recaps and assistants call the same gate (`verify_claim`) instead of building their own. | [`test_mcp.py`](tests/test_mcp.py) |
+| **Data residency** | The gate runs as KQL inside Azure Data Explorer, in the deployer's region. Every language is precomputed, so no translation service sees a claim. | [`test_i18n.py`](tests/test_i18n.py) |
+| **Portability** | Python and KQL backends held to identical answers by a parity test. The KQL runs unchanged on a Fabric Eventhouse. | [`test_store.py`](tests/test_store.py) |
+
+Every rule behind these rows is mapped in [`COMPLIANCE.md`](docs/COMPLIANCE.md), including what is left: decisions for counsel, a data licence, an Azure subscription, sessions with blind fans and a signing key.
+
 ### Try to make it lie
 
 The console has a text box. Type a sentence about the player on screen — *"his pass range is 21.4 tonight, the best of his season"* — and press Check. The console strikes `21.4` through, marks it **not measured**, and prints the sentence it will say instead: *pass range 13.77 tonight, against a season norm of 17.07*.
@@ -98,7 +123,7 @@ The wording degrades. **The numbers do not move.** That property is only availab
 
 It also lists what is *not* done, because those steps need a person, a contract or a subscription rather than code: the lawful-basis decision and DPIA sign-off, a data licence, deploying the Entra ID sign-in config and the retention policy, sessions with blind fans (the plan is written), and a signing key.
 
-**What production would still need**, stated here rather than left for a judge to find: multi-tenancy, which does not exist — one deployment serves one league today. Authentication is narrower than it sounds: the data path already authenticates to Azure AD ([`adx.py`](src/gegenpress/adx.py) uses `az` CLI or device-code auth, and the Foundry adapter uses `DefaultAzureCredential`, so managed identity in Container Apps works unchanged), and the console is public and read-only on purpose — it is a demo, not a tenant. What is missing is per-user auth in front of a hosted console, which only exists once there is a console to host. And a paid ADX tier or an Eventhouse, because the free tier refuses `streamingingestion`, so events are queryable after a minute or two rather than instantly. The architecture is right for live play. The free tier is not.
+**What production would still need**, stated here rather than left for a judge to find: multi-tenancy, which does not exist — one deployment serves one league today. Authentication is narrower than it sounds: the data path already authenticates to Azure AD ([`adx.py`](src/gegenpress/adx.py) uses `az` CLI or device-code auth, and the Foundry adapter uses `DefaultAzureCredential`, so managed identity in Container Apps works unchanged), and the console is public and read-only on purpose — it is a demo, not a tenant. Per-user sign-in for a hosted console is written as an Entra ID Static Web Apps config and validated by a test, but not deployed. And a paid ADX tier or an Eventhouse, because the free tier refuses `streamingingestion`, so events are queryable after a minute or two rather than instantly. The architecture is right for live play. The free tier is not.
 
 The name is deliberate: *gegenpressing* is the one piece of football tactics defined by a measurement — win the ball back within about five seconds. Recovery time is a first-class metric here, and the name states the thesis.
 
